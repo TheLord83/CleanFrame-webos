@@ -40,6 +40,7 @@
     { id: '60', name: T('Every hour'), min: 60 }
   ];
   var uiScale = 1;   /* Schriftfaktor aus der Konfiguration (Senioren-Modus) */
+  var booted = false; /* erst nach dem Start darf die Darstellung live getauscht werden */
   var KEY = 'cleanframe.home.v1', storageOk = true, catalog = { loading: false, loaded: false, error: null, request: 0, revision: 0 };
   var QA = window.ShoreQA = { minuteMs: window.ShoreQA && window.ShoreQA.minuteMs || 60000 };
   var FONTS = {
@@ -2389,7 +2390,15 @@
         if (v !== c[k]) patch[k] = v;
       });
       if (Object.keys(patch).length) {
-        try { setLook(patch, { transient: true }); } catch (e) { console.warn('Darstellung: ' + e.message); }
+        if (booted) {
+          /* Im Betrieb: ueber setLook, damit Wandbild-Dateien wirklich getauscht werden. */
+          try { setLook(patch, { transient: true }); }
+          catch (e) { lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; }); }
+        } else {
+          /* Beim Start ist die Oberflaeche noch nicht aufgebaut — setLook wuerde
+           * scheitern. Hier nur die Werte setzen; der Start laedt das Bild selbst. */
+          lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; });
+        }
       }
       if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
       if (typeof cfg.look.clock24 === 'boolean') c.clock24 = cfg.look.clock24;
@@ -2448,6 +2457,7 @@
   var started = false, startTimer = null;
 
   function startApp() {
+    booted = true;
     if (started) return;
     started = true;
     clearTimeout(startTimer);

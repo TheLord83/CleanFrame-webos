@@ -1,0 +1,45 @@
+name: Pruefungen
+
+# Alle Pruefungen, die ohne Fernseher laufen: Syntax, node-8-Vertraeglichkeit,
+# Icons, Konfigurations-Server, Tasten und Live-Uebernahme im kopflosen Chrome.
+#
+# Der Fernseher selbst ist nicht Teil der CI — die Geraetepruefung bleibt ein
+# eigener Schritt (tools/install-launcher.sh + Sichtpruefung).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Chrome bereitstellen
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Fassung von node und Chrome anzeigen
+        run: |
+          node --version
+          google-chrome --version || chrome --version
+
+      - name: Pruefungen ausfuehren
+        env:
+          CHROME: /opt/hostedtoolcache/chrome/stable/x64/chrome
+        run: |
+          if [ ! -x "$CHROME" ]; then
+            CHROME="$(command -v google-chrome || command -v chrome)"
+            export CHROME
+          fi
+          echo "Chrome: $CHROME"
+          tools/check-all.sh

@@ -133,10 +133,12 @@ def main():
     title, detail = browser_check(keys)
     if title is None:
         print("Browser-Pruefung uebersprungen:", detail)
+        print(f"{len(keys)}/{len(keys)} Icons in Ordnung (Browser uebersprungen)")
         return 0
     print("Browser:", title)
     if title.startswith("OK"):
         print(f"Vorschau: {detail}")
+        print(f"{len(keys)}/{len(keys)} Icons in Ordnung")
         return 0
     return 1
 
