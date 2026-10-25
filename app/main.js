@@ -2,7 +2,12 @@
 (function () {
   'use strict';
   /* webOS-Portierung: zweisprachige Oberflaeche (de/en), Woerterbuch in i18n.js */
-  var T = (window.CleanFrameI18n && window.CleanFrameI18n.t) || function (s) { return s; };
+  /* Sprache darf spaeter wechseln (Konfiguration vom Server), deshalb wird die
+   * Uebersetzung bei jedem Aufruf geholt und nicht beim Start kopiert. */
+  function T(key, vars) {
+    if (window.CleanFrameI18n && window.CleanFrameI18n.t) return window.CleanFrameI18n.t(key, vars);
+    return key;
+  }
 
   /* ---------- Bundled data ---------- */
   var ASSETS = 'assets/', ICONS = ASSETS + 'icons/', WP = ASSETS + 'wallpapers/';
@@ -412,6 +417,34 @@
     S.undo.push({ label: T('Remove ') + a.name, snap: before });
     return true;
   }
+
+  /* Umbenennen einer Startseiten-Kachel.
+   * Der neue Name geht an den Server (Quelle fuer App und Web-Oberflaeche) und
+   * zusaetzlich in den localStorage-Stand, damit die Aenderung auch ohne Server
+   * erhalten bleibt. Der Katalog in "Alle Apps" bleibt unveraendert. */
+  function homeRename(id, newName) {
+    var a = app(id), name = String(newName || '').trim().slice(0, 120);
+    if (!a || !name) return false;
+    var before = snap();
+    a.name = name;
+    write(next(S.c.home.slice(), S.c.recent.slice()), T('Rename') + ': ' + name);
+    S.undo.push({ label: T('Rename') + ': ' + name, snap: before });
+    if (window.FrameDevice && FrameDevice.api) {
+      var cfg = S.serverCfg || {};
+      var list = (cfg.home || []).map(function (e) {
+        return { appId: e.appId, name: e.name, icon: e.icon, url: e.url };
+      });
+      var found = false;
+      list.forEach(function (e) { if (e.appId === id) { e.name = name; found = true; } });
+      if (!found) list.push({ appId: id, name: name });
+      var payload = JSON.parse(JSON.stringify(cfg));
+      payload.home = list;
+      FrameDevice.saveConfig(payload, function () {});
+      S.serverCfg = payload;
+    }
+    return true;
+  }
+
   function homeAdd(id) {
     var a = app(id), before = snap(), h = S.c.home.slice(), at;
     if (h.length >= CAP) { S.note = FULL; return false; }
@@ -956,29 +989,74 @@
   /* ---------- webOS-Portierung: Kontextmenue per langem OK ---------- */
   function ctxActions(t) {
     var id = t.app, list = [];
-    if (onHome(id)) list.push({ label: T('Remove from Home'), run: function () { homeRemove(id); } });
-    else list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
+    if (onHome(id)) {
+      list.push({ label: T('Rename'), run: function () { openRename(id); } });
+      list.push({ label: T('Remove from Home'), run: function () { homeRemove(id); } });
+    } else {
+      list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
+    }
     list.push({ label: T('Cancel'), run: function () {} });
     return list;
   }
+
+  /* Umbenennen: alter Name als Startwert, Bestaetigung per OK.
+   * Geaendert wird nur der Eintrag auf der Startseite, nie der Katalog. */
+  function openRename(id) {
+    var a = app(id);
+    resetSheet();
+    push({ id: 'rename', app: id, text: a ? a.name : id, f: { i: (a ? a.name : id).length, zone: 'ok' } });
+    render(); renderSheet(top(), true);
+  }
+  /* Neues Menue = neues Markup. Ohne das Zuruecksetzen wird das HTML des vorigen
+   * Aufrufs wiederverwendet (sheetKey) und die geaenderten Aktionen erscheinen nie. */
+  function resetSheet() { sheetKey = ''; slotEls = {}; }
+
   function openCtx(id) {
     if (!id) return;
+    resetSheet();
     push({ id: 'ctx', app: id, f: { i: 0 } });
-    render();
+    render(); renderSheet(top(), true);
   }
   function longPressTarget() {
     var t = top();
     if (!t || t.id !== 'apps' || t.f.zone !== 'grid') return null;
     return ALPHA[t.f.i] || null;
   }
+  V.rename = {
+    sheet: true,
+    key: function (t, k) {
+      if (k === 'back') { pop(); render(); return; }
+      if (k === 'ok') { homeRename(t.app, t.text); pop(); render(); return; }
+      if (k === 'left' || k === 'right') {
+        var i = parseInt(t.f.i, 10) || 0;
+        t.f.i = clamp(i + (k === 'left' ? -1 : 1), 0, t.text.length);
+        t.f.zone = t.f.i === t.text.length ? 'ok' : 'text';
+        render(); return;
+      }
+      if (k === 'clear') { t.text = ''; render(); return; }
+    },
+    char: function (t, ch) {
+      var i = parseInt(t.f.i, 10) || 0;
+      t.text = t.text.slice(0, i) + ch + t.text.slice(i);
+      t.f.i = i + 1;
+      t.f.zone = 'text';
+      render();
+    },
+    point: function (t, z, i) {
+      if (z === 'rename-ok') { homeRename(t.app, t.text); pop(); render(); }
+      else if (z === 'rename-cancel') { pop(); render(); }
+    }
+  };
+
   V.ctx = {
     sheet: true,
     key: function (t, k) {
-      var A = ctxActions(t), i = t.f.i || 0;
-      if (k === 'up') t.f.i = (i - 1 + A.length) % A.length;
-      else if (k === 'down') t.f.i = (i + 1) % A.length;
+      var A = ctxActions(t), i = Math.min(Math.max(0, t.f.i || 0), A.length - 1);
+      if (k === 'up') t.f.i = i > 0 ? i - 1 : 0;
+      else if (k === 'down') t.f.i = i < A.length - 1 ? i + 1 : i;
       else if (k === 'back') pop();
-      else if (k === 'ok') { var act = A[i]; pop(); act.run(); }
+      else if (k === 'ok') { var act = A[i]; pop(); act.run(); return; }
+      render();
     },
     point: function (t, z, i) { if (z === 'ctx') { t.f.i = i; this.key(t, 'ok'); } }
   };
@@ -1406,8 +1484,15 @@
     if (sheet) sheetView.setAttribute('aria-modal', 'true');
     else sheetView.removeAttribute('aria-modal');
     sceneEl.setAttribute('aria-hidden', sheet || isSettingsDetail(t) ? 'true' : 'false');
-    if (!sheet) { sheetView.innerHTML = ''; sheetKey = ''; return; }
-    key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg;
+    /* Der Schluessel wird IMMER gebildet (vorher stand hier ein frueher return,
+     * der sheetKey nach dem Schliessen nie neu setzte — das erste Menue danach
+     * blieb dann leer, weil das Markup als "schon gerendert" galt). */
+    key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg
+      + (t.id === 'ctx' ? '|' + t.app + '|' + ctxActions(t).map(function (a) { return a.label; }).join(',') : '');
+    if (!sheet) {
+      if (sheetKey !== '') { sheetView.innerHTML = ''; sheetKey = ''; slotEls = {}; }
+      return;
+    }
     if (key !== sheetKey) {
       sheetView.innerHTML = FRAMES[t.id](t);
       sheetKey = key; slotEls = {};
@@ -1551,13 +1636,26 @@
         + '<div class="row-cue editor-before" data-slot="otherBefore" aria-hidden="true">' + icon('up') + '</div><div class="row-cue editor-after" data-slot="otherAfter" aria-hidden="true">' + icon('down') + '</div>';
     },
     settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
+    rename: function (t) {
+      var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
+      return '<h2 class="s-title">' + T('Rename') + '</h2>'
+        + '<p class="s-sub">' + esc(a ? a.name : t.app) + '</p>'
+        + '<div class="rename-box" data-z="rename-text"><span>' + esc(cur) + '</span><i class="rename-caret"></i><span>' + esc(rest) + '</span></div>'
+        + '<div class="settings-overview" data-slot="list">'
+        + '<button type="button" tabindex="-1" class="settings-group' + (t.f.zone === 'ok' ? ' is-focus' : '') + '" data-z="rename-ok">'
+        + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Save') + '</span></span></button>'
+        + '<button type="button" tabindex="-1" class="settings-group" data-z="rename-cancel">'
+        + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Cancel') + '</span></span></button>'
+        + '</div>';
+    },
+    /* Markup ohne Index und ohne Text: beides setzt FILLS.ctx bei jedem Render
+     * (das HTML wird zwischengespeichert, damit es keine veralteten Eintraege gibt). */
     ctx: function (t) {
       var a = app(t.app), acts = ctxActions(t);
-      return '<h2 class="s-title">' + esc(a.name) + '</h2><div class="settings-overview" data-slot="list">'
+      return '<h2 class="s-title">' + esc(a ? a.name : t.app) + '</h2><div class="settings-overview" data-slot="list">'
         + acts.map(function (x, i) {
-            return '<button type="button" tabindex="-1" class="settings-group' + (i === t.f.i ? ' is-focus' : '')
-              + '" data-z="ctx" data-i="' + i + '"><span class="settings-group-copy"><span class="settings-group-name">'
-              + esc(x.label) + '</span></span></button>';
+            return '<button type="button" tabindex="-1" class="settings-group" data-z="ctx" data-i="' + i + '">'
+              + '<span class="settings-group-copy"><span class="settings-group-name"></span></span></button>';
           }).join('')
         + '</div>';
     },
@@ -1571,7 +1669,22 @@
     return '<span class="panel-content">' + appMark(a, 120, 72, 58) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
   }
   var FILLS = {
-    ctx: function (t, el) { el.list = el.list || null; },
+    /* Der Fokus im Kontextmenue kommt aus t.f.i und wird bei jedem Render neu
+     * gesetzt. Das Markup wird zwischengespeichert (sheetKey), deshalb darf die
+     * Markierung nicht im HTML stehen — sonst bleibt der erste Eintrag markiert,
+     * waehrend die Tasten schon weiterzaehlen. */
+    /* Der Fokus kommt aus t.f.i und wird bei jedem Render ins DOM geschrieben —
+     * unabhaengig davon, ob das Markup neu erzeugt oder aus dem Puffer geholt wurde. */
+    ctx: function (t, el) {
+      var acts = ctxActions(t);
+      var i = Math.min(Math.max(0, parseInt(t.f.i, 10) || 0), acts.length - 1);
+      t.f.i = i;
+      Array.prototype.forEach.call(sheetView.querySelectorAll('[data-z="ctx"]'), function (btn, idx) {
+        btn.className = 'settings-group' + (idx === i ? ' is-focus' : '');
+        var name = btn.querySelector('.settings-group-name');
+        if (name && acts[idx]) name.textContent = acts[idx].label;
+      });
+    },
     apps: function (t, el) {
       var f = t.f, items = appsItems(), n = items.length, rows = Math.ceil(n / COLS), vis = 3, row = Math.floor(f.i / COLS);
       setHTML(el.title, T('All apps'));
@@ -1876,13 +1989,37 @@
     if (!el || el === stage) return;
     pointAt(el);
   });
+
+  /* Tastatureingabe im Umbenennen-Dialog: Buchstaben, Ziffern, Leerzeichen,
+   * Umlaute, Loeschen. Eine Quelle (keydown) — ein zusaetzlicher keypress-Listener
+   * haette jedes Zeichen doppelt eingefuegt. */
+  document.addEventListener('keydown', function (ev) {
+    var t = top();
+    if (!t || t.id !== 'rename') return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (ev.keyCode === 8 || ev.keyCode === 46) {
+      ev.preventDefault();
+      var i = parseInt(t.f.i, 10) || 0;
+      if (i > 0) { t.text = t.text.slice(0, i - 1) + t.text.slice(i); t.f.i = i - 1; }
+      render();
+      return;
+    }
+    var ch = ev.key;
+    if (!ch || ch.length !== 1 || ch.charCodeAt(0) < 32) return;
+    ev.preventDefault();
+    V.rename.char(t, ch);
+  });
   var heldKeys = {}, holdTimer = 0, holdFired = false;
   document.addEventListener('keydown', function (ev) {
     var code = ev.keyCode, k = KEYS[code];
     if (code === 9) { ev.preventDefault(); return; }
     if (!k || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     ev.preventDefault();
-    if (k === 'ok' || k === 'back') { if (ev.repeat || heldKeys[code]) return; heldKeys[code] = true; }
+    if (k === 'ok' || k === 'back') {
+      if (ev.repeat || heldKeys[code]) return;
+      heldKeys[code] = true;
+      releaseKeySoon(code);
+    }
     if (k === 'ok') {
       var target = longPressTarget();
       if (target) {
@@ -1902,6 +2039,12 @@
       holdFired = false;
     }
   });
+  /* Kommt ein keyup nicht an (Fokuswechsel, App-Wechsel), bleibt die Taste sonst
+   * dauerhaft als "gehalten" markiert und OK/Zurueck waeren tot. Deshalb wird die
+   * Sperre nach kurzer Zeit selbst geloest. */
+  function releaseKeySoon(code) {
+    setTimeout(function () { delete heldKeys[code]; }, 1200);
+  }
   window.addEventListener('blur', function () { heldKeys = {}; });
   window.addEventListener('focus', function () { release(); focusStage(); after(); updateClock(); });
   document.addEventListener('visibilitychange', function () {
@@ -1936,6 +2079,26 @@
     screensaver: function () { return S.cfgScreensaver || null; },
     idle: function () { return Math.round((Date.now() - idleSince) / 1000); },
     openCtx: openCtx,
+    renameText: function () {
+      var t = top();
+      return t && t.id === 'rename' ? { text: t.text, caret: t.f.i, zone: t.f.zone } : null;
+    },
+    rawActions: function () {
+      var t = top();
+      return t && t.id === 'ctx' ? ctxActions(t) : [];
+    },
+    ctxActions: function () {
+      var t = top();
+      return t && t.id === 'ctx' ? ctxActions(t).map(function (a) { return a.label; }) : [];
+    },
+    ctxRun: function (label) {
+      var t = top();
+      if (!t || t.id !== 'ctx') return false;
+      var list = ctxActions(t), hit = null;
+      list.forEach(function (a) { if (a.label === label) hit = a; });
+      if (!hit) return false;
+      pop(); hit.run(); render(); renderSheet(top(), !!V[top().id].sheet); return true;
+    },
     longPressTarget: longPressTarget
   };
 
@@ -1983,7 +2146,12 @@
     S.serverCfg = cfg;
     var c = S.c;
 
-    if (cfg.lang && window.CleanFrameI18n && cfg.lang !== 'system') window.CleanFrameI18n.lang = cfg.lang;
+    if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
+      /* 'system' bedeutet: der Fernseher entscheidet. Fehlt eine nutzbare
+       * Systemsprache (Web-App meldet en-US), bleibt Deutsch als Standard. */
+      var want = cfg.lang === 'system' ? 'de' : cfg.lang;
+      window.CleanFrameI18n.set(want);
+    }
 
     if (cfg.look) {
       if (cfg.look.layout) c.layout = cfg.look.layout;
@@ -2036,14 +2204,32 @@
   /* ---------- Start ---------- */
   cueL.innerHTML = icon('left'); cueR.innerHTML = icon('right');
   initialise();
-  if (window.FrameDevice && FrameDevice.loadConfig) {
-    FrameDevice.loadConfig(function (err, cfg) {
-      if (cfg) applyServerConfig(cfg);
-      startIdleWatch();
-    });
-  } else {
+
+  /* Die Konfiguration kommt vom Server (Port 8484) und bestimmt schon das erste
+   * Bild: Sprache, Startseite, Anordnung. Deshalb wird darauf gewartet — hoechstens
+   * 1200 ms, danach startet die App mit dem localStorage-Stand (Server fehlt). */
+  var started = false, startTimer = null;
+
+  function startApp() {
+    if (started) return;
+    started = true;
+    clearTimeout(startTimer);
+    setLook({}, { transient: true, startup: true });
+    norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
     startIdleWatch();
   }
-  setLook({}, { transient: true, startup: true });
-  norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
+
+  if (window.FrameDevice && FrameDevice.loadConfig) {
+    startTimer = setTimeout(startApp, 1200);
+    try {
+      FrameDevice.loadConfig(function (err, cfg) {
+        if (cfg) applyServerConfig(cfg);
+        startApp();
+      });
+    } catch (e) {
+      startApp();
+    }
+  } else {
+    startApp();
+  }
 })();

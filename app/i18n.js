@@ -108,6 +108,8 @@
       'Not saved: ': 'Nicht gespeichert: ',
       'Last app': 'Letzte App',
       'Add to Home': 'Auf die Startseite',
+      'Rename': 'Umbenennen',
+      'Save': 'Speichern',
       'Remove from Home': 'Von der Startseite nehmen',
       'Cancel': 'Abbrechen',
       'Options': 'Optionen',
@@ -159,6 +161,11 @@
 
   window.CleanFrameI18n = {
     lang: lang,
+    /* Pruefhilfe: Anzahl der Eintraege je Sprache und ein Beispieltext. */
+    probe: function (key) {
+      var de = DICT.de || {}, en = DICT.en || {};
+      return { de: Object.keys(de).length, en: Object.keys(en).length, sample: (table && table[key]) || null, hasRename: Object.prototype.hasOwnProperty.call(de, 'Rename') };
+    },
     t: t,
     languages: ['de', 'en'],
     set: function (next) {
