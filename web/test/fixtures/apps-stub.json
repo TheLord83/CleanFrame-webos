@@ -1,0 +1,46 @@
+{
+  "installed": [
+    {
+      "id": "netflix",
+      "title": "Netflix",
+      "version": "1.0.0"
+    },
+    {
+      "id": "youtube.leanback.v4",
+      "title": "YouTube",
+      "version": "1.0.0"
+    },
+    {
+      "id": "com.disney.disneyplus",
+      "title": "Disney+",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.jellyfin.webos",
+      "title": "Jellyfin",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.webosbrew.safeupdate",
+      "title": "Homebrew Channel Updater",
+      "version": "1.0.0"
+    },
+    {
+      "id": "com.webos.app.browser",
+      "title": "Web Browser",
+      "version": "1.0.0"
+    }
+  ],
+  "systemTiles": [
+    {
+      "id": "com.webos.app.discovery",
+      "title": "Apps",
+      "hidden": false
+    },
+    {
+      "id": "com.webos.app.mediadiscovery",
+      "title": "Media Player",
+      "hidden": false
+    }
+  ]
+}

@@ -54,6 +54,26 @@ Weitergeben (Quellpaket mit allen Lizenztexten):
 tools/build-public.sh
 ```
 
+## Einrichtung ohne Fernbedienung
+
+Ein zweiter, eigenständiger Dienst auf dem Fernseher liefert die Konfiguration
+über eine JSON-API und eine Web-Oberfläche (`http://<tv-ip>:8484`). Damit lassen
+sich Startseite, Darstellung, Sprache und Integrationen am Rechner einstellen,
+statt mit der Fernbedienung durch Menüs zu laufen.
+
+```sh
+./tools/install-web.sh 192.168.1.50      # Server + Autostart
+/var/lib/cleanframe/cleanframectl status # auf dem Fernseher
+```
+
+Details, vollständige API-Tabelle und Sicherheitsmodell: [`docs/WEB.md`](docs/WEB.md).
+
+Prüfbar ohne Fernseher:
+
+```sh
+python3 tools/test-web-api.py            # 16 HTTP-Prüfungen
+```
+
 ## Getestet
 
 * LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401 (`kisscurl-koli`), Chromium 79, gerootet

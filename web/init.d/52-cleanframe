@@ -1,0 +1,10 @@
+#!/bin/sh
+# CleanFrame-Config-Server beim Kaltstart starten.
+#
+# Homebrew Channel fuehrt Skripte in /var/lib/webosbrew/init.d/ als root aus.
+# Der Dienst ist optional: fehlt er, endet das Skript still, damit ein
+# unvollstaendiger Zustand den Start des Fernsehers nicht aufhaelt.
+CTL=/var/lib/cleanframe/cleanframectl
+[ -x "$CTL" ] || exit 0
+"$CTL" start >>/var/lib/cleanframe/boot.log 2>&1 &
+exit 0

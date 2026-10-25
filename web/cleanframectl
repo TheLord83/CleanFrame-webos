@@ -1,0 +1,81 @@
+#!/bin/sh
+# cleanframectl - Dienststeuerung des CleanFrame-Config-Servers auf dem Fernseher.
+#
+# Aufbau wie tvwebctl von Glasshouse: ein Skript statt langer ssh-Einzeiler,
+# weil `pkill -f server.js` in einer ssh-Kommandozeile den eigenen Shell-Prozess
+# trifft (dessen argv den Pfad enthaelt) und sich selbst beendet.
+#
+# Aufruf: cleanframectl {start|stop|restart|status|logs|health}
+#
+# Pfade lassen sich ueber CF_-Variablen umbiegen (Testbetrieb).
+
+APP=${CF_APP:-/var/lib/cleanframe/server.js}
+DIR=${CF_DIR:-/var/lib/cleanframe}
+LOG=${CF_LOG:-/var/lib/cleanframe/cleanframe.log}
+PIDFILE=${CF_PIDFILE:-/var/run/cleanframe.pid}
+PORT=${CF_PORT:-8484}
+NODE=${CF_NODE:-/usr/bin/node}
+SELF=$(readlink -f "$0" 2>/dev/null || echo /var/lib/cleanframe/cleanframectl)
+
+# Nie im aufrufenden Verzeichnis bleiben: wird es spaeter geloescht, scheitert
+# der node-Modullader bei jedem Neustart (siehe tvwebctl).
+cd / || exit 1
+
+running() {
+  [ -f "$PIDFILE" ] || return 1
+  pid=$(cat "$PIDFILE" 2>/dev/null)
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  return 0
+}
+
+start() {
+  if running; then echo "laeuft bereits (pid $(cat "$PIDFILE"))"; return 0; fi
+  [ -f "$APP" ] || { echo "FEHLER: $APP fehlt"; return 1; }
+  [ -x "$NODE" ] || NODE=$(command -v node) || { echo "FEHLER: node nicht gefunden"; return 1; }
+  mkdir -p "$DIR" /var/run
+  CF_PORT="$PORT" CF_CONFIG="${CF_CONFIG:-$DIR/config.json}" "$NODE" "$APP" >>"$LOG" 2>&1 &
+  echo $! > "$PIDFILE"
+  sleep 1
+  if running; then echo "gestartet (pid $(cat "$PIDFILE"), Port $PORT)"; else echo "FEHLER: nicht gestartet, siehe $LOG"; return 1; fi
+}
+
+stop() {
+  if ! running; then rm -f "$PIDFILE"; echo "laeuft nicht"; return 0; fi
+  pid=$(cat "$PIDFILE")
+  kill "$pid" 2>/dev/null
+  i=0
+  while kill -0 "$pid" 2>/dev/null && [ $i -lt 20 ]; do sleep 0.2; i=$((i+1)); done
+  kill -9 "$pid" 2>/dev/null
+  rm -f "$PIDFILE"
+  echo "gestoppt"
+}
+
+status() {
+  if running; then
+    echo "laeuft (pid $(cat "$PIDFILE"), Port $PORT)"
+    health
+  else
+    echo "laeuft nicht"
+    return 1
+  fi
+}
+
+health() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -sS -m 3 "http://127.0.0.1:$PORT/api/health" || echo "keine Antwort auf Port $PORT"
+    echo
+  else
+    echo "(curl fehlt, keine Gesundheitspruefung)"
+  fi
+}
+
+case "$1" in
+  start) start ;;
+  stop) stop ;;
+  restart) stop; start ;;
+  status) status ;;
+  health) health ;;
+  logs) tail -n 40 "$LOG" 2>/dev/null || echo "kein Log unter $LOG" ;;
+  *) echo "Aufruf: $SELF {start|stop|restart|status|health|logs}"; exit 2 ;;
+esac

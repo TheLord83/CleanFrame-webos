@@ -1,0 +1,18 @@
+{
+  "id": "com.blackpearl.cleanframe.web",
+  "version": "0.1.0",
+  "vendor": "blackpearl",
+  "type": "web",
+  "main": "index.html",
+  "title": "CleanFrame Setup",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "bgColor": "#14161a",
+  "appCategory": [
+    "home"
+  ],
+  "requiredPermissions": [
+    "all"
+  ],
+  "disableBackHistoryAPI": true
+}

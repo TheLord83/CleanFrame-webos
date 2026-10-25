@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanFrame — Einrichtung</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1c1f25; --line: #2a2f38; --ink: #e9edf2;
+    --muted: #99a3b2; --accent: #6ea8fe; --ok: #57c985; --bad: #e4695e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 20px 28px 0;
+  }
+  header h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  header .ver { color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 4px; padding: 14px 28px 0; flex-wrap: wrap; }
+  nav button {
+    background: none; border: 0; color: var(--muted); font: inherit;
+    padding: 8px 14px; border-radius: 8px 8px 0 0; cursor: pointer;
+  }
+  nav button[aria-selected="true"] { color: var(--ink); background: var(--panel); }
+  main { padding: 0 28px 48px; }
+  section { display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+  section[data-active="true"] { display: block; }
+  h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+  h2 + p.hint { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%; background: #12141a; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 11px; font: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.action {
+    background: var(--accent); color: #08101f; border: 0; border-radius: 8px;
+    padding: 9px 16px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  ul.tiles { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+  ul.tiles li {
+    display: flex; gap: 10px; align-items: center; background: #171a20;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  }
+  ul.tiles .idx { color: var(--muted); width: 22px; font-variant-numeric: tabular-nums; }
+  ul.tiles .nm { flex: 1 1 160px; }
+  ul.tiles .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+  ul.tiles .ctl { display: flex; gap: 4px; }
+  .pill { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+  .status { margin-top: 12px; font-size: 13px; min-height: 20px; }
+  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 46%; }
+  pre {
+    background: #12141a; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; overflow: auto; font-size: 12px; max-height: 320px;
+  }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CleanFrame — Einrichtung</h1>
+  <span class="ver" id="ver">…</span>
+</header>
+
+<nav role="tablist">
+  <button role="tab" data-tab="home" aria-selected="true">Startseite</button>
+  <button role="tab" data-tab="look" aria-selected="false">Darstellung</button>
+  <button role="tab" data-tab="integrations" aria-selected="false">Integrationen</button>
+  <button role="tab" data-tab="system" aria-selected="false">System</button>
+</nav>
+
+<main>
+  <section data-tab="home" data-active="true">
+    <h2>Startseite</h2>
+    <p class="hint">Reihenfolge, Name und Icon je Kachel. Der Katalog in „Alle Apps“ auf dem Fernseher bleibt unverändert.</p>
+    <div class="grid">
+      <div>
+        <label for="addApp">App hinzufügen</label>
+        <select id="addApp"><option value="">— App wählen —</option></select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="action" id="btnAdd">Hinzufügen</button>
+      </div>
+    </div>
+    <ul class="tiles" id="tileList"></ul>
+    <div class="status" id="homeStatus"></div>
+  </section>
+
+  <section data-tab="look">
+    <h2>Darstellung</h2>
+    <p class="hint">Wirkt sofort auf dem Fernseher, sobald der Launcher neu lädt.</p>
+    <div class="grid">
+      <div>
+        <label for="layout">Anordnung</label>
+        <select id="layout">
+          <option value="dock">Leiste unten</option>
+          <option value="list">Liste</option>
+        </select>
+      </div>
+      <div>
+        <label for="appsMode">App-Darstellung</label>
+        <select id="appsMode">
+          <option value="both">Symbol und Text</option>
+          <option value="icons">Nur Symbole</option>
+          <option value="text">Nur Text</option>
+        </select>
+      </div>
+      <div>
+        <label for="lang">Sprache der App</label>
+        <select id="lang">
+          <option value="system">Wie der Fernseher</option>
+          <option value="de">Deutsch</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div>
+        <label for="wall">Hintergrund</label>
+        <input id="wall" placeholder="misty">
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="action" id="btnLook">Speichern</button>
+    </div>
+    <div class="status" id="lookStatus"></div>
+  </section>
+
+  <section data-tab="integrations">
+    <h2>Home Assistant</h2>
+    <p class="hint">Adresse und Token bleiben auf dem Fernseher; das Token wird beim Lesen nicht zurückgegeben.</p>
+    <div class="grid">
+      <div>
+        <label for="haUrl">Adresse</label>
+        <input id="haUrl" placeholder="http://192.168.1.30:8123">
+      </div>
+      <div>
+        <label for="haToken">Token</label>
+        <input id="haToken" type="password" placeholder="bleibt erhalten, wenn leer">
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="btnHaCheck">Verbindung prüfen</button>
+      <button class="action" id="btnHaSave">Speichern</button>
+    </div>
+    <div class="status" id="haStatus"></div>
+
+    <h2 style="margin-top:28px">MQTT</h2>
+    <div class="grid">
+      <div><label for="mqUrl">Broker</label><input id="mqUrl" placeholder="mqtt://192.168.1.30:1883"></div>
+      <div><label for="mqUser">Benutzer</label><input id="mqUser" placeholder="cleanframe"></div>
+      <div><label for="mqPass">Passwort</label><input id="mqPass" type="password" placeholder="bleibt erhalten, wenn leer"></div>
+      <div><label for="mqPrefix">Topic-Präfix</label><input id="mqPrefix" placeholder="cleanframe"></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="action" id="btnMqSave">Speichern</button>
+    </div>
+    <div class="status" id="mqStatus"></div>
+  </section>
+
+  <section data-tab="system">
+    <h2>Sicherung</h2>
+    <p class="hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
+    <div class="row">
+      <button class="action" id="btnExport">Herunterladen</button>
+      <input id="importFile" type="file" accept="application/json" style="width:auto">
+      <button class="ghost" id="btnImport">Importieren</button>
+    </div>
+    <div class="status" id="backupStatus"></div>
+
+    <h2 style="margin-top:28px">Diagnose</h2>
+    <div class="row">
+      <button class="ghost" id="btnDiag">Prüfen</button>
+      <button class="ghost" id="btnSelf">Selbsttest</button>
+      <button class="ghost" id="btnRestart">Dienst neu starten</button>
+    </div>
+    <table id="diagTable"></table>
+    <pre id="diagJson" hidden></pre>
+    <div class="status" id="sysStatus"></div>
+  </section>
+</main>
+
+<pre id="uiSelfTest" hidden></pre>
+
+<script>
+(function () {
+  'use strict';
+
+  var state = { cfg: null, apps: [], dirty: {} };
+
+  function $(id) { return document.getElementById(id); }
+  function note(el, msg, ok) { el.textContent = msg; el.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
+
+  function api(method, path, body) {
+    var opts = { method: method, headers: {} };
+    if (body !== undefined) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(path, opts).then(function (r) {
+      var ct = r.headers.get('content-type') || '';
+      var p = ct.indexOf('json') >= 0 ? r.json() : r.text();
+      return p.then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function tab(name) {
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+      b.setAttribute('aria-selected', String(b.dataset.tab === name));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'), function (s) {
+      s.setAttribute('data-active', String(s.dataset.tab === name));
+    });
+  }
+
+  function renderTiles() {
+    var ul = $('tileList');
+    ul.innerHTML = '';
+    var home = state.cfg.home || [];
+    if (!home.length) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="idx">–</span><span class="nm">Noch keine Kacheln. Oben eine App wählen und hinzufügen.</span>';
+      ul.appendChild(li);
+      return;
+    }
+    home.forEach(function (t, i) {
+      var li = document.createElement('li');
+      var idx = document.createElement('span'); idx.className = 'idx'; idx.textContent = (i + 1) + '.';
+      var nm = document.createElement('input'); nm.className = 'nm'; nm.value = t.name || '';
+      nm.placeholder = t.appId; nm.setAttribute('aria-label', 'Name');
+      var id = document.createElement('span'); id.className = 'id'; id.textContent = t.appId;
+      var ctl = document.createElement('span'); ctl.className = 'ctl';
+      var up = document.createElement('button'); up.className = 'ghost'; up.textContent = '↑';
+      up.onclick = function () { move(i, i - 1); };
+      var down = document.createElement('button'); down.className = 'ghost'; down.textContent = '↓';
+      down.onclick = function () { move(i, i + 1); };
+      var del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Entfernen';
+      del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); };
+      nm.oninput = function () {
+        if (nm.value.trim()) state.cfg.home[i].name = nm.value.trim();
+        else delete state.cfg.home[i].name;
+      };
+      ctl.appendChild(up); ctl.appendChild(down); ctl.appendChild(del);
+      li.appendChild(idx); li.appendChild(nm); li.appendChild(id); li.appendChild(ctl);
+      ul.appendChild(li);
+    });
+  }
+
+  function move(from, to) {
+    var h = state.cfg.home;
+    if (to < 0 || to >= h.length) return;
+    var x = h.splice(from, 1)[0];
+    h.splice(to, 0, x);
+    renderTiles();
+  }
+
+  function renderCatalog() {
+    var sel = $('addApp');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">— App wählen —</option>';
+    state.apps.forEach(function (a) {
+      var o = document.createElement('option');
+      o.value = a.appId;
+      o.textContent = a.name + (a.system ? ' (System)' : '');
+      sel.appendChild(o);
+    });
+    if (current) sel.value = current;
+  }
+
+  function fillForm() {
+    var c = state.cfg;
+    $('layout').value = c.look.layout;
+    $('appsMode').value = c.look.apps;
+    $('lang').value = c.lang;
+    $('wall').value = c.look.wall || '';
+    $('haUrl').value = c.integrations.ha.url || '';
+    $('haToken').value = '';
+    $('mqUrl').value = c.integrations.mqtt.url || '';
+    $('mqUser').value = c.integrations.mqtt.user || '';
+    $('mqPass').value = '';
+    $('mqPrefix').value = c.integrations.mqtt.prefix || 'cleanframe';
+    $('haToken').placeholder = c.integrations.ha.hasToken ? 'Token hinterlegt — leer lassen zum Behalten' : 'Token eintragen';
+    $('mqPass').placeholder = c.integrations.mqtt.hasPassword ? 'Passwort hinterlegt — leer lassen zum Behalten' : 'Passwort eintragen';
+  }
+
+  function save(payload, statusEl, okMsg) {
+    return api('PUT', '/api/config', payload).then(function (r) {
+      state.cfg = r.config;
+      fillForm();
+      note(statusEl, okMsg + ' (gespeichert ' + new Date(r.updatedAt).toLocaleTimeString() + ')', true);
+    }).catch(function (e) { note(statusEl, 'Fehler: ' + e.message, false); });
+  }
+
+  function load() {
+    return Promise.all([api('GET', '/api/config'), api('GET', '/api/apps'), api('GET', '/api/health')])
+      .then(function (res) {
+        state.cfg = res[0].config;
+        state.apps = res[1].apps || [];
+        $('ver').textContent = 'v' + res[2].version + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
+        renderCatalog(); renderTiles(); fillForm();
+      })
+      .catch(function (e) {
+        $('ver').textContent = 'Server nicht erreichbar: ' + e.message;
+      });
+  }
+
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.onclick = function () { tab(b.dataset.tab); };
+  });
+
+  $('btnAdd').onclick = function () {
+    var id = $('addApp').value;
+    if (!id) return note($('homeStatus'), 'Bitte zuerst eine App wählen.', false);
+    var exists = (state.cfg.home || []).some(function (t) { return t.appId === id; });
+    if (exists) return note($('homeStatus'), 'Diese App liegt schon auf der Startseite.', false);
+    var found = state.apps.filter(function (a) { return a.appId === id; })[0] || { appId: id, name: id };
+    state.cfg.home = state.cfg.home || [];
+    state.cfg.home.push({ appId: id, name: found.name });
+    renderTiles();
+    note($('homeStatus'), 'Hinzugefügt — mit „Speichern“ übernehmen.', true);
+  };
+
+  $('btnLook').onclick = function () {
+    state.cfg.look.layout = $('layout').value;
+    state.cfg.look.apps = $('appsMode').value;
+    state.cfg.look.wall = $('wall').value.trim() || state.cfg.look.wall;
+    state.cfg.lang = $('lang').value;
+    save(state.cfg, $('lookStatus'), 'Übernommen');
+  };
+
+  document.addEventListener('click', function (ev) {
+    if (ev.target && ev.target.id === 'btnSaveHome') save(state.cfg, $('homeStatus'), 'Startseite gespeichert');
+  });
+
+  var saveHomeBtn = document.createElement('button');
+  saveHomeBtn.className = 'action'; saveHomeBtn.id = 'btnSaveHome'; saveHomeBtn.textContent = 'Startseite speichern';
+  saveHomeBtn.style.marginTop = '16px';
+  $('tileList').parentNode.insertBefore(saveHomeBtn, $('homeStatus'));
+
+  $('btnHaCheck').onclick = function () {
+    note($('haStatus'), 'Prüfe …');
+    api('POST', '/api/ha/check', { url: $('haUrl').value.trim(), token: $('haToken').value })
+      .then(function (r) {
+        note($('haStatus'), r.ok ? 'Verbunden, Home Assistant antwortet' + (r.message ? ': ' + r.message : '') : 'Keine Verbindung (' + (r.error || r.status) + ')', r.ok);
+      }).catch(function (e) { note($('haStatus'), 'Fehler: ' + e.message, false); });
+  };
+
+  $('btnHaSave').onclick = function () {
+    state.cfg.integrations.ha.url = $('haUrl').value.trim();
+    if ($('haToken').value) state.cfg.integrations.ha.token = $('haToken').value;
+    save(state.cfg, $('haStatus'), 'Home Assistant gespeichert');
+  };
+
+  $('btnMqSave').onclick = function () {
+    var m = state.cfg.integrations.mqtt;
+    m.url = $('mqUrl').value.trim(); m.user = $('mqUser').value.trim();
+    m.prefix = $('mqPrefix').value.trim() || 'cleanframe';
+    if ($('mqPass').value) m.password = $('mqPass').value;
+    save(state.cfg, $('mqStatus'), 'MQTT gespeichert');
+  };
+
+  $('btnExport').onclick = function () { window.location.href = '/api/backup'; };
+
+  $('btnImport').onclick = function () {
+    var f = $('importFile').files[0];
+    if (!f) return note($('backupStatus'), 'Bitte eine Sicherungsdatei wählen.', false);
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); } catch (e) { return note($('backupStatus'), 'Datei ist kein JSON.', false); }
+      api('POST', '/api/backup', data).then(function (r) {
+        state.cfg = r.config; renderTiles(); fillForm();
+        note($('backupStatus'), 'Importiert.', true);
+      }).catch(function (e) { note($('backupStatus'), 'Fehler: ' + e.message, false); });
+    };
+    reader.readAsText(f);
+  };
+
+  function diagTable(out) {
+    var t = $('diagTable');
+    t.innerHTML = '';
+    (out.checks || []).forEach(function (c) {
+      var tr = document.createElement('tr');
+      var a = document.createElement('td'); a.textContent = c.name;
+      var b = document.createElement('td');
+      b.innerHTML = '<span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? 'ok' : 'fehlt') + '</span>' +
+                    (c.detail ? ' <span class="pill">' + c.detail + '</span>' : '');
+      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+    });
+  }
+
+  $('btnDiag').onclick = function () {
+    note($('sysStatus'), 'Prüfe …');
+    api('GET', '/api/diag').then(function (r) {
+      diagTable(r);
+      note($('sysStatus'), r.ok ? 'Alle Prüfungen bestanden' : 'Es fehlen Voraussetzungen', r.ok);
+    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+  };
+
+  $('btnSelf').onclick = function () {
+    note($('sysStatus'), 'Selbsttest läuft …');
+    api('GET', '/api/selftest').then(function (r) {
+      var failed = (r.checks || []).filter(function (c) { return !c.ok; });
+      diagTable({ checks: r.checks });
+      note($('sysStatus'), r.ok ? 'Selbsttest bestanden (' + r.checks.length + ' Prüfungen)' : 'Selbsttest: ' + failed.length + ' fehlgeschlagen', r.ok);
+    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+  };
+
+  $('btnRestart').onclick = function () {
+    if (!window.confirm('Dienst jetzt neu starten?')) return;
+    api('POST', '/api/system/restart', {}).then(function () {
+      note($('sysStatus'), 'Neustart angefordert — Seite in ein paar Sekunden neu laden.', true);
+    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+  };
+
+  /* Automatischer Oberflaechen-Selbsttest: ?selftest=ui fuehrt die wichtigsten
+   * Bedienschritte aus und schreibt das Ergebnis in #uiSelfTest. Damit laesst
+   * sich die Oberflaeche ohne Screenshot pruefen (headless --dump-dom), und auf
+   * dem Fernseher genauso. */
+  function selfTest() {
+    var out = document.getElementById('uiSelfTest');
+    var steps = [];
+    function step(name, ok, detail) { steps.push({ name: name, ok: !!ok, detail: detail || '' }); }
+    var target = (state.apps[0] || {}).appId;
+
+    step('Katalog geladen', state.apps.length > 0, state.apps.length + ' Einträge');
+    step('Kachel-Liste vorhanden', !!document.getElementById('tileList'));
+    step('Sprachauswahl gefüllt', document.getElementById('lang').options.length === 3);
+
+    if (!target) { out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1); out.hidden = false; return; }
+    document.getElementById('addApp').value = target;
+    document.getElementById('btnAdd').click();
+    step('Klick auf Hinzufügen legt Kachel an', (state.cfg.home || []).some(function (t) { return t.appId === target; }), target);
+
+    document.getElementById('btnSaveHome').click();
+    setTimeout(function () {
+      fetch('/api/config').then(function (r) { return r.json(); }).then(function (d) {
+        var saved = (d.config.home || []).some(function (t) { return t.appId === target; });
+        step('Speichern landet im Server', saved);
+        var ok = steps.every(function (s) { return s.ok; });
+        out.textContent = JSON.stringify({ ok: ok, steps: steps }, null, 1);
+        out.hidden = false;
+        document.title = ok ? 'SELFTEST-OK' : 'SELFTEST-FAIL';
+      }).catch(function (e) {
+        step('Speichern landet im Server', false, e.message);
+        out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1);
+        out.hidden = false;
+        document.title = 'SELFTEST-FAIL';
+      });
+    }, 700);
+  }
+
+  load().then(function () {
+    if (location.search.indexOf('selftest=ui') >= 0) selfTest();
+  });
+})();
+</script>
+</body>
+</html>
