@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 STUB = os.path.join(WEB, "test", "fixtures", "apps-stub.json")
+OSINFO = os.path.join(WEB, "test", "fixtures", "os_info.json")
 
 results = []
 
@@ -115,6 +116,7 @@ def main():
         "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
         # Port without a counterpart: the screenshot test should exercise the error
         # path, not hit some forwarding that happens to run on the machine.
+        "CF_OS_INFO": OSINFO,
         "CF_DEVTOOLS_PORT": str(free_port()),
     })
     ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
@@ -201,6 +203,17 @@ def main():
             assert st in (503, 200), st
             if st == 503:
                 assert d["ok"] is False and "error" in d, d
+
+        def t_tv_info():
+            """Model, webOS and firmware come from os_info.json on the TV."""
+            st, d, _ = req("GET", "/api/tv/info")
+            assert st == 200, st
+            assert d["ok"] is True, d
+            assert d["modelName"] == "LG 43NANO779PA", d
+            assert d["webOs"] == "webOS TV Lite", d
+            assert d["firmware"] == "03.51.16", d
+            assert d["kernel"].startswith("4.4.84"), d
+            assert d["hub"] and d["node"], d
 
         def t_health():
             st, d, _ = req("GET", "/api/health")
@@ -477,6 +490,7 @@ def main():
             ("remote control knows the key names", t_tv_keys),
             ("invalid keys are rejected", t_tv_key_invalid),
             ("screenshot without a device reports an error", t_tv_snapshot_without_tv),
+            ("/api/tv/info returns model, webOS and firmware", t_tv_info),
             ("default configuration is empty and valid", t_config_default),
             ("catalog comes from the stub and contains system apps", t_catalog),
             ("PUT /api/config saves, redacts token, removes duplicates", t_put_config),

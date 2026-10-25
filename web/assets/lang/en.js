@@ -256,5 +256,15 @@ window.CF_LANG.en = {
   "uitest.wizQuickDetail": "{n} suggestions",
   "uitest.wizLayout": "Appearance step renders controls",
   "uitest.wizDone": "Done step shows the summary",
-  "uitest.langSwitch": "Language switch changes the interface"
+  "uitest.langSwitch": "Language switch changes the interface",
+  'sys.dev.title': "Television",
+  'sys.dev.hint': "Model, webOS and firmware version are read on the TV itself by the hub.",
+  'sys.dev.model': "Model",
+  'sys.dev.webos': "webOS",
+  'sys.dev.firmware': "Firmware",
+  'sys.dev.kernel': "Kernel",
+  'sys.dev.hub': "Hub",
+  'sys.dev.node': "node",
+  'sys.dev.unknown': "unknown",
+  'err.readFailed': "Could not be read: {msg}",
 };

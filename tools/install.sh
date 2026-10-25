@@ -69,8 +69,7 @@ t() {
       find_none)     echo "FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> Zustand des Fernsehers" ;;
       info_root)     echo "    root: %s" ;;
-      info_version)  echo "    launcher: %s (from this repo)" ;;
-      info_hub)      echo "    Hub: %s" ;;
+      info_noroot)   echo "    Modell und Versionen stehen im Hub unter System - oder hier, sobald gerootet ist" ;;
       info_version)  echo "    Launcher: %s (aus diesem Repo)" ;;
       info_hub)      echo "    Hub: %s" ;;
       root_stage)    echo "==> Rooten (SlopBro)" ;;
@@ -127,10 +126,9 @@ t() {
       find_none)     echo "ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> State of the TV" ;;
       info_root)     echo "    root: %s" ;;
+      info_noroot)   echo "    model and versions are in the hub under System - or here once the TV is rooted" ;;
       info_version)  echo "    launcher: %s (from this repo)" ;;
-      info_hub)      echo "    Hub: %s" ;;
-      info_version)  echo "    Launcher: %s (aus diesem Repo)" ;;
-      info_hub)      echo "    Hub: %s" ;;
+      info_hub)      echo "    hub: %s" ;;
       root_stage)    echo "==> Rooting (SlopBro)" ;;
       root_skip)     echo "    already rooted, SSH works" ;;
       root_need_tv)  echo "    The TV must be on and on the same network. Developer Mode is NOT needed." ;;
@@ -224,34 +222,51 @@ tcp() { timeout 3 bash -c "echo >/dev/tcp/$TV/$1" 2>/dev/null; }
 # ---- state of the TV --------------------------------------------------------
 if [ "$DO_INFO" = "1" ]; then
   say "$(t info)"
-  if tcp 22; then
-    "${SSH[@]}" 'echo "model:   $(grep -o "\"modelName\"[^,]*" /var/run/nyx/os_info.json 2>/dev/null | head -1)"
-echo "webos:   $(grep -o "\"webos_name\"[^,]*" /var/run/nyx/os_info.json 2>/dev/null | head -1)"
-echo "node:    $(/usr/bin/node -v 2>/dev/null)"
-echo "rooted:  yes"; true' 2>/dev/null || true
-    say "$(printf "$(t info_root)" "yes")"
-  else
-    say "$(printf "$(t info_root)" "no")"
-  fi
-  read -r LAUNCHERVER HUBVER <<EOF
-$(python3 - "$ROOT" <<'PY' 2>/dev/null || echo "? ?"
-import json, re, sys, os
+  VERSIONS="$(python3 - "$ROOT" <<'PY' 2>/dev/null || echo "? ?"
+import json, os, re, sys
 root = sys.argv[1]
 try:
     launcher = json.load(open(os.path.join(root, "app", "appinfo.json")))["version"]
 except Exception:
     launcher = "?"
 try:
-    text = open(os.path.join(root, "web", "server.js")).read()
-    hub = re.search(r"VERSION\s*=\s*'([0-9.]+)'", text).group(1)
+    hub = re.search(r"VERSION\s*=\s*'([0-9.]+)'", open(os.path.join(root, "web", "server.js")).read()).group(1)
 except Exception:
     hub = "?"
 print(launcher, hub)
 PY
-)
-EOF
+)"
+  LAUNCHERVER="${VERSIONS%% *}"
+  HUBVER="${VERSIONS##* }"
   say "$(printf "$(t info_version)" "${LAUNCHERVER:-?}")"
   say "$(printf "$(t info_hub)" "${HUBVER:-?}")"
+  if tcp 22; then
+    # Fetch os_info.json and parse it here: the TV has node but no python, and quoting a
+    # node one-liner through ssh is a trap. One file transfer, all version numbers.
+    "${SSH[@]}" 'cat /var/run/nyx/os_info.json' 2>/dev/null | tr -d '\r' | python3 -c '
+import json, sys
+raw = sys.stdin.read().strip()
+try:
+    os_info = json.loads(raw)
+except Exception:
+    print("    (os_info.json not readable)")
+    raise SystemExit(0)
+rows = [("model", os_info.get("modelName") or os_info.get("model", "")),
+        ("webOS", os_info.get("webos_name") or os_info.get("webosName", "")),
+        ("firmware", os_info.get("version") or os_info.get("firmwareVersion", "")),
+        ("kernel", os_info.get("kernel") or os_info.get("kernelVersion", "")),
+        ("node", "")]
+for name, value in rows:
+    if value:
+        print("    %-9s %s" % (name + ":", value))
+' 2>/dev/null
+    NODEVER="$("${SSH[@]}" '/usr/bin/node -v' 2>/dev/null | tr -d '\r')" || true
+    [ -n "$NODEVER" ] && say "    node:     $NODEVER"
+    say "$(printf "$(t info_root)" "yes")"
+  else
+    say "$(printf "$(t info_root)" "no")"
+    say "$(t info_noroot)"
+  fi
   # --info is a report, not a step: never fall through into the install
   exit 0
 fi

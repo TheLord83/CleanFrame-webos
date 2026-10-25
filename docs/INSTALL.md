@@ -247,11 +247,13 @@ not a requirement for the app to run.
 
 | Where | What it shows |
 | --- | --- |
-| `./tools/install.sh --info` | `launcher: 0.4.18 (from this repo)` and `Hub: 0.4.18` — the versions of the code you have |
-| IPK build | `App-ID: com.blackpearl.cleanframe  Version: 0.4.18`, plus size and SHA256 |
-| after installing | `launcher is in the app list: com.blackpearl.cleanframe 0.4.18` (read back from the TV, not from the build) |
-| hub footer | `v0.4.18 · Catalog from Glasshouse` |
-| `GET /api/health` | `{"ok":true,...,"version":"0.4.18"}` |
+| `./tools/install.sh --info` | `launcher: 0.4.19` and `hub: 0.4.19` (the code you have); with root also model, webOS, firmware, kernel, node |
+| hub, tab **System** → *Television* | model, webOS, firmware, kernel, hub version and node version — read on the TV itself, no root needed |
+| `GET /api/tv/info` | the same as JSON: `{"modelName":"LG 43NANO779PA","webOs":"webOS TV Lite","firmware":"03.51.16",...}` |
+| IPK build | `App-ID: com.blackpearl.cleanframe  Version: 0.4.19`, plus size and SHA256 |
+| after installing | `launcher is in the app list: com.blackpearl.cleanframe 0.4.19` (read back from the TV, not from the build) |
+| hub footer | `v0.4.19 · Catalog from Glasshouse` |
+| `GET /api/health` | `{"ok":true,...,"version":"0.4.19"}` |
 
 The launcher version comes from `app/appinfo.json`, the hub version from the `VERSION`
 constant in `web/server.js`; both are kept in step.

@@ -259,5 +259,15 @@ window.CF_LANG.de = {
   "uitest.wizQuickDetail": "{n} Vorschläge",
   "uitest.wizLayout": "Schritt Darstellung rendert Regler",
   "uitest.wizDone": "Schritt Fertig zeigt Zusammenfassung",
-  "uitest.langSwitch": "Sprachumschalter ändert die Oberfläche"
+  "uitest.langSwitch": "Sprachumschalter ändert die Oberfläche",
+  'sys.dev.title': "Fernseher",
+  'sys.dev.hint': "Modell, webOS- und Firmware-Version liest der Hub direkt auf dem Fernseher aus.",
+  'sys.dev.model': "Modell",
+  'sys.dev.webos': "webOS",
+  'sys.dev.firmware': "Firmware",
+  'sys.dev.kernel': "Kernel",
+  'sys.dev.hub': "Hub",
+  'sys.dev.node': "node",
+  'sys.dev.unknown': "unbekannt",
+  'err.readFailed': "Konnte nicht gelesen werden: {msg}",
 };

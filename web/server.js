@@ -19,6 +19,7 @@
  *   POST /api/system/restart      restart the service (root only)
  *   GET  /api/schema              all selectable options (wallpapers, fonts, ...)
  *   GET  /api/wall/<id>           preview image of a wallpaper
+ *   GET  /api/tv/info             TV model, webOS and firmware version (from os_info.json)
  *   GET  /api/tv/snapshot         screenshot of the launcher (PNG, base64)
  *   GET  /api/tv/keys             allowed key names
  *   POST /api/tv/key              send key presses {keys: ["down","ok"]}
@@ -40,7 +41,7 @@ var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.18';
+var VERSION = '0.4.19';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -420,6 +421,29 @@ function handle(req, res) {
   /* Remote control: screenshot and key presses. Only from the TV itself and
    * from the LAN with a token — the access opens an SSH tunnel to the DevTools
    * port (9998), which is otherwise blocked. */
+  if (req.method === 'GET' && p === '/api/tv/info') {
+    /* The hub runs on the TV, so the version numbers are simply a local file:
+     * /var/run/nyx/os_info.json. CF_OS_INFO points elsewhere for tests. */
+    var infoPath = process.env.CF_OS_INFO || '/var/run/nyx/os_info.json';
+    var info = { ok: false, path: infoPath };
+    try {
+      var raw = require('fs').readFileSync(infoPath, 'utf8');
+      var os = JSON.parse(raw);
+      info.ok = true;
+      info.modelName = os.modelName || '';
+      info.modelNumber = os.modelNumber || '';
+      info.webOs = os.webos_name || os.webosName || '';
+      info.firmware = os.version || os.firmwareVersion || '';
+      info.kernel = os.kernel || os.kernelVersion || '';
+      info.serial = os.serialNumber || '';
+    } catch (e) {
+      info.error = String(e.message || e);
+    }
+    info.hub = VERSION;
+    info.node = process.version;
+    return json(res, 200, info);
+  }
+
   if (req.method === 'GET' && p === '/api/tv/snapshot') {
     var qSnap = url.parse(req.url, true).query || {};
     return remote.snapshot({ format: qSnap.format || 'jpeg', quality: qSnap.quality || 65 }, function (err, b64, mime) {

@@ -244,6 +244,18 @@
   </section>
 
   <section data-tab="system">
+    <h2><span data-t="sys.dev.title">Fernseher</span></h2>
+    <p class="hint" data-t="sys.dev.hint">Modell, webOS- und Firmware-Version liest der Hub direkt auf dem Fernseher aus.</p>
+    <table id="devTable">
+      <tr><th data-t="sys.dev.model">Modell</th><td id="devModel">…</td></tr>
+      <tr><th data-t="sys.dev.webos">webOS</th><td id="devWebos">…</td></tr>
+      <tr><th data-t="sys.dev.firmware">Firmware</th><td id="devFw">…</td></tr>
+      <tr><th data-t="sys.dev.kernel">Kernel</th><td id="devKernel">…</td></tr>
+      <tr><th data-t="sys.dev.hub">Hub</th><td id="devHub">…</td></tr>
+      <tr><th data-t="sys.dev.node">node</th><td id="devNode">…</td></tr>
+    </table>
+    <div class="status" id="devStatus"></div>
+
     <h2><span data-t="sys.backup.title">Sicherung</span><button class="showtv" type="button" data-view="settings" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
     <p class="hint" data-t="sys.backup.hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
     <div class="row">
@@ -747,6 +759,29 @@
     autoSave($('homeStatus'), 'home.saved');
   }
 
+
+  /* Model, webOS and firmware come from the TV itself (os_info.json), see /api/tv/info */
+  function put(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value || t('sys.dev.unknown');
+  }
+
+  function loadDevice() {
+    return api('GET', '/api/tv/info').then(function (d) {
+      put('devModel', d.modelName || d.modelNumber);
+      put('devWebos', d.webOs);
+      put('devFw', d.firmware);
+      put('devKernel', d.kernel);
+      put('devHub', d.hub);
+      put('devNode', d.node);
+      var st = document.getElementById('devStatus');
+      if (st) st.textContent = d.ok ? '' : t('err.readFailed', { msg: d.error || '?' });
+    }).catch(function (e) {
+      var st = document.getElementById('devStatus');
+      if (st) st.textContent = t('err.readFailed', { msg: e.message || '?' });
+    });
+  }
+
   function renderCatalog() {
     var sel = $('addApp');
     var current = sel.value;
@@ -785,7 +820,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.18';
+  var UI_BUILD = '0.4.19';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -892,7 +927,7 @@
         state.catalogOk = !!res[1].ok;
         state.versionError = '';
         updateVer();
-        renderCatalog(); renderTiles(); fillForm(); renderChosen();
+        renderCatalog(); renderTiles(); fillForm(); renderChosen(); loadDevice();
       })
       .catch(function (e) {
         state.versionError = e.message;
