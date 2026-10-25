@@ -416,7 +416,7 @@
         if (S.stack.length > 1) { S.pendingCfg = cfg; return; }  /* Dialog offen: spaeter */
         applyConfigInto(cfg);
       });
-    }, 4000);
+    }, 2000);
   }
 
   /* Konfiguration anwenden, ohne die Revision zu verlieren. */

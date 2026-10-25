@@ -166,7 +166,7 @@
 <main>
   <section data-tab="home" data-active="true">
     <h2>Startseite<button class="showtv" type="button" data-view="home" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Reihenfolge, Name und Icon je Kachel. Der Katalog in „Alle Apps“ auf dem Fernseher bleibt unverändert.</p>
+    <p class="hint">Reihenfolge, Name und Icon je Kachel — wird bei jeder Änderung sofort gespeichert. Der Katalog in „Alle Apps“ auf dem Fernseher bleibt unverändert.</p>
     <div class="grid">
       <div>
         <label for="addApp">App hinzufügen</label>
@@ -182,10 +182,10 @@
 
   <section data-tab="look">
     <h2>Darstellung<button class="showtv" type="button" data-view="appearance" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Alle Einstellungen der App: Hintergrund, Anordnung, Akzente, Uhr, Sprache, Senioren-Modus, Bildschirmschoner. Übernommene Änderungen zieht der Fernseher im laufenden Betrieb nach.</p>
+    <p class="hint">Alle Einstellungen der App: Hintergrund, Anordnung, Akzente, Uhr, Sprache, Senioren-Modus, Bildschirmschoner. Jede Änderung wird sofort gespeichert und der Fernseher zieht sie im laufenden Betrieb nach.</p>
     <div id="lookCards"></div>
     <div class="row" style="margin-top:16px">
-      <button class="action" id="btnLook">Speichern</button>
+      <button class="action" id="btnLook">Jetzt speichern</button>
     </div>
     <div class="status" id="lookStatus"></div>
   </section>
@@ -444,6 +444,8 @@
         state.cfg.look.wall = b.getAttribute('data-wall');
         var bgSel = $('lk-bg');
         if (bgSel && bgSel.value !== 'photo') { bgSel.value = 'photo'; }
+        collectLook();
+        autoSave($('lookStatus'), 'Übernommen');
       };
     });
   }
@@ -496,10 +498,11 @@
       var ico = document.createElement('button'); ico.className = 'ghost'; ico.textContent = 'Icon';
       ico.onclick = function () { openPicker(i); };
       var del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Entfernen';
-      del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); };
+      del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); autoSave($('homeStatus'), 'Startseite gespeichert'); };
       nm.oninput = function () {
         if (nm.value.trim()) state.cfg.home[i].name = nm.value.trim();
         else delete state.cfg.home[i].name;
+        autoSave($('homeStatus'), 'Startseite gespeichert');
       };
       ctl.appendChild(up); ctl.appendChild(down); ctl.appendChild(ico); ctl.appendChild(del);
       li.appendChild(idx); li.appendChild(thumb); li.appendChild(nm); li.appendChild(id); li.appendChild(ctl);
@@ -540,7 +543,7 @@
           state.cfg.home[i].icon = ic.key;
           renderTiles();
           document.getElementById('picker').hidden = true;
-          note(document.getElementById('homeStatus'), 'Icon gesetzt — mit „Startseite speichern“ übernehmen.', true);
+          autoSave(document.getElementById('homeStatus'), 'Startseite gespeichert');
         };
         grid.appendChild(b);
       });
@@ -556,6 +559,7 @@
     var x = h.splice(from, 1)[0];
     h.splice(to, 0, x);
     renderTiles();
+    autoSave($('homeStatus'), 'Startseite gespeichert');
   }
 
   function renderCatalog() {
@@ -591,6 +595,20 @@
       fillForm();
       note(statusEl, okMsg + ' (gespeichert ' + new Date(r.updatedAt).toLocaleTimeString() + ')', true);
     }).catch(function (e) { note(statusEl, 'Fehler: ' + e.message, false); });
+  }
+
+  /* Automatisch speichern: jede Aenderung geht nach 350 ms an den Server, danach
+   * wird ein frisches Bild vom Fernseher geholt (der Launcher zieht Aenderungen
+   * im laufenden Betrieb nach, deshalb ein zweites Bild nach ~2,5 s). */
+  var autoTimer = null;
+  function autoSave(statusEl, okMsg) {
+    clearTimeout(autoTimer);
+    if (statusEl) note(statusEl, 'Speichern …');
+    autoTimer = setTimeout(function () {
+      save(state.cfg, statusEl, okMsg);
+      setTimeout(loadShot, 450);
+      setTimeout(loadShot, 2600);
+    }, 350);
   }
 
   function load() {
@@ -759,8 +777,18 @@
     state.cfg.home = state.cfg.home || [];
     state.cfg.home.push({ appId: id, name: found.name });
     renderTiles();
-    note($('homeStatus'), 'Hinzugefügt — mit „Speichern“ übernehmen.', true);
+    autoSave($('homeStatus'), 'Startseite gespeichert');
   };
+
+  /* Feld geaendert -> sofort uebernehmen (kein Speichern-Knopf noetig). */
+  ['change', 'input'].forEach(function (evt) {
+    $('lookCards').addEventListener(evt, function (e) {
+      var el = e.target;
+      if (!el || !el.getAttribute || !el.getAttribute('data-look')) return;
+      collectLook();
+      autoSave($('lookStatus'), 'Übernommen');
+    });
+  });
 
   $('btnSetup').onclick = function () {
     state.cfg.onboarding = { done: false, version: 1 };
