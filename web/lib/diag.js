@@ -9,6 +9,7 @@ var fs = require('fs');
 var os = require('os');
 var http = require('http');
 var urlmod = require('url');
+var https = require('https');
 var configLib = require('./config');
 
 function tcpOk(host, port, timeout, cb) {
@@ -76,24 +77,37 @@ function run(opts, cb) {
 
 /* Prueft eine Home-Assistant-Instanz gegen /api/ und meldet die Version —
  * damit die Oberflaeche beim Eintragen sofort weiss, ob URL und Token passen. */
-function haCheck(url, token, cb) {
+function haCheck(url, token, cb, tiefe) {
+  /* Home Assistant laeuft oft hinter HTTPS. Zuerst wurde hier immer http.get
+   * benutzt — bei einer https-URL antwortete der Proxy deshalb mit 301, und die
+   * Pruefung meldete "keine Verbindung". Jetzt richtiges Protokoll und
+   * Weiterleitungen folgen (bis drei Stufen). */
   if (!url) return cb({ ok: false, error: 'keine URL' });
   var u = urlmod.parse(url);
-  if (!u.host) return cb({ ok: false, error: 'URL ungueltig' });
-  if (u.pathname === '/' || !u.pathname) u.pathname = '/api/';
-  var req = http.get({
+  if (!u.hostname) return cb({ ok: false, error: 'URL ungueltig' });
+  var secure = u.protocol === 'https:';
+  var lib = secure ? https : http;
+  var path = u.pathname && u.pathname !== '/' ? u.pathname : '/api/';
+  var req = lib.get({
     host: u.hostname,
-    port: u.port || 80,
-    path: u.pathname,
+    port: u.port || (secure ? 443 : 80),
+    path: path,
     headers: token ? { Authorization: 'Bearer ' + token } : {},
-    timeout: 4000
+    timeout: 6000,
+    rejectUnauthorized: false
   }, function (res) {
     var b = '';
     res.on('data', function (c) { b += c; });
     res.on('end', function () {
+      var stufe = (tiefe || 0);
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && stufe < 3) {
+        var ziel = res.headers.location;
+        if (ziel.charAt(0) === '/') ziel = (secure ? 'https://' : 'http://') + u.host + ziel;
+        return haCheck(ziel, token, cb, stufe + 1);
+      }
       var j = null;
       try { j = JSON.parse(b); } catch (e) {}
-      cb({ ok: res.statusCode === 200, status: res.statusCode, message: (j && j.message) || '' });
+      cb({ ok: res.statusCode === 200, status: res.statusCode, message: (j && j.message) || '', url: url });
     });
   });
   req.on('timeout', function () { req.abort(); cb({ ok: false, error: 'timeout' }); });
