@@ -9,6 +9,7 @@
 'use strict';
 
 var http = require('http');
+var urlmod = require('url');
 
 var BUILTIN = [
   { appId: 'com.webos.app.enactbrowser', name: 'Webbrowser', system: true },
@@ -74,7 +75,9 @@ function catalog(opts, cb) {
     return cb(null, { ok: true, source: 'stub', apps: merge(fromGlasshouse(opts.stub, '')) });
   }
   var base = (opts && opts.base) || 'http://127.0.0.1:8080';
-  var req = http.get(base + '/api/apps', { timeout: 4000 }, function (res) {
+  var target = urlmod.parse(base + '/api/apps');
+  target.timeout = 4000;
+  var req = http.get(target, function (res) {
     var body = '';
     res.setEncoding('utf8');
     res.on('data', function (c) { body += c; if (body.length > 4 * 1024 * 1024) req.abort(); });

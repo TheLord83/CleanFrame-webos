@@ -116,9 +116,8 @@ function postGuard(req, res) {
   }
   if (origin) {
     var host = req.headers.host;
-    var o;
-    try { o = new URL(origin); } catch (e) { o = null; }
-    if (!o || o.host !== host) {
+    var o = url.parse(origin);
+    if (!o || !o.host || o.host !== host) {
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }

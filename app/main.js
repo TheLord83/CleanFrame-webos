@@ -1051,7 +1051,7 @@
   function render() {
     var t = top(), sheet = !!V[t.id].sheet, shown = wall(S.shown ? S.shown.wall : S.c.wall), palette = ADAPTIVE_INK[shown.id];
     var adaptive = applyAdaptiveInk(palette), tr = adaptive && palette.tr ? palette.tr.pol : shown.ut.tr, br = adaptive && palette.br ? palette.br.pol : shown.ut.br;
-    stage.className = 'stage bg-' + S.c.bg + ' l-' + S.c.layout + ' v-' + S.variant + ' m-' + (materialApplies() ? S.c.material : 'none') + ' f-' + S.c.focus + ' a-' + S.c.apps + ' u-' + S.c.controls + ' g-' + S.geom + ' tone-' + shown.tone + ' tr-' + tr + ' br-' + br + wallClasses(shown) + inkRungClasses(palette, adaptive) + ' at-' + t.id + ' font-' + homeFont() + (homeFont() !== 'manrope' ? ' font-custom' : '') + (S.fontSwitch ? ' is-font-switch' : '') + (adaptive ? ' has-adaptive-ink adaptive-tl-' + palette.tl.pol : '') + (!adaptive && shown.clockInk ? ' has-clock-ink' : '') + (!adaptive && shown.dockClockInk ? ' has-dock-clock-ink' : '') + (registeredMaterial(shown.id) ? ' registered-material' : '') + (sheet ? ' is-sheet' : '') + (S.reflow ? ' is-reflow' : '');
+    stage.className = 'stage bg-' + S.c.bg + ' l-' + S.c.layout + ' v-' + S.variant + ' m-' + (materialApplies() ? S.c.material : 'none') + ' f-' + S.c.focus + ' a-' + S.c.apps + ' u-' + S.c.controls + ' g-' + S.geom + ' tone-' + shown.tone + ' tr-' + tr + ' br-' + br + wallClasses(shown) + inkRungClasses(palette, adaptive) + ' at-' + t.id + ' font-' + homeFont() + (homeFont() !== 'manrope' ? ' font-custom' : '') + (S.fontSwitch ? ' is-font-switch' : '') + (adaptive ? ' has-adaptive-ink adaptive-tl-' + palette.tl.pol : '') + (!adaptive && shown.clockInk ? ' has-clock-ink' : '') + (!adaptive && shown.dockClockInk ? ' has-dock-clock-ink' : '') + (registeredMaterial(shown.id) ? ' registered-material' : '') + (sheet ? ' is-sheet' : '') + (S.reflow ? ' is-reflow' : '') + (S.serverCfg && S.serverCfg.ui && S.serverCfg.ui.senior ? ' senior' : '');
     if (!adaptive && shown.clockInk) stage.style.setProperty('--clock-ink', shown.clockInk);
     else stage.style.removeProperty('--clock-ink');
     if (!adaptive && shown.dockClockInk) stage.style.setProperty('--dock-clock-ink', shown.dockClockInk);
@@ -1931,6 +1931,10 @@
       };
     },
     focusStage: focusStage,
+    serverConfig: function () { return S.serverCfg || null; },
+    applyServerConfig: applyServerConfig,
+    screensaver: function () { return S.cfgScreensaver || null; },
+    idle: function () { return Math.round((Date.now() - idleSince) / 1000); },
     openCtx: openCtx,
     longPressTarget: longPressTarget
   };
@@ -1963,9 +1967,83 @@
   QA.activate = function (action) { return activate(action) ? QA.state() : null; };
   QA.actions = function () { var view = isSettingsDetail(top()) ? appearanceEl : sheetEl.hidden ? homeEl : sheetEl; return Array.prototype.filter.call(view.querySelectorAll('[data-action]'), renderedAction).map(function (el) { return el.getAttribute('data-action'); }); };
 
+
+  /* ---------- Konfiguration vom Web-Server uebernehmen ----------
+   * Der Server (Port 8484) ist die gemeinsame Quelle: Name, Icon, Anordnung,
+   * Sprache, Senioren-Modus und Schoner-Zeit kommen von dort. Fehlt er, bleibt
+   * der localStorage-Stand unveraendert in Kraft. */
+  function resolveIcon(v) {
+    if (!v) return '';
+    if (/^https?:\/\//.test(v) || v.indexOf('assets/') === 0) return v;
+    return 'assets/icons/' + v + '.svg';
+  }
+
+  function applyServerConfig(cfg) {
+    if (!cfg) return;
+    S.serverCfg = cfg;
+    var c = S.c;
+
+    if (cfg.lang && window.CleanFrameI18n && cfg.lang !== 'system') window.CleanFrameI18n.lang = cfg.lang;
+
+    if (cfg.look) {
+      if (cfg.look.layout) c.layout = cfg.look.layout;
+      if (cfg.look.apps) c.apps = cfg.look.apps;
+      if (cfg.look.wall && wall(cfg.look.wall)) c.wall = cfg.look.wall;
+      if (cfg.look.font && FONTS[cfg.look.font]) c.font = cfg.look.font;
+      if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
+    }
+
+    if (cfg.home && cfg.home.length) {
+      c.home = cfg.home.map(function (e) { return e.appId; });
+      cfg.home.forEach(function (e) {
+        var a = app(e.appId);
+        if (!a) { a = { id: e.appId, appId: e.appId, name: e.name || e.appId, mark: false }; APPS.push(a); }
+        if (e.name) a.name = e.name;
+        var icon = resolveIcon(e.icon);
+        if (icon) { a.icon = icon; a.mark = false; }
+      });
+    }
+
+    if (cfg.ui) {
+      var scale = parseInt(cfg.ui.textScale, 10);
+      if (isFinite(scale) && scale !== 100) stage.style.setProperty('--cf-scale', String(scale / 100));
+      else stage.style.removeProperty('--cf-scale');
+    }
+
+    S.cfgScreensaver = cfg.screensaver || null;
+    idleSince = Date.now();
+    norm(); render(); fit();
+  }
+
+  /* Nach X Minuten ohne Bedienung den Schoner starten (Kopplung aus der Konfiguration). */
+  var idleSince = Date.now(), idleTimer = null;
+  function markActive() { idleSince = Date.now(); }
+  function startIdleWatch() {
+    if (idleTimer) return;
+    idleTimer = setInterval(function () {
+      var sc = S.cfgScreensaver;
+      if (!sc || !sc.enabled) return;
+      var minutes = parseInt(sc.minutes, 10) || 10;
+      if (Date.now() - idleSince < minutes * 60000) return;
+      idleSince = Date.now();
+      perform(T('Screensaver'), FrameDevice.art);
+    }, 15000);
+  }
+  ['keydown', 'click', 'mousemove', 'focus'].forEach(function (ev) {
+    document.addEventListener(ev, markActive, true);
+  });
+
   /* ---------- Start ---------- */
   cueL.innerHTML = icon('left'); cueR.innerHTML = icon('right');
   initialise();
+  if (window.FrameDevice && FrameDevice.loadConfig) {
+    FrameDevice.loadConfig(function (err, cfg) {
+      if (cfg) applyServerConfig(cfg);
+      startIdleWatch();
+    });
+  } else {
+    startIdleWatch();
+  }
   setLook({}, { transient: true, startup: true });
   norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
 })();

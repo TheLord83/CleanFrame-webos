@@ -9,6 +9,7 @@
 
 var http = require('http');
 var https = require('https');
+var urlmod = require('url');
 
 /* Domains, die auf einer Kachel Sinn ergeben. Alles andere (Automatisierungen,
  * Zonen, Personen) wird nicht angeboten: es hat keinen Anzeigewert. */
@@ -19,16 +20,16 @@ var USEFUL = {
   lock: 'Schloss', device_tracker: 'Gerät', sun: 'Sonne', update: 'Update'
 };
 
-function parseBase(url) {
-  var u;
-  try { u = new URL(url); } catch (e) { return null; }
+function parseBase(raw) {
+  var u = urlmod.parse(raw || '');
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-  var path = u.pathname.replace(/\/+$/, '');
+  if (!u.hostname) return null;
+  var basePath = (u.pathname || '').replace(/\/+$/, '');
   return {
     lib: u.protocol === 'https:' ? https : http,
     host: u.hostname,
     port: u.port || (u.protocol === 'https:' ? 443 : 80),
-    base: path,
+    base: basePath,
     secure: u.protocol === 'https:'
   };
 }

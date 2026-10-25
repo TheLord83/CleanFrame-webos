@@ -12,6 +12,17 @@ var path = require('path');
 
 var VERSION = 1;
 
+/* node 8 auf dem Fernseher kennt fs.mkdirSync(p, {recursive:true}) nicht. */
+function mkdirp(dir) {
+  var parts = String(dir).split('/').filter(Boolean);
+  var cur = '';
+  if (String(dir).charAt(0) === '/') cur = '/';
+  parts.forEach(function (part) {
+    cur = cur === '/' ? '/' + part : (cur ? cur + '/' + part : part);
+    try { fs.mkdirSync(cur); } catch (e) { if (e.code !== 'EEXIST') throw e; }
+  });
+}
+
 /* Erlaubte Werte werden hier geprueft, nicht in der Oberflaeche: die API ist
  * oeffentlich erreichbar, also muss der Server selbst validieren. */
 var LANGS = ['de', 'en', 'system'];
@@ -169,7 +180,7 @@ Store.prototype.write = function (input) {
   var before = this.read();
   cfg.createdAt = before.createdAt || new Date().toISOString();
   cfg.updatedAt = new Date().toISOString();
-  fs.mkdirSync(path.dirname(this.file), { recursive: true });
+  mkdirp(path.dirname(this.file));
   var tmp = this.file + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n', { mode: 384 /* 0600 */ });
   fs.renameSync(tmp, this.file);
@@ -178,6 +189,7 @@ Store.prototype.write = function (input) {
 
 module.exports = {
   VERSION: VERSION,
+  mkdirp: mkdirp,
   LANGS: LANGS,
   LAYOUTS: LAYOUTS,
   DOCK_MODES: DOCK_MODES,

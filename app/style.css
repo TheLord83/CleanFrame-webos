@@ -645,3 +645,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
    farbig; sie werden auf dieselbe weisse Silhouette gebracht wie die Marken-SVGs. */
 .mark.native-icon img{filter:grayscale(1) brightness(1.25) contrast(1.05);opacity:.9}
 .tile.is-focus .mark.native-icon img,.tile.is-lifted .mark.native-icon img{opacity:1}
+
+/* webOS-Portierung: Senioren-Modus (groessere Beschriftung, ruhigeres Raster)
+   und freie Schriftgroesse aus der Konfiguration (--cf-scale, 0.5 bis 2.0). */
+#stage.senior .tile .label,
+#stage.senior .row .label,
+#stage.senior .quiet-utils .util-label{font-size:calc(1.22em * var(--cf-scale, 1));letter-spacing:-.2px}
+#stage.senior .tile .mark{transform:scale(1.04)}
+#stage [style*="--cf-scale"] .label{font-size:calc(1em * var(--cf-scale, 1))}

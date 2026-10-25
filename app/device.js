@@ -192,7 +192,54 @@
     appsFromGlasshouse(once);
   }
 
+  /* ---------- Konfiguration vom CleanFrame-Web-Server (Port 8484) ----------
+   * Der Server ist die gemeinsame Quelle fuer Fernseher und Web-Oberflaeche.
+   * Ist er nicht installiert, bleibt alles wie bisher (localStorage). */
+  var CF_API = 'http://127.0.0.1:8484';
+
+  function apiCall(method, path, body, done) {
+    var xhr = new XMLHttpRequest(), finished = false;
+    function finish(err, data) {
+      if (finished) return;
+      finished = true;
+      done(err, data);
+    }
+    try {
+      xhr.open(method, CF_API + path, true);
+      xhr.timeout = 3000;
+      if (body) xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        var parsed = null;
+        if (xhr.status === 200) {
+          try { parsed = JSON.parse(xhr.responseText); } catch (e) { parsed = null; }
+          finish(parsed ? null : 'Antwort ist kein JSON', parsed);
+        } else {
+          finish('HTTP ' + xhr.status, null);
+        }
+      };
+      xhr.ontimeout = function () { finish('timeout', null); };
+      xhr.onerror = function () { finish('Server nicht erreichbar', null); };
+      xhr.send(body ? JSON.stringify(body) : null);
+    } catch (e) {
+      finish(String(e), null);
+    }
+  }
+
   window.FrameDevice = {
+    /* Konfiguration lesen; cb(null, null) wenn der Server fehlt. */
+    loadConfig: function (cb) {
+      apiCall('GET', '/api/config', null, function (err, data) {
+        if (err || !data || !data.config) return cb(null, null);
+        cb(null, data.config);
+      });
+    },
+    saveConfig: function (cfg, cb) {
+      apiCall('PUT', '/api/config', { config: cfg }, function (err, data) {
+        cb(err, data && data.config);
+      });
+    },
+    api: apiCall,
     launch: launch,
     launchApp: launchApp,
     art: art,

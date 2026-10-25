@@ -8,6 +8,8 @@
 var fs = require('fs');
 var os = require('os');
 var http = require('http');
+var urlmod = require('url');
+var configLib = require('./config');
 
 function tcpOk(host, port, timeout, cb) {
   var net = require('net');
@@ -45,7 +47,7 @@ function run(opts, cb) {
   add('Konfigurationsdatei lesbar', !!opts.configPath, opts.configPath || 'kein Pfad');
   try {
     var dir = require('path').dirname(opts.configPath);
-    fs.mkdirSync(dir, { recursive: true });
+    configLib.mkdirp(dir);
     fs.accessSync(dir, fs.constants.W_OK);
     add('Konfigurationsordner schreibbar', true, dir);
   } catch (e) {
@@ -76,8 +78,9 @@ function run(opts, cb) {
  * damit die Oberflaeche beim Eintragen sofort weiss, ob URL und Token passen. */
 function haCheck(url, token, cb) {
   if (!url) return cb({ ok: false, error: 'keine URL' });
-  var u;
-  try { u = new URL('/api/', url); } catch (e) { return cb({ ok: false, error: 'URL ungueltig' }); }
+  var u = urlmod.parse(url);
+  if (!u.host) return cb({ ok: false, error: 'URL ungueltig' });
+  if (u.pathname === '/' || !u.pathname) u.pathname = '/api/';
   var req = http.get({
     host: u.hostname,
     port: u.port || 80,
