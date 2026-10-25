@@ -30,6 +30,9 @@ function defaults() {
       clock: true
     },
     home: [],
+    /* Bildschirmschoner-Kopplung: der Launcher startet nach N Minuten Ruhe den
+     * TV-Schoner selbst. `variant` leer = Glasshouse-Standard. */
+    screensaver: { enabled: false, minutes: 10, variant: '' },
     integrations: {
       ha: { url: '', token: '' },
       mqtt: { url: '', user: '', password: '', prefix: 'cleanframe' }
@@ -82,10 +85,26 @@ function validate(input) {
     });
   }
 
+  var scr = src.screensaver && typeof src.screensaver === 'object' ? src.screensaver : {};
+  cfg.screensaver.enabled = !!scr.enabled;
+  var mins = parseInt(scr.minutes, 10);
+  cfg.screensaver.minutes = isFinite(mins) ? Math.min(120, Math.max(1, mins)) : 10;
+  if (isStr(scr.variant, 40)) cfg.screensaver.variant = scr.variant;
+
   var integ = src.integrations && typeof src.integrations === 'object' ? src.integrations : {};
   var ha = integ.ha && typeof integ.ha === 'object' ? integ.ha : {};
   cfg.integrations.ha.url = isStr(ha.url, 300) ? ha.url : '';
   cfg.integrations.ha.token = isStr(ha.token, 400) ? ha.token : '';
+  cfg.integrations.ha.entities = [];
+  if (Array.isArray(ha.entities)) {
+    var seenE = {};
+    ha.entities.slice(0, 12).forEach(function (e) {
+      var id = typeof e === 'string' ? e : (e && e.id);
+      if (!isStr(id, 120) || !/^[a-z_]+\.[a-z0-9_]+$/.test(id) || seenE[id]) return;
+      seenE[id] = true;
+      cfg.integrations.ha.entities.push({ id: id, label: isStr(e && e.label, 60) ? e.label : '' });
+    });
+  }
   var mq = integ.mqtt && typeof integ.mqtt === 'object' ? integ.mqtt : {};
   cfg.integrations.mqtt.url = isStr(mq.url, 300) ? mq.url : '';
   cfg.integrations.mqtt.user = isStr(mq.user, 120) ? mq.user : '';
@@ -103,7 +122,7 @@ function redact(cfg) {
   var out = JSON.parse(JSON.stringify(cfg));
   var ha = out.integrations.ha;
   var mq = out.integrations.mqtt;
-  out.integrations.ha = { url: ha.url, token: '', hasToken: !!ha.token };
+  out.integrations.ha = { url: ha.url, token: '', hasToken: !!ha.token, entities: ha.entities || [] };
   out.integrations.mqtt = {
     url: mq.url, user: mq.user, password: '', prefix: mq.prefix, hasPassword: !!mq.password
   };

@@ -174,9 +174,18 @@
     </div>
     <div class="row" style="margin-top:16px">
       <button class="ghost" id="btnHaCheck">Verbindung prüfen</button>
+      <button class="ghost" id="btnHaLoad">Entitäten laden</button>
       <button class="action" id="btnHaSave">Speichern</button>
     </div>
     <div class="status" id="haStatus"></div>
+
+    <h2 style="margin-top:24px">Entitäten auf der Kachel</h2>
+    <p class="hint">Bis zu 12 Werte. Gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.</p>
+    <div id="haChosen" class="row" style="gap:8px"></div>
+    <div class="row" style="margin-top:10px">
+      <input id="haFilter" placeholder="Filter (z. B. Temperatur, Wohnzimmer)">
+    </div>
+    <div id="haList" style="max-height:280px;overflow:auto;margin-top:10px"></div>
 
     <h2 style="margin-top:28px">MQTT</h2>
     <div class="grid">
@@ -200,6 +209,30 @@
       <button class="ghost" id="btnImport">Importieren</button>
     </div>
     <div class="status" id="backupStatus"></div>
+
+    <h2 style="margin-top:28px">Bildschirmschoner</h2>
+    <p class="hint">Nach dieser Zeit ohne Bedienung startet der Launcher den Schoner des Fernsehers.</p>
+    <div class="grid">
+      <div>
+        <label for="scrEnabled">Automatisch starten</label>
+        <select id="scrEnabled">
+          <option value="0">Aus</option>
+          <option value="1">Ein</option>
+        </select>
+      </div>
+      <div>
+        <label for="scrMinutes">Minuten ohne Bedienung</label>
+        <input id="scrMinutes" type="number" min="1" max="120" step="1" value="10">
+      </div>
+      <div>
+        <label for="scrVariant">Variante (leer = Standard)</label>
+        <input id="scrVariant" placeholder="clock, starfield, bokeh …">
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="action" id="btnScr">Speichern</button>
+    </div>
+    <div class="status" id="scrStatus"></div>
 
     <h2 style="margin-top:28px">Diagnose</h2>
     <div class="row">
@@ -375,6 +408,9 @@
     $('mqUser').value = c.integrations.mqtt.user || '';
     $('mqPass').value = '';
     $('mqPrefix').value = c.integrations.mqtt.prefix || 'cleanframe';
+    $('scrEnabled').value = c.screensaver && c.screensaver.enabled ? '1' : '0';
+    $('scrMinutes').value = (c.screensaver && c.screensaver.minutes) || 10;
+    $('scrVariant').value = (c.screensaver && c.screensaver.variant) || '';
     $('haToken').placeholder = c.integrations.ha.hasToken ? 'Token hinterlegt — leer lassen zum Behalten' : 'Token eintragen';
     $('mqPass').placeholder = c.integrations.mqtt.hasPassword ? 'Passwort hinterlegt — leer lassen zum Behalten' : 'Passwort eintragen';
   }
@@ -395,7 +431,7 @@
         state.apps = res[1].apps || [];
         state.icons = res[3].groups || [];
         $('ver').textContent = 'v' + res[2].version + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
-        renderCatalog(); renderTiles(); fillForm();
+        renderCatalog(); renderTiles(); fillForm(); renderChosen();
       })
       .catch(function (e) {
         $('ver').textContent = 'Server nicht erreichbar: ' + e.message;
@@ -464,6 +500,89 @@
     var i = state.pickerIndex;
     if (i >= 0 && state.cfg.home[i]) { delete state.cfg.home[i].icon; renderTiles(); }
     document.getElementById('picker').hidden = true;
+  };
+
+  function chosen() {
+    return (state.cfg.integrations.ha && state.cfg.integrations.ha.entities) || [];
+  }
+
+  function renderChosen() {
+    var host = $('haChosen');
+    host.innerHTML = '';
+    var list = chosen();
+    if (!list.length) {
+      host.innerHTML = '<span class="pill">noch keine Entität gewählt</span>';
+      return;
+    }
+    list.forEach(function (e, i) {
+      var b = document.createElement('button');
+      b.className = 'ghost';
+      b.textContent = (e.label || e.id) + '  ✕';
+      b.title = 'entfernen';
+      b.onclick = function () {
+        state.cfg.integrations.ha.entities.splice(i, 1);
+        renderChosen();
+        note($('haStatus'), 'Auswahl geändert — mit „Speichern“ übernehmen.', true);
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function renderEntities(list) {
+    var host = $('haList');
+    host.innerHTML = '';
+    if (!list.length) { host.innerHTML = '<p class="hint">Keine Entitäten erhalten.</p>'; return; }
+    var taken = {};
+    chosen().forEach(function (e) { taken[e.id] = true; });
+    list.slice(0, 400).forEach(function (ent) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:10px;align-items:center;padding:4px 0;border-top:1px solid var(--line)';
+      var add = document.createElement('button');
+      add.className = 'ghost';
+      add.textContent = taken[ent.id] ? '✓' : '+';
+      add.disabled = !!taken[ent.id] || chosen().length >= 12;
+      add.onclick = function () {
+        state.cfg.integrations.ha.entities = chosen().concat([{ id: ent.id, label: '' }]);
+        add.textContent = '✓'; add.disabled = true;
+        renderChosen();
+      };
+      var txt = document.createElement('span');
+      txt.style.flex = '1';
+      txt.textContent = ent.name + ' — ' + ent.state + (ent.unit ? ' ' + ent.unit : '');
+      var id = document.createElement('span');
+      id.className = 'id'; id.textContent = ent.id;
+      row.appendChild(add); row.appendChild(txt); row.appendChild(id);
+      host.appendChild(row);
+    });
+  }
+
+  $('btnHaLoad').onclick = function () {
+    note($('haStatus'), 'Lade Entitäten …');
+    // Erst speichern, damit der Server mit den aktuellen Zugangsdaten arbeitet.
+    save(state.cfg, $('haStatus'), 'Zugangsdaten gespeichert').then(function () {
+      return api('GET', '/api/ha/entities');
+    }).then(function (r) {
+      state.haEntities = r.entities || [];
+      renderEntities(state.haEntities);
+      note($('haStatus'), r.ok ? r.count + ' Entitäten geladen' : 'Fehler: ' + (r.error || 'unbekannt'), r.ok);
+    }).catch(function (e) { note($('haStatus'), 'Fehler: ' + e.message, false); });
+  };
+
+  $('haFilter').oninput = function () {
+    var needle = $('haFilter').value.toLowerCase();
+    if (!state.haEntities) return;
+    renderEntities(state.haEntities.filter(function (e) {
+      return (e.name + ' ' + e.id).toLowerCase().indexOf(needle) >= 0;
+    }));
+  };
+
+  $('btnScr').onclick = function () {
+    state.cfg.screensaver = {
+      enabled: $('scrEnabled').value === '1',
+      minutes: parseInt($('scrMinutes').value, 10) || 10,
+      variant: $('scrVariant').value.trim()
+    };
+    save(state.cfg, $('scrStatus'), 'Bildschirmschoner gespeichert');
   };
 
   $('btnExport').onclick = function () { window.location.href = '/api/backup'; };

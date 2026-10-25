@@ -15,14 +15,56 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 STUB = os.path.join(WEB, "test", "fixtures", "apps-stub.json")
 
 results = []
+
+FAKE_STATES = [
+    {"entity_id": "sensor.wohnzimmer_temperatur", "state": "21.4",
+     "attributes": {"friendly_name": "Wohnzimmer Temperatur", "unit_of_measurement": "°C"}},
+    {"entity_id": "light.wohnzimmer_decke", "state": "on",
+     "attributes": {"friendly_name": "Wohnzimmer Decke"}},
+    {"entity_id": "media_player.tv", "state": "playing",
+     "attributes": {"friendly_name": "Fernseher"}},
+    {"entity_id": "automation.nachtlicht", "state": "on",
+     "attributes": {"friendly_name": "Nachtlicht"}},
+    {"entity_id": "sensor.kaputt", "state": "unavailable", "attributes": {"friendly_name": "Kaputt"}},
+]
+
+
+class FakeHA(BaseHTTPRequestHandler):
+    """Minimaler Home-Assistant-Ersatz: /api/ und /api/states."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        if self.path.rstrip("/") in ("/api", ""):
+            body = {"message": "API running."}
+        elif self.path.startswith("/api/states"):
+            if self.headers.get("Authorization") != "Bearer testtoken":
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b'{"message":"Unauthorized"}')
+                return
+            body = FAKE_STATES
+        else:
+            self.send_response(404)
+            self.end_headers()
+            return
+        raw = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
 
 
 def check(name, fn):
@@ -71,6 +113,10 @@ def main():
         "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
         "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
     })
+    ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
+    ha_port = ha_server.server_address[1]
+    threading.Thread(target=ha_server.serve_forever, daemon=True).start()
+
     proc = subprocess.Popen([sys.executable.replace("python3", "node") if False else "node", "server.js"],
                             cwd=WEB, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     base = f"http://127.0.0.1:{port}"
@@ -225,6 +271,66 @@ def main():
             st, d, _ = req("PUT", "/api/config", "{kaputt", raw=True)
             assert st == 400, st
 
+        def t_ha_check():
+            st, d, _ = req("POST", "/api/ha/check", {"url": f"http://127.0.0.1:{ha_port}", "token": "testtoken"})
+            assert st == 200, st
+            assert d["ok"] is True, d
+            st2, d2, _ = req("POST", "/api/ha/check", {"url": f"http://127.0.0.1:{ha_port}"})
+            assert d2["ok"] is True, d2
+
+        def t_ha_entities():
+            # Zugangsdaten setzen, damit der Server sie benutzt
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            cfg["integrations"]["ha"] = {"url": f"http://127.0.0.1:{ha_port}", "token": "testtoken", "entities": []}
+            st, d, _ = req("PUT", "/api/config", {"config": cfg})
+            assert st == 200, (st, d)
+            st, d, _ = req("GET", "/api/ha/entities")
+            assert st == 200, st
+            assert d["ok"] is True, d
+            ids = [e["id"] for e in d["entities"]]
+            assert "sensor.wohnzimmer_temperatur" in ids, ids
+            assert "automation.nachtlicht" not in ids, "Automatisierungen gehoeren nicht in die Auswahl"
+            temp = [e for e in d["entities"] if e["id"].endswith("temperatur")][0]
+            assert temp["unit"] == "°C" and temp["state"] == "21.4", temp
+            kaputt = [e for e in d["entities"] if e["id"] == "sensor.kaputt"][0]
+            assert kaputt["state"] == "–", "unavailable muss als – erscheinen"
+
+        def t_ha_values():
+            st, d, _ = req("GET", "/api/ha/values?entities=sensor.wohnzimmer_temperatur,light.wohnzimmer_decke,unbekannt.x")
+            assert st == 200, st
+            assert d["ok"] is True, d
+            by = {v["id"]: v for v in d["values"]}
+            assert by["sensor.wohnzimmer_temperatur"]["state"] == "21.4"
+            assert by["light.wohnzimmer_decke"]["state"] == "on"
+            assert by["unbekannt.x"]["state"] == "–", "unbekannte Entitaet darf nicht fehlen"
+
+        def t_ha_wrong_token():
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            cfg["integrations"]["ha"]["token"] = ""
+            req("PUT", "/api/config", {"config": cfg})
+            # Token bleibt erhalten (leer = unveraendert) -> falsches Token explizit setzen
+            st, d, _ = req("PUT", "/api/config", {"config": {
+                "integrations": {"ha": {"url": f"http://127.0.0.1:{ha_port}", "token": "falsch"}}}})
+            st, d, _ = req("GET", "/api/ha/entities")
+            assert d["ok"] is False, d
+            assert "401" in str(d.get("error", "")), d.get("error")
+
+        def t_config_screensaver_and_entities():
+            st, d, _ = req("PUT", "/api/config", {"config": {
+                "screensaver": {"enabled": True, "minutes": 999, "variant": "starfield"},
+                "integrations": {"ha": {"url": "http://x", "entities": [
+                    "sensor.a", {"id": "light.b", "label": "Decke"}, "sensor.a", "kaputt", "Gross.Buchstabe"]}},
+            }})
+            assert st == 200, (st, d)
+            cfg = d["config"]
+            assert cfg["screensaver"]["minutes"] == 120, cfg["screensaver"]
+            assert cfg["screensaver"]["enabled"] is True
+            ents = [e["id"] for e in cfg["integrations"]["ha"]["entities"]]
+            assert ents == ["sensor.a", "light.b"], ents
+            assert cfg["integrations"]["ha"]["entities"][1]["label"] == "Decke"
+
         def t_icons():
             st, d, _ = req("GET", "/api/icons")
             assert st == 200, st
@@ -269,6 +375,11 @@ def main():
             ("fremde Sicherungsdatei wird abgelehnt", t_backup_wrong_kind),
             ("Selbsttest im Server ist gruen", t_selftest),
             ("Diagnose prueft Ordner und Glasshouse", t_diag),
+            ("Home-Assistant-Verbindung wird geprueft", t_ha_check),
+            ("HA-Entitaeten werden gefiltert und uebersetzt", t_ha_entities),
+            ("HA-Werte fuer die Kachel", t_ha_values),
+            ("falsches HA-Token wird gemeldet", t_ha_wrong_token),
+            ("Bildschirmschoner-Grenzen und Entitaets-Auswahl", t_config_screensaver_and_entities),
             ("Icon-Katalog und SVG-Auslieferung", t_icons),
             ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
             ("Neustart wird angenommen (202)", t_restart),
@@ -276,6 +387,7 @@ def main():
             check(name, fn)
 
     finally:
+        ha_server.shutdown()
         proc.send_signal(signal.SIGTERM)
         try:
             proc.wait(timeout=5)

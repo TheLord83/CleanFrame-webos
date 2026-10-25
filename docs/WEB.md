@@ -45,6 +45,8 @@ content type is delivered by the browser without a preflight.
 | GET | `/api/apps` | app catalogue: Glasshouse `/api/apps` plus built-in apps |
 | GET | `/api/diag` | readiness checks (config dir, root, Glasshouse, SSAP) |
 | POST | `/api/ha/check` | verify a Home Assistant URL/token against `/api/` |
+| GET | `/api/ha/entities` | entities that make sense on a tile (sensor, light, climate, …) |
+| GET | `/api/ha/values` | current values for the selected entities (`?entities=a.b,c.d`) |
 | GET | `/api/backup` | configuration as a download (`cleanframe-backup-<date>.json`) |
 | POST | `/api/backup` | import such a file |
 | GET | `/api/selftest` | built-in assertions about validation, redaction, storage |
@@ -74,6 +76,23 @@ the television always shows the original app name and icon.
 Validation lives on the server (`web/lib/config.js`), not in the interface:
 unknown languages fall back to `system`, entries without `appId` are dropped, and
 duplicate `appId`s are removed.
+
+## Home Assistant tile and screensaver
+
+`integrations.ha.entities` holds up to 12 entity ids (each optionally with a
+`label`); `/api/ha/values` returns name, state and unit for exactly those, which
+is what the tile renders. Only display-worthy domains are offered —
+`automation.*`, `zone.*` and similar are filtered out on the server, and
+`unavailable`/`unknown` render as `–`.
+
+`screensaver` controls the coupling to the TV screensaver:
+
+```json
+"screensaver": { "enabled": true, "minutes": 10, "variant": "starfield" }
+```
+
+`minutes` is clamped to 1…120. The launcher starts the screensaver after that
+idle time; `variant` empty means the Glasshouse default.
 
 ## Security model
 

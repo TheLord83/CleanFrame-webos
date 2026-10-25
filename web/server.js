@@ -31,6 +31,7 @@ var url = require('url');
 var config = require('./lib/config');
 var appCatalog = require('./lib/apps');
 var diag = require('./lib/diag');
+var ha = require('./lib/ha');
 
 var VERSION = '0.1.0';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
@@ -255,6 +256,18 @@ function handle(req, res) {
       var haToken = (body && body.token) || current.integrations.ha.token;
       diag.haCheck(haUrl, haToken, function (r) { json(res, 200, r); });
     });
+  }
+
+  if (req.method === 'GET' && p === '/api/ha/entities') {
+    var conf = store.read();
+    return ha.entities(conf.integrations.ha, function (r) { json(res, 200, r); });
+  }
+
+  if (req.method === 'GET' && p === '/api/ha/values') {
+    var conf2 = store.read();
+    var ids = String(q.entities || '').split(',').filter(Boolean);
+    if (!ids.length) ids = (conf2.integrations.ha.entities || []).map(function (e) { return e.id; });
+    return ha.values(conf2.integrations.ha, ids, function (r) { json(res, 200, r); });
   }
 
   if (req.method === 'GET' && p === '/api/backup') {
