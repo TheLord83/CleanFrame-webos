@@ -19,6 +19,7 @@ var PORT = parseInt(arg('port', '9333'), 10);
 var NEEDLE = arg('url', '');
 var EXPR = process.argv[2];
 var SHOT = arg('shot', '');
+var VIEWPORT = arg('viewport', '');
 
 function get(url, cb) {
   http.get(url, function (res) {
@@ -96,16 +97,31 @@ get('http://127.0.0.1:' + PORT + '/json/list', function (err, body) {
         console.log(typeof v === 'string' ? v : JSON.stringify(v));
       }
       if (!SHOT) { ws.close(); process.exit(0); return; }
-      /* Screenshot of the current state (--shot /path.png) */
-      var sid = ++id;
-      pending[sid] = function (r2) {
-        var data = (r2.result || {}).data || '';
-        require('fs').writeFileSync(SHOT, Buffer.from(data, 'base64'));
-        console.log('Screenshot: ' + SHOT);
-        ws.close();
-        process.exit(0);
+      /* Screenshot of the current state (--shot /path.png).
+       * With --viewport 1920x1080 the page is rendered at exactly that size, so the
+       * picture matches what a TV shows instead of the browser window. */
+      var shoot = function () {
+        var sid = ++id;
+        pending[sid] = function (r2) {
+          var data = (r2.result || {}).data || '';
+          require('fs').writeFileSync(SHOT, Buffer.from(data, 'base64'));
+          console.log('Screenshot: ' + SHOT);
+          ws.close();
+          process.exit(0);
+        };
+        ws.send({ id: sid, method: 'Page.captureScreenshot', params: { format: 'png' } });
       };
-      ws.send({ id: sid, method: 'Page.captureScreenshot', params: { format: 'png' } });
+      var dims = /^(\d+)x(\d+)$/.exec(VIEWPORT || '');
+      if (dims) {
+        var vid = ++id;
+        pending[vid] = function () { setTimeout(shoot, 600); };
+        ws.send({ id: vid, method: 'Emulation.setDeviceMetricsOverride', params: {
+          width: parseInt(dims[1], 10), height: parseInt(dims[2], 10),
+          deviceScaleFactor: 1, mobile: false
+        } });
+      } else {
+        shoot();
+      }
     };
     ws.send({ id: mid, method: 'Runtime.evaluate', params: { expression: EXPR, returnByValue: true, awaitPromise: true } });
   });

@@ -9,9 +9,15 @@ layout, focus logic, settings, wallpapers, materials — and replaces only the d
 `app/device.js` talks to [Glasshouse](https://github.com/rorygallagher2024/glasshouse) on the
 TV instead of the Tizen API.
 
-![Web interface](docs/img/webschnittstelle.png)
+![CleanFrame on a 43" LG TV: one photo, the clock, six tiles](docs/img/launcher.jpg)
 
-*The hub: every setting, a live picture of the TV and a remote control on one page.*
+*The start screen: one photo, the clock, the apps you actually use. Rendered at 1920×1080,
+no chrome from the TV around it.*
+
+![CleanFrame Hub: appearance settings with the wallpaper library](docs/img/hub.jpg)
+
+*The hub in the browser: every setting of the app, saved as you change it — plus a live
+picture of the TV and a remote control for the cases where walking to the TV is too far.*
 
 ## Two parts
 
@@ -23,6 +29,29 @@ TV instead of the Tizen API.
 The hub owns the configuration. The launcher reads it at start and re-reads it every two
 seconds, so a change made in the browser is visible on screen within seconds — no restart, no
 reinstall.
+
+## Why root?
+
+The **launcher** is a normal webOS app and runs without root. The **hub** does not: it lives
+in `/var/lib/cleanframe`, starts itself at boot and installs the launcher IPK, all of which
+needs a root shell. Root is also what lets the TV stay offline-update-free and what makes the
+live picture possible.
+
+Rooting uses a public exploit — no Developer Mode, no LG account, no service menu:
+
+```sh
+./tools/install.sh --root
+```
+
+That finds the TV on the network, serves the exploit through
+[SlopBro](https://github.com/throwaway96/slopbro), waits for the root shell, installs your SSH
+key, closes Telnet and blocks the LG update hosts. **One thing stays manual: accept the pairing
+prompt on the TV once.** Everything else is scripted, and the run is idempotent — on an
+already-rooted TV it says so and moves on.
+
+Which exploit works depends on model and firmware: check your TV on
+<https://cani.rootmy.tv> first. If the firmware is newer than the exploit, no root — and a
+downgrade is out of scope here. Details and the manual path: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Features
 
@@ -45,19 +74,25 @@ reinstall.
 ## Install
 
 ```sh
-./tools/install.sh <tv-ip>          # Linux and macOS
-.\tools\install.ps1 -Tv <tv-ip>     # Windows PowerShell
+./tools/install.sh                  # Linux and macOS: finds the TV itself
+./tools/install.sh --root           # same, but root it first
+.\tools\install.ps1                # Windows PowerShell
 ```
 
-One command puts both parts on the TV: it builds the IPK, uploads it through
-Glasshouse's installer, sets up the hub with autostart, then proves the result — the
-hub answers on port 8484, the app is in the catalogue, and the hub can take a picture
-of the launcher. `--dry-run` (`-DryRun`) only detects, checks and prints the plan.
+The address is **optional**: the script searches the local network (SSDP plus a port scan,
+verified by a real SSAP handshake) and takes the only TV it finds. Pass an address only when
+there are several: `./tools/install.sh 192.168.1.50`.
+
+One run puts both parts on the TV: it builds the IPK, uploads it through Glasshouse's
+installer, sets up the hub with autostart, then proves the result — the hub answers on port
+8484, the app is in the catalogue, and the hub can take a picture of the launcher. `--dry-run`
+(`-DryRun`) only detects, checks and prints the plan; `--info` prints model, webOS version and
+node version.
 
 The hub then answers on `http://<tv-ip>:8484/`. On the TV the service is controlled
 with `/var/lib/cleanframe/cleanframectl status`.
 
-Rooting the TV cannot be automated — it needs the remote control. Step by step in
+Rooting is scripted too (`--root`); what stays is one pairing prompt on the TV. Step by step in
 [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Build and test

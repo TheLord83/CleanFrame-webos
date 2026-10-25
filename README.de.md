@@ -10,9 +10,15 @@ den Originalcode — Oberfläche, Fokus-Logik, Einstellungen, Wandbilder, Materi
 ersetzt nur die Geräteanbindung: `app/device.js` spricht den lokal auf dem Fernseher laufenden
 [Glasshouse](https://github.com/rorygallagher2024/glasshouse)-Server an.
 
-![Web-Oberfläche](docs/img/webschnittstelle.png)
+![CleanFrame auf einem 43-Zoll-LG: ein Foto, die Uhr, sechs Kacheln](docs/img/launcher.jpg)
 
-*Der Hub: alle Einstellungen, ein Live-Bild des Fernsehers und eine Fernbedienung auf einer Seite.*
+*Die Startseite: ein Foto, die Uhr, die Apps, die wirklich benutzt werden. Gerendert in
+1920×1080, ohne Fernseh-Rahmen.*
+
+![CleanFrame Hub: Darstellung mit der Wandbild-Bibliothek](docs/img/hub.jpg)
+
+*Der Hub im Browser: jede Einstellung der App, gespeichert beim Ändern — dazu ein Live-Bild
+des Fernsehers und eine Fernbedienung für die Fälle, in denen der Weg zum Sofa zu weit ist.*
 
 ## Zwei Teile
 
@@ -24,6 +30,31 @@ ersetzt nur die Geräteanbindung: `app/device.js` spricht den lokal auf dem Fern
 Der Hub ist die maßgebliche Quelle der Konfiguration. Der Launcher liest sie beim Start und
 holt sie danach alle zwei Sekunden neu — eine Änderung im Browser ist deshalb in Sekunden auf
 dem Bildschirm, ohne Neustart und ohne Neuinstallation.
+
+## Warum Root?
+
+Der **Launcher** ist eine normale webOS-App und läuft ohne Root. Der **Hub** nicht: er liegt in
+`/var/lib/cleanframe`, startet sich beim Booten selbst und installiert das Launcher-IPK — dafür
+braucht es eine Root-Shell. Root ist außerdem die Voraussetzung dafür, dass der Fernseher keine
+Updates mehr zieht, und für das Live-Bild.
+
+Gerootet wird über einen öffentlichen Exploit — kein Developer Mode, kein LG-Konto, kein
+Service-Menü:
+
+```sh
+./tools/install.sh --root
+```
+
+Das findet den Fernseher im Netz, liefert den Exploit über
+[SlopBro](https://github.com/throwaway96/slopbro) aus, wartet auf die Root-Shell, hinterlegt
+deinen SSH-Schlüssel, schließt Telnet und sperrt die LG-Update-Hosts. **Ein Schritt bleibt
+Handarbeit: einmal den Kopplungsdialog am Fernseher bestätigen.** Alles andere läuft im Script,
+und ein zweiter Lauf ist harmlos — auf einem gerooteten Gerät sagt es das und macht weiter.
+
+Welcher Exploit greift, hängt von Modell und Firmware ab: vorher auf
+<https://cani.rootmy.tv> nachsehen. Ist die Firmware neuer als der Exploit, gibt es kein Root —
+und ein Downgrade ist hier kein Thema. Einzelheiten und der Weg von Hand:
+[docs/INSTALL.md](docs/INSTALL.md).
 
 ## Umfang
 
@@ -47,9 +78,14 @@ dem Bildschirm, ohne Neustart und ohne Neuinstallation.
 ## Installieren
 
 ```sh
-./tools/install.sh <tv-ip>          # Linux und macOS
-.\tools\install.ps1 -Tv <tv-ip>     # Windows (PowerShell)
+./tools/install.sh                  # Linux und macOS: findet den Fernseher selbst
+./tools/install.sh --root           # dasselbe, aber vorher rooten
+.\tools\install.ps1                # Windows (PowerShell)
 ```
+
+Die Adresse ist **optional**: das Script sucht im lokalen Netz (SSDP plus Portscan, geprüft
+über einen echten SSAP-Handshake) und nimmt den einzigen Fernseher, den es findet. Eine Adresse
+nur angeben, wenn mehrere Geräte in Frage kommen: `./tools/install.sh 192.168.1.50`.
 
 Ein Befehl bringt beide Teile auf den Fernseher: baut das IPK, laedt es ueber den
 Installer von Glasshouse hoch, richtet den Hub mit Autostart ein und belegt danach das

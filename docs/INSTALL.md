@@ -89,15 +89,17 @@ picture and remote control, so do **not** block `lo`.
 Linux / macOS:
 
 ```sh
-./tools/install.sh 192.168.1.50
-./tools/install.sh 192.168.1.50 --lang de
-./tools/install.sh 192.168.1.50 --dry-run        # detect and check only
+./tools/install.sh                               # finds the TV by itself
+./tools/install.sh --root                        # same, but root it first
+./tools/install.sh 192.168.1.50 --lang de         # explicit address, German prompts
+./tools/install.sh --dry-run                      # detect and check only
 ```
 
 Windows (PowerShell):
 
 ```powershell
-.\tools\install.ps1 -Tv 192.168.1.50
+.\tools\install.ps1                              # finds the TV by itself
+.\tools\install.ps1 -Root                        # same, but root it first
 .\tools\install.ps1 -Tv 192.168.1.50 -Lang de -DryRun
 ```
 
@@ -106,7 +108,10 @@ verify → report**. Nothing is written before the single confirmation dialog. O
 
 | Option (bash / PowerShell) | Meaning |
 | --- | --- |
-| `--tv <ip>` / `-Tv <ip>` | address of the TV (or first positional argument) |
+| *(no argument)* | find the TV: SSDP plus a /24 port scan, verified by an SSAP handshake |
+| `--tv <ip>` / `-Tv <ip>` | skip the search and use this address (or first positional argument) |
+| `--root` / `-Root` | root the TV first (SlopBro, one pairing prompt), then continue |
+| `--info` / `-Info` | print model, webOS version and node version |
 | `--ipk <file>` / `-Ipk <file>` | use this IPK instead of building one |
 | `--lang en\|de` / `-Lang en\|de` | prompts in English (default) or German |
 | `--no-launcher` / `-NoLauncher` | only set up the hub |
@@ -119,7 +124,7 @@ The installer ends with three proofs: the hub answers on port 8484, the app id s
 up in the app list, and the hub can take a picture of the launcher (which means it
 is really on screen, not just installed).
 
-## Step 2 — what was installed
+### What was installed
 
 | Path | Content |
 | --- | --- |
@@ -141,12 +146,13 @@ ssh root@<tv-ip> '/var/lib/cleanframe/cleanframectl logs'      # last 40 lines
 Then open `http://<tv-ip>:8484/`. Everything in the interface is saved automatically
 after 350 ms and shows up on the TV within about two seconds.
 
-## Step 3 — first start
+## Step 2 — first start
 
-1. Open the hub, tab **Startseite**, and put your apps on the home screen: name, icon,
+1. Open the hub, tab **Home screen**, and put your apps on the start screen: name, icon,
    order. The catalogue contains installed apps, HDMI inputs and system apps.
-2. Tab **Darstellung**: wallpaper, layout, clock, language, senior mode.
-3. Tab **System**: start the setup wizard again, take a backup of the configuration.
+2. Tab **Appearance**: wallpaper, layout, clock, language, senior mode.
+3. Tab **Integrations**: Home Assistant URL and token, MQTT broker.
+4. Tab **System**: run the setup wizard again, take a backup of the configuration.
 
 The launcher reads the configuration from the hub at start and every two seconds.
 Without the hub it starts with the embedded defaults — the hub is the convenience,

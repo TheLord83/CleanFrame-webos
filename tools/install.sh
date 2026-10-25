@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 # install.sh — put CleanFrame (launcher) and CleanFrame Hub (configuration server)
-# on a rooted LG TV running webOS 6 or newer.
+# on an LG TV running webOS 6 or newer. Roots it first if you ask for it.
 #
-#   ./tools/install.sh 192.168.1.50              # launcher + hub, asks once
-#   ./tools/install.sh 192.168.1.50 --dry-run    # detect and check only, changes nothing
-#   ./tools/install.sh 192.168.1.50 --lang de    # German prompts
-#   ./tools/install.sh --tv 192.168.1.50 --ipk dist/cleanframe_all.ipk --yes
+#   ./tools/install.sh                   # find the TV, install launcher + hub
+#   ./tools/install.sh --root            # same, but root the TV first (SlopBro)
+#   ./tools/install.sh --info            # just report model, webOS, node, root
+#   ./tools/install.sh --dry-run         # detect and check only, change nothing
+#   ./tools/install.sh --lang de         # German prompts
+#   ./tools/install.sh 192.168.1.50      # explicit address instead of the search
 #
-# Flow: detect -> check -> plan -> confirm -> install -> verify -> report.
-# What it cannot do is written down in docs/INSTALL.md: the rooting itself needs a
-# person with the remote control. Everything after that is handled here.
+# Flow: (find) -> (info) -> (root) -> check -> plan -> confirm -> install -> verify
+# -> report. Every stage is skipped when it is already done.
 #
-# Requires: bash, ssh, scp, python3. No other software, no npm, no luna-send
-# (luna-send does not work from the webOS shell on 6.5).
+# Requires: bash, ssh, scp, python3. Rooting additionally uses SlopBro (fetched from
+# GitHub on demand). No npm, no luna-send (luna-send does not work from the webOS
+# shell on 6.5).
+#
 set -uo pipefail
 
 TV="${TV:-}"
@@ -30,7 +33,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 APPID_DEFAULT="com.blackpearl.cleanframe"
 
-usage() { sed -n '2,16p' "$0"; exit 0; }
+usage() { sed -n '2,18p' "$0"; exit 0; }
 
 while [ $# -gt 0 ]; do
   case "$1" in

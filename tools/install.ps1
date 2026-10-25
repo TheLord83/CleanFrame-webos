@@ -26,13 +26,17 @@ param(
   [switch]$DryRun,
   [switch]$Yes,
   [switch]$NoLauncher,
-  [switch]$NoHub
+  [switch]$NoHub,
+  [switch]$Root,
+  [switch]$Info,
+  [string]$SshKey
 )
 
 $ErrorActionPreference = 'Stop'
 $AppIdDefault = 'com.blackpearl.cleanframe'
-$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$Tools = Join-Path $Root 'tools'
+# The switch -Root must stay a switch: the repo root gets its own variable.
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$Tools = Join-Path $RepoRoot 'tools'
 
 # ---- texts -------------------------------------------------------------------
 $Text = @{
@@ -63,6 +67,19 @@ $Text = @{
     report        = '==> Result'
     dry           = '(dry run: nothing was changed)'
     need_ssh      = 'ERROR: ssh/scp not found. Install the OpenSSH client (Windows optional feature).'
+    need_python   = 'ERROR: python3 not found. Rooting and the network search use the upstream Python tools.'
+    find          = '==> Looking for a TV on the network'
+    find_one      = '    found: {0}'
+    find_many     = '    several candidates - pick one with -Tv <ip>:'
+    find_none     = 'ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md'
+    info          = '==> State of the TV'
+    root_stage    = '==> Rooting (SlopBro)'
+    root_skip     = '    already rooted, SSH works'
+    root_pair     = '    A pairing prompt will appear on the TV - accept it with the remote.'
+    root_wait     = '    waiting for the root shell (Telnet 23) ...'
+    root_timeout  = 'ERROR: no root shell. Check the SlopBro output above.'
+    root_setup    = '==> Installing the SSH key, closing Telnet, blocking updates'
+    key_missing   = 'ERROR: public key not found: {0} (pass -SshKey)'
   }
   de = @{
     need_tv       = 'Aufruf: install.ps1 -Tv <ip> [-Lang de] [-DryRun]'
@@ -91,6 +108,19 @@ $Text = @{
     report        = '==> Ergebnis'
     dry           = '(Probelauf: nichts wurde veraendert)'
     need_ssh      = 'FEHLER: ssh/scp nicht gefunden. OpenSSH-Client als Windows-Feature nachinstallieren.'
+    need_python   = 'FEHLER: python3 nicht gefunden. Rooten und Netzweite Suche nutzen die Python-Werkzeuge.'
+    find          = '==> Fernseher im Netz suchen'
+    find_one      = '    gefunden: {0}'
+    find_many     = '    mehrere Kandidaten - mit -Tv <ip> auswaehlen:'
+    find_none     = 'FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md'
+    info          = '==> Zustand des Fernsehers'
+    root_stage    = '==> Rooten (SlopBro)'
+    root_skip     = '    schon gerootet, SSH funktioniert'
+    root_pair     = '    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen.'
+    root_wait     = '    warte auf die Root-Shell (Telnet 23) ...'
+    root_timeout  = 'FEHLER: keine Root-Shell bekommen. SlopBro-Ausgabe oben pruefen.'
+    root_setup    = '==> SSH-Schluessel setzen, Telnet schliessen, Updates sperren'
+    key_missing   = 'FEHLER: oeffentlicher Schluessel fehlt: {0} (mit -SshKey angeben)'
   }
 }
 
@@ -109,7 +139,38 @@ function Fail { param([string]$Message) Write-Error $Message; exit 1 }
 foreach ($tool in 'ssh', 'scp') {
   if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Fail (T 'need_ssh') }
 }
-if (-not $Tv) { Say (T 'need_tv'); exit 2 }
+# Rooting uses the upstream tools, and those are Python (SlopBro has no other
+# implementation). Same for discovery, so a Windows box needs Python 3 on PATH.
+function Get-Python {
+  foreach ($candidate in 'python3', 'python') {
+    $found = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($found) { return $found.Source }
+  }
+  return $null
+}
+
+$Python = Get-Python
+
+# ---- 0. find the TV when no address was given --------------------------------
+if (-not $Tv) {
+  if (-not $Python) { Fail (T 'need_python') }
+  Say (T 'find')
+  $json = & $Python (Join-Path $Tools 'discover.py') --json 2>$null | Out-String
+  $found = $null
+  try { $found = ($json | ConvertFrom-Json).hosts } catch { $found = $null }
+  $count = if ($found) { @($found).Count } else { 0 }
+  if ($count -eq 0) { Fail (T 'find_none') }
+  if ($count -eq 1) {
+    $Tv = @($found)[0].ip
+    Say (T 'find_one' @($Tv))
+  } else {
+    Say (T 'find_many')
+    foreach ($host in $found) {
+      Say ("      {0,-15} {1}" -f $host.ip, ($host.name + ' ' + $host.model).Trim())
+    }
+    exit 2
+  }
+}
 
 $sshBase = @('-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=8', '-o', 'BatchMode=yes', "root@$Tv")
 
@@ -122,10 +183,64 @@ function Test-Port {
   } catch { return $false } finally { $client.Dispose() }
 }
 
+# ---- state / root ------------------------------------------------------------
+if ($Info) {
+  Say (T 'info')
+  if (Test-Port 22) {
+    & ssh @sshBase 'echo model: $(grep -o "\"modelName\"[^,]*" /var/run/nyx/os_info.json | head -1); echo webos: $(grep -o "\"webos_name\"[^,]*" /var/run/nyx/os_info.json | head -1); echo node: $(/usr/bin/node -v)'
+    Say ("    rooted: yes")
+  } else {
+    Say ("    rooted: no")
+  }
+}
+
+if ($Root) {
+  Say (T 'root_stage')
+  if (Test-Port 22) {
+    Say (T 'root_skip')
+  } else {
+    if (-not $Python) { Fail (T 'need_python') }
+    # LOCALAPPDATA exists on Windows only; fall back so the script also runs on Linux/macOS
+    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path $HOME '.cache' }
+    $SlopBro = Join-Path $base 'cleanframe/slopbro'
+    if (-not (Test-Path (Join-Path $SlopBro 'slopbro.py'))) {
+      Say ("    fetching SlopBro into $SlopBro")
+      New-Item -ItemType Directory -Force -Path (Split-Path $SlopBro) | Out-Null
+      & git clone --depth 1 https://github.com/throwaway96/slopbro.git $SlopBro
+      if (-not (Test-Path (Join-Path $SlopBro 'slopbro.py'))) { Fail 'could not fetch SlopBro (git missing?)' }
+    }
+    Say (T 'root_pair')
+    if ($DryRun) {
+      Say ("    [dry run] $Python " + (Join-Path $SlopBro "slopbro.py") + " $Tv")
+    } else {
+      Push-Location $SlopBro
+      try { & $Python 'slopbro.py' $Tv } finally { Pop-Location }
+      Say (T 'root_wait')
+      $up = $false
+      foreach ($i in 1..60) {
+        if ((Test-Port 23) -or (Test-Port 22)) { $up = $true; break }
+        Start-Sleep -Seconds 3
+      }
+      if (-not $up) { Fail (T 'root_timeout') }
+    }
+    Say (T 'root_setup')
+    if (-not $SshKey) {
+      foreach ($candidate in (Join-Path $HOME '.ssh\lgtv.pub'), (Join-Path $HOME '.ssh\id_ed25519.pub'), (Join-Path $HOME '.ssh\id_rsa.pub')) {
+        if (Test-Path $candidate) { $SshKey = $candidate; break }
+      }
+    }
+    if (-not $SshKey -or -not (Test-Path $SshKey)) { Fail (T 'key_missing' @('~/.ssh/lgtv.pub')) }
+    $argv = @((Join-Path $Tools 'tvsetup.py'), '--tv', $Tv, '--key', $SshKey)
+    if ($DryRun) { $argv += '--dry-run' }
+    & $Python @argv
+    if ($LASTEXITCODE -ne 0) { Fail 'SSH key or Telnet step failed' }
+  }
+}
+
 # ---- IPK ---------------------------------------------------------------------
 if (-not $NoLauncher) {
   if (-not $Ipk) {
-    foreach ($candidate in (Join-Path $Root 'dist\cleanframe_all.ipk'), (Join-Path $Root 'ipk\cleanframe_all.ipk')) {
+    foreach ($candidate in (Join-Path $RepoRoot 'dist\cleanframe_all.ipk'), (Join-Path $RepoRoot 'ipk\cleanframe_all.ipk')) {
       if (Test-Path $candidate) { $Ipk = $candidate; break }
     }
   }
@@ -136,6 +251,7 @@ if (-not $NoLauncher) {
 Say (T 'detect')
 if (-not (Test-Port 22)) {
   Say (T 'tv_off')
+  if ($DryRun) { Say ''; Say (T 'dry'); exit 0 }
   Fail (T 'no_ssh' @($Tv))
 }
 Say (T 'tv_on')
@@ -203,22 +319,22 @@ if (-not $NoHub) {
   Say (T 'hub')
   # scp needs forward slashes on the remote side
   & ssh @sshBase 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets /var/lib/webosbrew/init.d'
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\server.js') "root@$($Tv):/var/lib/cleanframe/server.js"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\server.js') "root@$($Tv):/var/lib/cleanframe/server.js"
   # scp expands no wildcards by itself - the file list has to come from PowerShell.
-  $libFiles = Get-ChildItem -Path (Join-Path $Root 'web\lib') -Filter '*.js' | ForEach-Object { $_.FullName }
+  $libFiles = Get-ChildItem -Path (Join-Path $RepoRoot 'web\lib') -Filter '*.js' | ForEach-Object { $_.FullName }
   # -Include only works together with a wildcard path
   $assetFiles = @(
-    Get-ChildItem -Path (Join-Path $Root 'web\assets\*') -Include '*.html', '*.json' -File |
+    Get-ChildItem -Path (Join-Path $RepoRoot 'web\assets\*') -Include '*.html', '*.json' -File |
       ForEach-Object { $_.FullName }
   )
   if ($assetFiles.Count -eq 0) { Fail 'ERROR: no hub assets found under web/assets' }
   & scp -q -o StrictHostKeyChecking=no $libFiles "root@$($Tv):/var/lib/cleanframe/lib/"
   & scp -q -o StrictHostKeyChecking=no $assetFiles "root@$($Tv):/var/lib/cleanframe/assets/"
-  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\assets\icons') "root@$($Tv):/var/lib/cleanframe/assets/"
+  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\assets\icons') "root@$($Tv):/var/lib/cleanframe/assets/"
   # Language files live in their own directory; without them the interface shows keys.
-  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\assets\lang') "root@$($Tv):/var/lib/cleanframe/assets/"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\cleanframectl') "root@$($Tv):/var/lib/cleanframe/cleanframectl"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\init.d\52-cleanframe') "root@$($Tv):/var/lib/webosbrew/init.d/52-cleanframe"
+  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\assets\lang') "root@$($Tv):/var/lib/cleanframe/assets/"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\cleanframectl') "root@$($Tv):/var/lib/cleanframe/cleanframectl"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\init.d\52-cleanframe') "root@$($Tv):/var/lib/webosbrew/init.d/52-cleanframe"
   & ssh @sshBase 'chmod +x /var/lib/cleanframe/cleanframectl /var/lib/webosbrew/init.d/52-cleanframe; /var/lib/cleanframe/cleanframectl restart'
 }
 
