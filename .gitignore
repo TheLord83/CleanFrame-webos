@@ -1,5 +1,9 @@
-# gebaute Pakete und Quellpakete bleiben lokal
+# Build-Artefakte und lokale Reste
 *.ipk
-ipk/
 dist/
-.packageinfo.json
+node_modules/
+*.log
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
