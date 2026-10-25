@@ -28,6 +28,7 @@ param(
   [switch]$NoLauncher,
   [switch]$NoHub,
   [switch]$Root,
+  [switch]$NoRoot,
   [switch]$Info,
   [string]$SshKey
 )
@@ -73,6 +74,12 @@ $Text = @{
     find_many     = '    several candidates - pick one with -Tv <ip>:'
     find_none     = 'ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md'
     info          = '==> State of the TV'
+    root_check    = '==> Checking root'
+    root_ok       = '    root: yes, SSH answers'
+    root_missing  = '    root: no, no root shell answers'
+    root_offer    = 'Root it now? The launcher works without root, the hub needs it. [Y/n]'
+    root_declined = '    without root: hub skipped, launcher only'
+    root_no_root  = '    -NoRoot given: hub skipped'
     root_stage    = '==> Rooting (SlopBro)'
     root_skip     = '    already rooted, SSH works'
     root_pair     = '    A pairing prompt will appear on the TV - accept it with the remote.'
@@ -114,6 +121,12 @@ $Text = @{
     find_many     = '    mehrere Kandidaten - mit -Tv <ip> auswaehlen:'
     find_none     = 'FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md'
     info          = '==> Zustand des Fernsehers'
+    root_check    = '==> Root pruefen'
+    root_ok       = '    root: ja, SSH antwortet'
+    root_missing  = '    root: nein, es antwortet keine Root-Shell'
+    root_offer    = 'Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]'
+    root_declined = '    ohne root: Hub wird uebersprungen, Launcher wird installiert'
+    root_no_root  = '    -NoRoot gesetzt: Hub wird uebersprungen'
     root_stage    = '==> Rooten (SlopBro)'
     root_skip     = '    schon gerootet, SSH funktioniert'
     root_pair     = '    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen.'
@@ -194,11 +207,33 @@ if ($Info) {
   }
 }
 
-if ($Root) {
-  Say (T 'root_stage')
-  if (Test-Port 22) {
-    Say (T 'root_skip')
+Say (T 'root_check')
+$rooted = $false
+if (Test-Port 22) {
+  $uid = (& ssh @sshBase 'id -u' 2>$null | Out-String).Trim()
+  if ($uid -eq '0') { $rooted = $true }
+}
+
+if ($rooted) {
+  Say (T 'root_ok')
+} else {
+  Say (T 'root_missing')
+  $rootNow = $false
+  if ($NoRoot) {
+    Say (T 'root_no_root')
+    $NoHub = $true
+  } elseif ($Root -or $Yes) {
+    $rootNow = $true
   } else {
+    $answer = Read-Host (T 'root_offer')
+    if ($answer -notmatch '^(n|no|nein)$') { $rootNow = $true }
+  }
+  if (-not $rootNow -and -not $NoRoot) {
+    Say (T 'root_declined')
+    $NoHub = $true
+  }
+  if ($rootNow) {
+    Say (T 'root_stage')
     if (-not $Python) { Fail (T 'need_python') }
     # LOCALAPPDATA exists on Windows only; fall back so the script also runs on Linux/macOS
     $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path $HOME '.cache' }

@@ -136,6 +136,10 @@ PS> .\tools\install.ps1 -DryRun
 
 ### What it does in both cases
 
+It starts by asking the TV whether it already has a root shell. If not, it offers to root it
+(`Root it now? [Y/n]`) — the launcher runs without root, the hub does not, so with `n` (or
+`--no-root` / `-NoRoot`) it installs the launcher only and says that the hub was skipped.
+
 The address is **optional**: the script searches the local network (SSDP plus a port
 scan, verified by a real SSAP handshake) and takes the only TV it finds. Pass an address
 only when there are several: `./tools/install.sh 192.168.1.50` (`-Tv 192.168.1.50` on

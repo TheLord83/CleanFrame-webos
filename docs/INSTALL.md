@@ -155,19 +155,42 @@ install → verify → report**. Nothing is written before the single confirmati
 every stage is skipped when it is already done — on a running hub, on an already rooted TV,
 on an existing IPK.
 
-| Option (bash / PowerShell) | Meaning |
-| --- | --- |
-| *(no argument)* | find the TV: SSDP plus a /24 port scan, verified by an SSAP handshake |
-| `--tv <ip>` / `-Tv <ip>` | skip the search and use this address (or first positional argument) |
-| `--root` / `-Root` | root the TV first (SlopBro, one pairing prompt), then continue |
-| `--info` / `-Info` | print model, webOS version and node version |
-| `--ipk <file>` / `-Ipk <file>` | use this IPK instead of building one |
-| `--lang en\|de` / `-Lang en\|de` | prompts in English (default) or German |
-| `--no-launcher` / `-NoLauncher` | only set up the hub |
-| `--no-hub` / `-NoHub` | only install the launcher |
-| `--dry-run` / `-DryRun` | detect, check and print the plan, change nothing |
-| `--yes` / `-Yes` | skip the confirmation (for scripts) |
-| `--wake` | send Wake-on-LAN if port 22 is closed (bash only) |
+| What you want | Linux and macOS | Windows (PowerShell) |
+| --- | --- | --- |
+| find the TV automatically | *(no argument)* | *(no argument)* |
+| use a known address | `--tv 192.168.1.50` | `-Tv 192.168.1.50` |
+| root the TV without asking | `--root` | `-Root` |
+| do not root, launcher only | `--no-root` | `-NoRoot` |
+| report model, webOS, node | `--info` | `-Info` |
+| use an existing IPK | `--ipk <file>` | `-Ipk <file>` |
+| German prompts | `--lang de` | `-Lang de` |
+| launcher only | `--no-launcher` | `-NoLauncher` |
+| hub only | `--no-hub` | `-NoHub` |
+| detect and plan only | `--dry-run` | `-DryRun` |
+| no confirmation dialog | `--yes` | `-Yes` |
+| send Wake-on-LAN first | `--wake` | *(wake the TV by hand)* |
+| your own SSH public key | `--ssh-key <file.pub>` | `-SshKey <file.pub>` |
+
+The two columns differ only in the spelling that each shell expects: `--name` in a POSIX
+shell, `-Name` in PowerShell (single dash, parameter names are case-insensitive, so `-tv`
+works as well). Nothing behaves differently.
+
+### Root is checked, not assumed
+
+The first thing the installer does is ask the TV whether it already has a root shell
+(`ssh root@<tv> id -u`). Then:
+
+- **root works** → it says so and goes on.
+- **no root** → it offers to root the TV (`Root it now? [Y/n]`), because the launcher runs
+  without root but the hub does not. Answer `n` (or pass `--no-root` / `-NoRoot`) and it
+  installs the launcher only and says that the hub was skipped.
+
+### TV in another network?
+
+The installer must run in the same network as the TV (SSDP, SSAP, SSH, and it serves the
+exploit page itself). If your machine is somewhere else — a TV at a relative's flat, say —
+use the container in [../tools/container/](../tools/container/README.md): Debian slim with
+`python3`, `openssh-client`, `curl` and `git`, the repo mounted in, `--network host`.
 
 The installer ends with three proofs: the hub answers on port 8484, the app id shows up in
 the app list, and the hub can take a picture of the launcher (which means it is really on

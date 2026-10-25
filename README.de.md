@@ -140,6 +140,11 @@ PS> .\tools\install.ps1 -DryRun
 
 ### Was in beiden Fällen passiert
 
+Zuerst fragt es den Fernseher, ob er schon eine Root-Shell hat. Wenn nicht, bietet es das
+Rooten an (`Jetzt rooten? [J/n]`) — der Launcher läuft ohne root, der Hub nicht. Mit `n`
+(oder `--no-root` / `-NoRoot`) installiert es nur den Launcher und sagt, dass der Hub
+übersprungen wurde.
+
 Die Adresse ist **optional**: das Script sucht im lokalen Netz (SSDP plus Portscan, geprüft
 über einen echten SSAP-Handshake) und nimmt den einzigen Fernseher, den es findet. Eine
 Adresse nur angeben, wenn mehrere Geräte in Frage kommen: `./tools/install.sh 192.168.1.50`

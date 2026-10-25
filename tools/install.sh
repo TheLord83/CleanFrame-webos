@@ -24,6 +24,7 @@ LANG_CODE="${CF_LANG:-en}"
 DO_LAUNCHER=1
 DO_HUB=1
 DO_ROOT=0
+NO_ROOT=0
 DO_INFO=0
 SSH_KEY="${CF_SSH_KEY:-}"
 DRY=0
@@ -41,6 +42,7 @@ while [ $# -gt 0 ]; do
     --ipk)         IPK="${2:-}"; shift 2 ;;
     --lang)        LANG_CODE="${2:-en}"; shift 2 ;;
     --root)        DO_ROOT=1; shift ;;
+    --no-root)     NO_ROOT=1; shift ;;
     --info)        DO_INFO=1; shift ;;
     --ssh-key)     SSH_KEY="${2:-}"; shift 2 ;;
     --no-launcher) DO_LAUNCHER=0; shift ;;
@@ -75,6 +77,12 @@ t() {
       root_wait)     echo "    warte auf die Root-Shell (Telnet 23) ..." ;;
       root_timeout)  echo "FEHLER: keine Root-Shell bekommen. SlopBro-Log oben pruefen (falsche webOS-Version?)." ;;
       root_setup)    echo "==> SSH-Schluessel setzen, Telnet schliessen, Updates sperren" ;;
+      root_check)    echo "==> Root pruefen" ;;
+      root_ok)       echo "    root: ja, SSH antwortet" ;;
+      root_missing)  echo "    root: nein, es antwortet keine Root-Shell" ;;
+      root_offer)    echo "Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]" ;;
+      root_declined) echo "    ohne root: Hub wird uebersprungen, Launcher wird installiert" ;;
+      root_no_root)  echo "    --no-root gesetzt: Hub wird uebersprungen" ;;
       key_missing)   echo "FEHLER: oeffentlicher Schluessel fehlt: %s (mit --ssh-key angeben)" ;;
       detect)        echo "==> Fernseher suchen" ;;
       tv_off)        echo "    Port 22 zu. Fernseher im Standby? Mit --wake wecken." ;;
@@ -119,6 +127,12 @@ t() {
       root_wait)     echo "    waiting for the root shell (Telnet 23) ..." ;;
       root_timeout)  echo "ERROR: no root shell. Check the SlopBro output above (wrong webOS version?)." ;;
       root_setup)    echo "==> Installing the SSH key, closing Telnet, blocking updates" ;;
+      root_check)    echo "==> Checking root" ;;
+      root_ok)       echo "    root: yes, SSH answers" ;;
+      root_missing)  echo "    root: no, no root shell answers" ;;
+      root_offer)    echo "Root it now? The launcher works without root, the hub needs it. [Y/n]" ;;
+      root_declined) echo "    without root: hub skipped, launcher only" ;;
+      root_no_root)  echo "    --no-root given: hub skipped" ;;
       key_missing)   echo "ERROR: public key not found: %s (pass --ssh-key)" ;;
       detect)        echo "==> Looking for the TV" ;;
       tv_off)        echo "    port 22 closed. TV in standby? Use --wake." ;;
@@ -167,7 +181,16 @@ if [ -z "$TV" ]; then
 try: print(len(json.load(sys.stdin).get("hosts", [])))
 except Exception: print(0)' 2>/dev/null)"
   case "${COUNT:-0}" in
-    0) fail "$(t find_none)" ;;
+    0) printf '%s' "$DISC" | python3 -c '
+import json, sys
+try:
+    rejected = json.load(sys.stdin).get("rejected", [])
+except Exception:
+    rejected = []
+for host in rejected:
+    print("    %-15s %s (not a TV)" % (host["ip"], host.get("name") or host.get("model") or "?"))
+' 2>/dev/null
+       fail "$(t find_none)" ;;
     1) TV="$(printf '%s' "$DISC" | python3 -c 'import json,sys;print(json.load(sys.stdin)["hosts"][0]["ip"])')"
        say "$(printf "$(t find_one)" "$TV")" ;;
     *) say "$(t find_many)"
@@ -196,48 +219,77 @@ echo "rooted:  yes"; true' 2>/dev/null || true
   fi
 fi
 
-# ---- root the TV (SlopBro does the work, one press on the remote) -----------
-if [ "$DO_ROOT" = "1" ]; then
-  say "$(t root_stage)"
-  if tcp 22; then
-    say "$(t root_skip)"
+# ---- root: check first, offer to root only when it is missing ---------------
+# The launcher does not need root, the hub does. So nobody should have to know
+# that before the run: the script asks.
+is_rooted() {
+  tcp 22 || return 1
+  [ "$("${SSH[@]}" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
+}
+
+ROOT_IT=0
+say "$(t root_check)"
+if is_rooted; then
+  say "$(t root_ok)"
+elif [ "$NO_ROOT" = "1" ]; then
+  say "$(t root_missing)"
+  say "$(t root_no_root)"
+  DO_HUB=0
+elif [ "$DO_ROOT" = "1" ]; then
+  say "$(t root_missing)"
+  ROOT_IT=1
+else
+  say "$(t root_missing)"
+  printf '%s ' "$(t root_offer)"
+  if [ -n "${CF_ANSWER:-}" ]; then
+    antwort="$CF_ANSWER"
   else
-    say "$(t root_need_tv)"
-    say "$(t root_pair)"
-    SB="${CF_SLOPBRO:-}"
-    if [ -z "$SB" ]; then
-      for candidate in "$HOME/.cache/cleanframe/slopbro" /root/lgtv-prep/slopbro; do
-        [ -f "$candidate/slopbro.py" ] && SB="$candidate" && break
-      done
-    fi
-    if [ -z "$SB" ]; then
-      SB="$HOME/.cache/cleanframe/slopbro"
-      mkdir -p "$HOME/.cache/cleanframe"
-      say "    fetching SlopBro into $SB"
-      git clone -q --depth 1 https://github.com/throwaway96/slopbro.git "$SB" \
-        || fail "could not fetch SlopBro (no git or no network)"
-    fi
+    read -r antwort </dev/tty || antwort="y"
+  fi
+  printf '\n'
+  case "$antwort" in
+    n|N|no|nein) say "$(t root_declined)"; DO_HUB=0 ;;
+    *) ROOT_IT=1 ;;
+  esac
+fi
+
+if [ "$ROOT_IT" = "1" ]; then
+  say "$(t root_stage)"
+  say "$(t root_need_tv)"
+  say "$(t root_pair)"
+  SB="${CF_SLOPBRO:-}"
+  if [ -z "$SB" ]; then
+    for candidate in "$HOME/.cache/cleanframe/slopbro" /root/lgtv-prep/slopbro; do
+      [ -f "$candidate/slopbro.py" ] && SB="$candidate" && break
+    done
+  fi
+  if [ -z "$SB" ]; then
+    SB="$HOME/.cache/cleanframe/slopbro"
+    mkdir -p "$HOME/.cache/cleanframe"
+    say "    fetching SlopBro into $SB"
+    git clone -q --depth 1 https://github.com/throwaway96/slopbro.git "$SB" \
+      || fail "could not fetch SlopBro (no git or no network)"
+  fi
+  if [ "$DRY" = "1" ]; then
+    say "    [dry run] python3 $SB/slopbro.py $TV"
+  else
+    ( cd "$SB" && python3 slopbro.py "$TV" ) || say "    SlopBro exited with an error - still looking for a root shell"
+    say "$(t root_wait)"
+    for _ in $(seq 1 60); do tcp 23 && break; tcp 22 && break; sleep 3; done
+    tcp 23 || tcp 22 || fail "$(t root_timeout)"
+  fi
+  say "$(t root_setup)"
+  if [ -z "$SSH_KEY" ] || [ ! -f "$SSH_KEY" ]; then
     if [ "$DRY" = "1" ]; then
-      say "    [dry run] python3 $SB/slopbro.py $TV"
-    else
-      ( cd "$SB" && python3 slopbro.py "$TV" ) || say "    SlopBro exited with an error - still looking for a root shell"
-      say "$(t root_wait)"
-      for _ in $(seq 1 60); do tcp 23 && break; tcp 22 && break; sleep 3; done
-      tcp 23 || tcp 22 || fail "$(t root_timeout)"
+      say "    [dry run] no public key found - create one with: ssh-keygen -t ed25519 -N '' -f ~/.ssh/lgtv"
+      exit 0
     fi
-    say "$(t root_setup)"
-    if [ -z "$SSH_KEY" ] || [ ! -f "$SSH_KEY" ]; then
-      if [ "$DRY" = "1" ]; then
-        say "    [dry run] no public key found - create one with: ssh-keygen -t ed25519 -N '' -f ~/.ssh/lgtv"
-        exit 0
-      fi
-      fail "$(printf "$(t key_missing)" "${SSH_KEY:-~/.ssh/lgtv.pub}")"
-    fi
-    if [ "$DRY" = "1" ]; then
-      python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" --dry-run
-    else
-      python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" || fail "SSH key or Telnet step failed"
-    fi
+    fail "$(printf "$(t key_missing)" "${SSH_KEY:-~/.ssh/lgtv.pub}")"
+  fi
+  if [ "$DRY" = "1" ]; then
+    python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" --dry-run
+  else
+    python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" || fail "SSH key or Telnet step failed"
   fi
 fi
 

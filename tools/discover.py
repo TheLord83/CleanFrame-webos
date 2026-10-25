@@ -217,6 +217,13 @@ def scan(subnet, timeout=0.3):
 
 
 def find(subnet=None, timeout=0.3, want_ssdp=True):
+    """Return {"hosts": [...], "rejected": [...]}.
+
+    A device is only a host when an LG webOS TV actually answers: either the SSAP
+    websocket handshake on 3000/3001 succeeds or Glasshouse answers on 8080. Everything
+    else that merely shows up in SSDP (routers, repeaters, Fire TV sticks, printers) is
+    reported as rejected, so the caller never talks to the wrong box.
+    """
     hosts = {}
     for ip, entry in (ssdp_search() if want_ssdp else {}).items():
         hosts[ip] = dict(entry)
@@ -224,18 +231,31 @@ def find(subnet=None, timeout=0.3, want_ssdp=True):
         for ip, entry in scan(net, timeout).items():
             target = hosts.setdefault(ip, {"ip": ip})
             target.setdefault("ports", {}).update(entry.get("ports", {}))
+    verified, rejected = [], []
     for entry in hosts.values():
-        if entry.get("location"):
-            entry.update({k: v for k, v in describe(entry["location"]).items() if v})
         ports = entry.setdefault("ports", {})
         if not ports:
             for port, name in SERVICE_PORTS.items():
                 if port_open(entry["ip"], port, timeout):
                     ports[port] = name
         entry["ports"] = {str(k): v for k, v in sorted(ports.items())}
-        entry["rooted"] = 22 in ports and 23 in ports or 22 in ports
+        entry["rooted"] = 22 in ports or 23 in ports
         entry["glasshouse"] = 8080 in ports
-    return sorted(hosts.values(), key=lambda x: ipaddress.ip_address(x["ip"]))
+        ok = looks_like_ssap(entry["ip"], timeout)
+        if not ok and entry["glasshouse"]:
+            ok = looks_like_glasshouse(entry["ip"], timeout)
+        if ok:
+            if entry.get("location"):
+                entry.update({k: v for k, v in describe(entry["location"]).items() if v})
+            verified.append(entry)
+        else:
+            if entry.get("location"):
+                entry.update({k: v for k, v in describe(entry["location"]).items() if v})
+            entry["reason"] = "no SSAP handshake and no Glasshouse"
+            rejected.append(entry)
+    verified.sort(key=lambda x: ipaddress.ip_address(x["ip"]))
+    rejected.sort(key=lambda x: ipaddress.ip_address(x["ip"]))
+    return {"hosts": verified, "rejected": rejected}
 
 
 def main(argv=None):
@@ -246,12 +266,17 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="print JSON instead of a table")
     args = parser.parse_args(argv)
 
-    hosts = find(args.subnet, args.timeout, not args.no_ssdp)
+    result = find(args.subnet, args.timeout, not args.no_ssdp)
+    hosts, rejected = result["hosts"], result["rejected"]
     if args.json:
-        print(json.dumps({"found": len(hosts), "hosts": hosts}, indent=1))
+        print(json.dumps({"found": len(hosts), "hosts": hosts, "rejected": rejected}, indent=1))
     else:
         if not hosts:
             print("No LG TV found. Is it on the same network and awake?")
+        if rejected:
+            print("%d other device(s) answered but are not TVs:" % len(rejected))
+            for host in rejected:
+                print("  %-15s %s" % (host["ip"], host.get("name") or host.get("model") or "?"))
         for host in hosts:
             services = ", ".join("%s(%s)" % (port, name) for port, name in host["ports"].items())
             print("%-15s %-28s %-10s %s" % (
