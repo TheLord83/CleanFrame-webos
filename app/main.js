@@ -39,6 +39,7 @@
     { id: '5', name: 'Every 5 minutes', min: 5 }, { id: '15', name: 'Every 15 minutes', min: 15 },
     { id: '60', name: T('Every hour'), min: 60 }
   ];
+  var uiScale = 1;   /* Schriftfaktor aus der Konfiguration (Senioren-Modus) */
   var KEY = 'cleanframe.home.v1', storageOk = true, catalog = { loading: false, loaded: false, error: null, request: 0, revision: 0 };
   var QA = window.ShoreQA = { minuteMs: window.ShoreQA && window.ShoreQA.minuteMs || 60000 };
   var FONTS = {
@@ -279,8 +280,8 @@
   function reducedDockLabel(id) { return S.c.apps !== 'icons' && dockLabelSize(id) === (S.c.apps === 'text' ? 34 : 32); }
   function actionWidth(text) { return clamp(Math.ceil(textWidth(text, 30, 500, -.3) + 40), 288, 400); }
   function photoLabel(id, compact) {
-    var text = app(id).name, size = compact ? 56 : 88, limit = compact ? 640 : 992, width = textWidth(text, size, 600, -1.8, 'display');
-    if (!compact && width > limit) { size = 76; width = textWidth(text, size, 600, -1.8, 'display'); }
+    var text = app(id).name, size = Math.round((compact ? 56 : 88) * uiScale), limit = compact ? 640 : 992, width = textWidth(text, size, 600, -1.8, 'display');
+    if (!compact && width > limit) { size = Math.round(76 * uiScale); width = textWidth(text, size, 600, -1.8, 'display'); }
     // Newsreader's ninth compact Type row otherwise enters the lower fade by .63px.
     return { size: size, top: (compact ? 10.66 : size === 76 ? 10.36 : 9.68) + fontShift('display', size) - (compact && homeFont() === 'newsreader' ? .7 : 0), width: Math.min(limit, width), ellipsis: width > limit };
   }
@@ -1293,7 +1294,10 @@
     if (!adaptive && shown.dockClockInk) stage.style.setProperty('--dock-clock-ink', shown.dockClockInk);
     else stage.style.removeProperty('--dock-clock-ink');
     applyHomeFont();
-    if (!sheet) renderHome(t);
+    /* Auch bei offener Unterseite die Startseite mitzeichnen: Aenderungen aus
+     * der Web-Oberflaeche sollen dort sofort sichtbar sein (Schriftgroesse,
+     * Wandbild, Kacheln), und der Editor braucht die Liste ohnehin. */
+    renderHome(t);
     renderSheet(t, sheet);
     renderAppearance(t);
     renderFocusStatus(t);
@@ -2406,7 +2410,8 @@
       var scale = parseInt(cfg.ui.textScale, 10);
       /* Senioren-Modus hebt die Schrift mindestens auf 125 % an. */
       if (cfg.ui.senior && (!isFinite(scale) || scale < 125)) scale = 125;
-      if (isFinite(scale) && scale !== 100) stage.style.setProperty('--cf-scale', String(scale / 100));
+      uiScale = isFinite(scale) && scale > 0 ? scale / 100 : 1;
+      if (uiScale !== 1) stage.style.setProperty('--cf-scale', String(uiScale));
       else stage.style.removeProperty('--cf-scale');
     }
 

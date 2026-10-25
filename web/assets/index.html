@@ -31,6 +31,12 @@
   #tvPanel.collapsed { flex-basis: 220px; width: 220px; }
   #tvPanel.collapsed #tvShot, #tvPanel.collapsed .remote-pad, #tvPanel.collapsed .panel-keys,
   #tvPanel.collapsed .panel-row #btnShot, #tvPanel.collapsed .panel-row select, #tvPanel.collapsed #tvStatus { display: none; }
+  .spin { width: 15px; height: 15px; flex: 0 0 auto; border-radius: 50%;
+    border: 2px solid rgba(127,127,127,.35); border-top-color: #4da3ff;
+    animation: cfspin .8s linear infinite; opacity: 0; visibility: hidden;
+    transition: opacity .15s ease; }
+  .spin.on { opacity: 1; visibility: visible; }
+  @keyframes cfspin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
   #tvPanel img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; display: block; }
   .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
   .panel-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; }
@@ -276,6 +282,7 @@
 
 <aside id="tvPanel" aria-label="Fernseher">
   <div class="panel-head">
+    <span class="spin" id="tvSpin" title="Aenderung wird uebertragen"></span>
     <strong>Fernseher</strong>
     <span class="panel-dot" id="tvDot" title="Verbindung"></span>
     <button class="ghost" id="btnToggle" style="margin-left:auto;">einklappen</button>
@@ -641,8 +648,25 @@
 
   /* Bau-Stempel dieser Seite — weicht er von der Serverversion ab, laeuft im
    * Browser noch eine alte Fassung (häufigste Ursache für "geht nicht"). */
-  var UI_BUILD = '0.4.9';
+  var UI_BUILD = '0.4.16';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
+
+  /* Lade-Rad: laeuft, solange gespeichert oder ein Bild geholt wird, und
+   * danach noch kurz, bis der Fernseher die neue Revision geholt hat. */
+  var spinBis = 0;
+  function spin(an) {
+    if (an) spinBis = Math.max(spinBis, Date.now() + 400);
+  }
+  function spinNachlauf(ms) {
+    spinBis = Math.max(spinBis, Date.now() + (ms || 0));
+  }
+  function spinTick() {
+    var el = $('tvSpin');
+    if (!el) return;
+    var an = saveBusy || shotBusy || Date.now() < spinBis;
+    if (an !== el.classList.contains('on')) el.classList.toggle('on', an);
+  }
+  setInterval(spinTick, 200);
 
   function save(payload, statusEl, okMsg, retried) {
     if (saveBusy) {
@@ -651,6 +675,7 @@
       return Promise.resolve(null);
     }
     saveBusy = true;
+    spin(true);
     return api('PUT', '/api/config', payload).then(function (r) {
       /* Nur die Revision uebernehmen — die Antwort darf die Felder nicht
        * ueberschreiben, sonst gehen Klicks waehrend des Speicherns verloren. */
@@ -671,6 +696,7 @@
       melde('Fehler beim Speichern: ' + e.message + (e.status ? ' HTTP ' + e.status : ''));
     }).then(function () {
       saveBusy = false;
+      spinNachlauf(2500);
       if (saveDirty) {
         saveDirty = false;
         var n = saveNext || {};
@@ -733,6 +759,7 @@
   function loadShot() {
     if (shotBusy || document.hidden) return;
     shotBusy = true;
+    spin(true);
     var q = $('shotQuality') ? $('shotQuality').value : '65';
     var url = '/api/tv/snapshot?format=jpeg&quality=' + encodeURIComponent(q) + '&t=' + Date.now();
     var img = $('tvShot');
@@ -743,11 +770,13 @@
       var zeit = new Date().toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       note($('tvStatus'), 'Bild ' + zeit + ' — ' + probe.naturalWidth + '×' + probe.naturalHeight, true);
       shotBusy = false;
+      spinNachlauf(600);
     };
     probe.onerror = function () {
       setDot('bad');
       note($('tvStatus'), 'Kein Bild: Launcher am Fernseher geschlossen?', false);
       shotBusy = false;
+      spinNachlauf(600);
     };
     probe.src = url;
   }
