@@ -69,7 +69,11 @@ t() {
       find_none)     echo "FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> Zustand des Fernsehers" ;;
       info_root)     echo "    root: %s" ;;
-      info_noroot)   echo "    Modell und Versionen stehen im Hub unter System - oder hier, sobald gerootet ist" ;;
+      info_noroot)   echo "    Versionen ohne root: siehe Hub > System, oder hier sobald gerootet ist" ;;
+      probe)         echo "==> Was der Fernseher ohne root ueber sich verraet" ;;
+      root_advice)   echo "==> Kann dieser Fernseher gerootet werden?" ;;
+      root_advice_no) echo "    ACHTUNG: nach den veroeffentlichten Regeln passt hier kein Exploit mehr." ;;
+      root_advice_unknown) echo "    Unbekannt: die exakte Firmware entscheidet. Vor dem Rooten auf cani.rootmy.tv pruefen." ;;
       info_version)  echo "    Launcher: %s (aus diesem Repo)" ;;
       info_hub)      echo "    Hub: %s" ;;
       root_stage)    echo "==> Rooten (SlopBro)" ;;
@@ -126,7 +130,11 @@ t() {
       find_none)     echo "ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> State of the TV" ;;
       info_root)     echo "    root: %s" ;;
-      info_noroot)   echo "    model and versions are in the hub under System - or here once the TV is rooted" ;;
+      info_noroot)   echo "    versions without root: see hub > System, or here once the TV is rooted" ;;
+      probe)         echo "==> What the TV tells about itself without root" ;;
+      root_advice)   echo "==> Can this TV be rooted?" ;;
+      root_advice_no) echo "    WARNING: by the published rules no exploit matches this firmware any more." ;;
+      root_advice_unknown) echo "    Unknown: the exact firmware decides. Check cani.rootmy.tv before rooting." ;;
       info_version)  echo "    launcher: %s (from this repo)" ;;
       info_hub)      echo "    hub: %s" ;;
       root_stage)    echo "==> Rooting (SlopBro)" ;;
@@ -220,6 +228,60 @@ SSH=(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes "root@
 tcp() { timeout 3 bash -c "echo >/dev/tcp/$TV/$1" 2>/dev/null; }
 
 # ---- state of the TV --------------------------------------------------------
+is_rooted() {
+  tcp 22 || return 1
+  [ "$("${SSH[@]}" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
+}
+
+# ---- what the TV says about itself, and whether it can be rooted at all ------
+# Everything here works without root: SSDP/DIAL description, AirPlay mDNS and the SSAP
+# handshake. The firmware usually is NOT among it - which is exactly why the verdict can
+# only be "unknown" on most TVs, and why the exploit itself has the last word.
+TVMODEL=""; TVWEBOS=""; TVFW=""
+if command -v python3 >/dev/null; then
+  PROBE="$(python3 "$HERE/tvinfo.py" "$TV" --json 2>/dev/null)"
+  if [ -n "$PROBE" ]; then
+    read -r TVMODEL TVWEBOS TVFW <<EOV
+$(printf '%s' "$PROBE" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+print(d.get("modelName") or d.get("modelNumber") or "-", d.get("webOs") or "-", d.get("firmware") or "-")' 2>/dev/null || echo "- - -")
+EOV
+    say "$(t probe)"
+    say "    model:     ${TVMODEL:--}"
+    say "    webOS:     ${TVWEBOS:--}"
+    say "    firmware:  ${TVFW:--}"
+  fi
+fi
+
+# With a root shell the TV tells the truth, and it wins over the probe.
+if is_rooted; then
+  read -r OS_MODEL OS_WEBOS OS_FW <<EOV
+$("${SSH[@]}" 'cat /var/run/nyx/os_info.json' 2>/dev/null | tr -d '\r' | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("- - -"); raise SystemExit(0)
+print(d.get("modelName") or "-", d.get("webos_name") or "-", d.get("version") or "-")' 2>/dev/null || echo "- - -")
+EOV
+  [ "$OS_MODEL" != "-" ] && TVMODEL="$OS_MODEL"
+  [ "$OS_WEBOS" != "-" ] && TVWEBOS="$OS_WEBOS"
+  [ "$OS_FW" != "-" ] && TVFW="$OS_FW"
+fi
+
+if command -v python3 >/dev/null; then
+  say "$(t root_advice)"
+  ADVICE="$(python3 "$HERE/rootaly.py" --model "$TVMODEL" --webos "$TVWEBOS" --firmware "$TVFW" --json 2>/dev/null)"
+  VERDICT="$(printf '%s' "$ADVICE" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("verdict","unknown"))' 2>/dev/null || echo unknown)"
+  say "    verdict:   $VERDICT"
+  printf '%s' "$ADVICE" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+if d.get("method"): print("    method:    " + d["method"])
+print("    reason:    " + d.get("reason", ""))
+print("    check:     " + d.get("check", ""))' 2>/dev/null
+  [ "$VERDICT" = "no" ] && say "$(t root_advice_no)"
+  [ "$VERDICT" = "unknown" ] && say "$(t root_advice_unknown)"
+fi
+
 if [ "$DO_INFO" = "1" ]; then
   say "$(t info)"
   VERSIONS="$(python3 - "$ROOT" <<'PY' 2>/dev/null || echo "? ?"
@@ -274,11 +336,6 @@ fi
 # ---- root: check first, offer to root only when it is missing ---------------
 # The launcher does not need root, the hub does. So nobody should have to know
 # that before the run: the script asks.
-is_rooted() {
-  tcp 22 || return 1
-  [ "$("${SSH[@]}" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
-}
-
 ROOT_IT=0
 say "$(t root_check)"
 if is_rooted; then

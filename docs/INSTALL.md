@@ -179,6 +179,31 @@ The two columns differ only in the spelling that each shell expects: `--name` in
 shell, `-Name` in PowerShell (single dash, parameter names are case-insensitive, so `-tv`
 works as well). Nothing behaves differently.
 
+### What the TV tells us without root — and what it does not
+
+Before the installer asks anything, it probes the TV with three unauthenticated sources
+(`tools/tvinfo.py`): the SSDP/DIAL device description, AirPlay mDNS, and the SSAP handshake
+on port 3000.
+
+| Field | Without root? |
+| --- | --- |
+| that it is a webOS TV at all (SSAP answers) | yes |
+| friendly name, model name, model number | yes, from the device description |
+| webOS version, firmware build | **no** — LG only hands these out inside a paired SSAP session, which shows a prompt on the TV, or through a root shell |
+
+That limit matters, because rooting depends on the exact firmware, not on the model. So
+`tools/rootaly.py` judges only what the published rules actually cover:
+
+* platform `kisscurl` (NANO77/NANO79, W21A) with SlopBro: up to firmware **03.53.45** → an
+  exact yes or no,
+* webOS 4.x → faultmanager is still open there → yes,
+* webOS 5/6/7/9/10 → since 08/2025 the current firmware is patched almost everywhere, the
+  build decides → **unknown**, with the pointer to <https://cani.rootmy.tv>,
+* anything without model or version → unknown.
+
+The installer prints that verdict **before** it offers to root, and the exploit keeps the
+last word: if the firmware is patched, it fails and says so. Nothing is guessed.
+
 ### Root is checked, not assumed
 
 The first thing the installer does is ask the TV whether it already has a root shell
