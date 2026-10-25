@@ -20,6 +20,9 @@ IPK="${IPK:-}"
 LANG_CODE="${CF_LANG:-en}"
 DO_LAUNCHER=1
 DO_HUB=1
+DO_ROOT=0
+DO_INFO=0
+SSH_KEY="${CF_SSH_KEY:-}"
 DRY=0
 YES=0
 WAKE=0
@@ -34,6 +37,9 @@ while [ $# -gt 0 ]; do
     --tv)          TV="${2:-}"; shift 2 ;;
     --ipk)         IPK="${2:-}"; shift 2 ;;
     --lang)        LANG_CODE="${2:-en}"; shift 2 ;;
+    --root)        DO_ROOT=1; shift ;;
+    --info)        DO_INFO=1; shift ;;
+    --ssh-key)     SSH_KEY="${2:-}"; shift 2 ;;
     --no-launcher) DO_LAUNCHER=0; shift ;;
     --no-hub)      DO_HUB=0; shift ;;
     --wake)        WAKE=1; shift ;;
@@ -51,7 +57,21 @@ t() {
   local key="$1"
   if [ "$LANG_CODE" = "de" ]; then
     case "$key" in
-      need_tv)       echo "Aufruf: $0 <tv-ip> [--lang de] [--dry-run]" ;;
+      need_tv)       echo "Aufruf: $0 [<tv-ip>] [--root] [--info] [--lang de] [--dry-run]" ;;
+      find)          echo "==> Fernseher im Netz suchen" ;;
+      find_one)      echo "    gefunden: %s" ;;
+      find_many)     echo "    mehrere Kandidaten gefunden - bitte mit <ip> oder --tv auswaehlen:" ;;
+      find_none)     echo "FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md" ;;
+      info)          echo "==> Zustand des Fernsehers" ;;
+      info_root)     echo "    root: %s" ;;
+      root_stage)    echo "==> Rooten (SlopBro)" ;;
+      root_skip)     echo "    schon gerootet, SSH funktioniert" ;;
+      root_need_tv)  echo "    Der Fernseher muss an sein und Developer Mode aktiviert (Settings > General > Developer Mode)." ;;
+      root_pair)     echo "    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen." ;;
+      root_wait)     echo "    warte auf die Root-Shell (Telnet 23) ..." ;;
+      root_timeout)  echo "FEHLER: keine Root-Shell bekommen. SlopBro-Log oben pruefen (falsche webOS-Version?)." ;;
+      root_setup)    echo "==> SSH-Schluessel setzen, Telnet schliessen, Updates sperren" ;;
+      key_missing)   echo "FEHLER: oeffentlicher Schluessel fehlt: %s (mit --ssh-key angeben)" ;;
       detect)        echo "==> Fernseher suchen" ;;
       tv_off)        echo "    Port 22 zu. Fernseher im Standby? Mit --wake wecken." ;;
       tv_on)         echo "    Fernseher antwortet (SSH offen)" ;;
@@ -80,7 +100,21 @@ t() {
     esac
   else
     case "$key" in
-      need_tv)       echo "usage: $0 <tv-ip> [--lang de] [--dry-run]" ;;
+      need_tv)       echo "usage: $0 [<tv-ip>] [--root] [--info] [--lang de] [--dry-run]" ;;
+      find)          echo "==> Looking for a TV on the network" ;;
+      find_one)      echo "    found: %s" ;;
+      find_many)     echo "    several candidates - pick one with <ip> or --tv:" ;;
+      find_none)     echo "ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md" ;;
+      info)          echo "==> State of the TV" ;;
+      info_root)     echo "    root: %s" ;;
+      root_stage)    echo "==> Rooting (SlopBro)" ;;
+      root_skip)     echo "    already rooted, SSH works" ;;
+      root_need_tv)  echo "    The TV must be on and Developer Mode enabled (Settings > General > Developer Mode)." ;;
+      root_pair)     echo "    A pairing prompt will appear on the TV - accept it with the remote." ;;
+      root_wait)     echo "    waiting for the root shell (Telnet 23) ..." ;;
+      root_timeout)  echo "ERROR: no root shell. Check the SlopBro output above (wrong webOS version?)." ;;
+      root_setup)    echo "==> Installing the SSH key, closing Telnet, blocking updates" ;;
+      key_missing)   echo "ERROR: public key not found: %s (pass --ssh-key)" ;;
       detect)        echo "==> Looking for the TV" ;;
       tv_off)        echo "    port 22 closed. TV in standby? Use --wake." ;;
       tv_on)         echo "    TV answers (SSH open)" ;;
@@ -110,12 +144,97 @@ t() {
   fi
 }
 
+# Pick an existing public key instead of demanding a path.
+if [ -z "$SSH_KEY" ]; then
+  for candidate in "$HOME/.ssh/lgtv.pub" "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/id_rsa.pub" "$HOME/.ssh/id_ecdsa.pub"; do
+    [ -f "$candidate" ] && SSH_KEY="$candidate" && break
+  done
+fi
+
 say() { printf '%s\n' "$*"; }
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
-[ -n "$TV" ] || { say "$(t need_tv)"; exit 2; }
+# ---- 0. find the TV when no address was given -------------------------------
+if [ -z "$TV" ]; then
+  say "$(t find)"
+  DISC="$(python3 "$HERE/discover.py" --json 2>/dev/null)"
+  COUNT="$(printf '%s' "$DISC" | python3 -c 'import json,sys
+try: print(len(json.load(sys.stdin).get("hosts", [])))
+except Exception: print(0)' 2>/dev/null)"
+  case "${COUNT:-0}" in
+    0) fail "$(t find_none)" ;;
+    1) TV="$(printf '%s' "$DISC" | python3 -c 'import json,sys;print(json.load(sys.stdin)["hosts"][0]["ip"])')"
+       say "$(printf "$(t find_one)" "$TV")" ;;
+    *) say "$(t find_many)"
+       printf '%s' "$DISC" | python3 -c 'import json,sys
+for host in json.load(sys.stdin)["hosts"]:
+    print("      %-15s %-24s %s" % (host["ip"], host.get("name") or host.get("model") or "",
+                                    ", ".join(host.get("ports", {}).keys())))'
+       exit 2 ;;
+  esac
+fi
+
 SSH=(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes "root@$TV")
 tcp() { timeout 3 bash -c "echo >/dev/tcp/$TV/$1" 2>/dev/null; }
+
+# ---- state of the TV --------------------------------------------------------
+if [ "$DO_INFO" = "1" ]; then
+  say "$(t info)"
+  if tcp 22; then
+    "${SSH[@]}" 'echo "model:   $(grep -o "\"modelName\"[^,]*" /var/run/nyx/os_info.json 2>/dev/null | head -1)"
+echo "webos:   $(grep -o "\"webos_name\"[^,]*" /var/run/nyx/os_info.json 2>/dev/null | head -1)"
+echo "node:    $(/usr/bin/node -v 2>/dev/null)"
+echo "rooted:  yes"; true' 2>/dev/null || true
+    say "$(printf "$(t info_root)" "yes")"
+  else
+    say "$(printf "$(t info_root)" "no")"
+  fi
+fi
+
+# ---- root the TV (SlopBro does the work, one press on the remote) -----------
+if [ "$DO_ROOT" = "1" ]; then
+  say "$(t root_stage)"
+  if tcp 22; then
+    say "$(t root_skip)"
+  else
+    say "$(t root_need_tv)"
+    say "$(t root_pair)"
+    SB="${CF_SLOPBRO:-}"
+    if [ -z "$SB" ]; then
+      for candidate in "$HOME/.cache/cleanframe/slopbro" /root/lgtv-prep/slopbro; do
+        [ -f "$candidate/slopbro.py" ] && SB="$candidate" && break
+      done
+    fi
+    if [ -z "$SB" ]; then
+      SB="$HOME/.cache/cleanframe/slopbro"
+      mkdir -p "$HOME/.cache/cleanframe"
+      say "    fetching SlopBro into $SB"
+      git clone -q --depth 1 https://github.com/throwaway96/slopbro.git "$SB" \
+        || fail "could not fetch SlopBro (no git or no network)"
+    fi
+    if [ "$DRY" = "1" ]; then
+      say "    [dry run] python3 $SB/slopbro.py $TV"
+    else
+      ( cd "$SB" && python3 slopbro.py "$TV" ) || say "    SlopBro exited with an error - still looking for a root shell"
+      say "$(t root_wait)"
+      for _ in $(seq 1 60); do tcp 23 && break; tcp 22 && break; sleep 3; done
+      tcp 23 || tcp 22 || fail "$(t root_timeout)"
+    fi
+    say "$(t root_setup)"
+    if [ -z "$SSH_KEY" ] || [ ! -f "$SSH_KEY" ]; then
+      if [ "$DRY" = "1" ]; then
+        say "    [dry run] no public key found - create one with: ssh-keygen -t ed25519 -N '' -f ~/.ssh/lgtv"
+        exit 0
+      fi
+      fail "$(printf "$(t key_missing)" "${SSH_KEY:-~/.ssh/lgtv.pub}")"
+    fi
+    if [ "$DRY" = "1" ]; then
+      python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" --dry-run
+    else
+      python3 "$HERE/tvsetup.py" --tv "$TV" --key "$SSH_KEY" || fail "SSH key or Telnet step failed"
+    fi
+  fi
+fi
 
 if [ -z "$IPK" ]; then
   for kandidat in "$ROOT/dist/cleanframe_all.ipk" "$ROOT/ipk/cleanframe_all.ipk"; do
@@ -141,7 +260,10 @@ if ! tcp 22; then
       || fail "wake-tv.py not available; wake the TV by hand"
     for i in $(seq 1 20); do tcp 22 && break; sleep 2; done
   fi
-  tcp 22 || fail "$(t no_ssh | sed "s/%s/$TV/")"
+  if ! tcp 22; then
+    if [ "$DRY" = "1" ]; then say "$(t dry)"; exit 0; fi
+    fail "$(printf "$(t no_ssh)" "$TV")"
+  fi
 fi
 say "$(t tv_on)"
 

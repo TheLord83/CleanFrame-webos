@@ -16,34 +16,54 @@ hands on the remote control.
 - The model number of the TV and its firmware version (Settings → All Settings →
   General → About This TV)
 
-## Step 0 — root the TV (manual, cannot be automated)
+## Step 0 — root the TV (one press on the remote, the rest is scripted)
 
-The launcher is a normal webOS app; it does **not** need root. The hub does, and
-installing IPKs comfortably does too.
+```sh
+./tools/install.sh --root          # finds the TV, roots it, sets up SSH, closes Telnet
+./tools/install.sh --root --info   # same, plus a state report first
+```
 
-1. Look up your model on <https://cani.rootmy.tv>. The page lists whether a public
-   exploit exists for your firmware and which one.
-2. If your firmware is newer than the last supported one: rooting is not possible
-   without a downgrade, and downgrades are not described here.
-3. Follow the instructions for your exploit. In practice this means: enable
-   **Developer Mode** (Settings → General → Developer Mode), note the passphrase,
-   run the exploit from a computer, and wait for the "Here's your slop, bro!" page.
-4. Install the **Homebrew Channel** from the resulting web page.
-5. After the reboot, log in over SSH (`root`, empty password at first) and set a key:
+What the script does in this step:
 
-   ```sh
-   ssh-keygen -t ed25519 -N '' -f ~/.ssh/lgtv
-   ssh-copy-id -i ~/.ssh/lgtv.pub root@<tv-ip>     # or paste into /home/root/.ssh/authorized_keys
-   ```
+1. **Finds the TV** without an IP address: SSDP search plus a port scan of the local
+   /24, verified by a real SSAP websocket handshake and by Glasshouse's `/api/apps`
+   answer — so a random web server on port 3000 is not mistaken for a TV.
+2. **Reports the state**: model, webOS version, node version, whether it is rooted.
+3. **Roots it with [SlopBro](https://github.com/throwaway96/slopbro)**: serves the
+   exploit page, opens it on the TV through SSAP, and waits for the root shell
+   (Telnet 23).
+4. **Finishes the job** once the shell is there: writes your public key to
+   `/home/root/.ssh/authorized_keys`, sets `webosbrew_sshd_enabled`, closes Telnet
+   (flag off, process killed), and blocks the LG update hosts in `/etc/hosts`.
+5. **Verifies**: SSH with the key works, node answers, Telnet is gone.
 
-6. **Close Telnet** (port 23) as soon as SSH works. Glasshouse does this when you
-   switch it on; by hand it is
-   `touch /var/lib/webosbrew/sshd_enabled` plus removing the telnet autostart.
-7. Install **Glasshouse** from the Homebrew Channel (it is in the catalog). Open it
-   once at `http://<tv-ip>:8080/` and switch on the boot hook.
+Two things a script cannot do — you do them once, at the TV:
 
-Turn off TV updates before going further; a firmware update can remove the exploit.
-Glasshouse → Settings → *Block TV updates*.
+- **Enable Developer Mode**: Settings → General → Developer Mode, LG account, note
+  the passphrase shown on screen. Without it the SSAP app launch and the pairing are
+  refused.
+- **Accept the pairing prompt**: SlopBro asks the TV once; press *Yes* with the
+  remote. That is the one click in the whole flow.
+
+If the firmware is above the exploit cutoff (check your model on
+<https://cani.rootmy.tv>), the run ends without a root shell — the script says so and
+stops instead of guessing. A downgrade is not described here.
+
+Module key, if you prefer to do it by hand:
+
+```sh
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/lgtv
+python3 tools/tvsetup.py --tv <ip> --key ~/.ssh/lgtv.pub   # key, sshd, Telnet off, updates blocked
+```
+
+### What is still manual
+
+- **Glasshouse**: install it from the Homebrew Channel catalogue (it is not in the
+  catalog of this repo, it ships its own IPK), then open `http://<tv-ip>:8080/` once
+  and switch the boot hook on. Automating the IPK install is the next step.
+- **Debloat**: turning off ACR, screen recognition and ad tracking, and hiding the
+  promo tiles, is done in Glasshouse's dashboard or via its API
+  (`POST /api/control`). The script does not touch these yet.
 
 ### Close the DevTools port
 
