@@ -1,0 +1,1 @@
+window.CleanFramePrivateFontIDs = ['geist', 'newsreader'];

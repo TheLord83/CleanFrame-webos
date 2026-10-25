@@ -1,0 +1,20 @@
+[
+  {
+    "icon": "spotify",
+    "source": "https://github.com/simple-icons/simple-icons/blob/develop/icons/spotify.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "hbomax",
+    "source": "https://github.com/simple-icons/simple-icons/blob/develop/icons/hbomax.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "tubi",
+    "source": "https://github.com/simple-icons/simple-icons/blob/develop/icons/tubi.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  }
+]

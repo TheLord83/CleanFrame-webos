@@ -1,0 +1,5 @@
+# gebaute Pakete und Quellpakete bleiben lokal
+*.ipk
+ipk/
+dist/
+.packageinfo.json

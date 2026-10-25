@@ -1,0 +1,20 @@
+{
+  "id": "com.blackpearl.cleanframe",
+  "version": "0.2.0",
+  "vendor": "blackpearl",
+  "type": "web",
+  "main": "index.html",
+  "title": "CleanFrame",
+  "appDescription": "Ruhige Startseite: Foto, Uhr, Apps und Einstellungen.",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "bgImage": "splash.png",
+  "splashBackground": "splash.png",
+  "iconColor": "#0a0a0c",
+  "bgColor": "#000000",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "transparent": false,
+  "noSplashOnLaunch": true,
+  "appCategory": ["home"]
+}

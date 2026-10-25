@@ -1,0 +1,15 @@
+{
+  "stremio": "https://raw.githubusercontent.com/simple-icons/simple-icons/4d29a35c954699b389a834aacc97dd6e7e74143c/icons/stremio.svg",
+  "netflix": "https://raw.githubusercontent.com/simple-icons/simple-icons/4d29a35c954699b389a834aacc97dd6e7e74143c/icons/netflix.svg",
+  "youtube": "https://raw.githubusercontent.com/simple-icons/simple-icons/4d29a35c954699b389a834aacc97dd6e7e74143c/icons/youtube.svg",
+  "appletv": "https://raw.githubusercontent.com/simple-icons/simple-icons/4d29a35c954699b389a834aacc97dd6e7e74143c/icons/appletv.svg",
+  "applemusic": "https://raw.githubusercontent.com/simple-icons/simple-icons/4d29a35c954699b389a834aacc97dd6e7e74143c/icons/applemusic.svg (music-note subpath, outer app tile omitted)",
+  "primevideo": "https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/primevideo.svg (last two closed subpaths extracted as the complete Amazon smile; no wordmark)",
+  "disneyplus": "https://raw.githubusercontent.com/elax46/custom-brand-icons/a53cabf49bf439023a8f33585af30d783bffe51b/icon-svg/disney-plus.svg",
+  "abciview": "https://github.com/elax46/custom-brand-icons/blob/a53cabf49bf439023a8f33585af30d783bffe51b/icon-svg/abc-australia.svg (MIT; recoloured white)",
+  "sbs": "https://github.com/elax46/custom-brand-icons/blob/a53cabf49bf439023a8f33585af30d783bffe51b/icon-svg/sbs-chill.svg (MIT; feather contour extracted, recoloured white and viewBox cropped)",
+  "art": "CleanFrame original utility outline, 24px grid / 1.6px stroke",
+  "apps": "CleanFrame original utility outline, 24px grid / 1.6px stroke",
+  "settings": "CleanFrame original utility outline, 24px grid / 1.6px stroke",
+  "home": "CleanFrame original utility outline, 24px grid / 1.6px stroke"
+}
