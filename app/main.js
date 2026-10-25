@@ -2373,14 +2373,20 @@
     }
 
     if (cfg.look) {
-      if (cfg.look.bg) c.bg = cfg.look.bg;
-      if (cfg.look.layout) c.layout = cfg.look.layout;
-      if (cfg.look.apps) c.apps = cfg.look.apps;
-      if (cfg.look.controls) c.controls = cfg.look.controls;
-      if (cfg.look.focus) c.focus = cfg.look.focus;
-      if (cfg.look.material) c.material = cfg.look.material;
-      if (cfg.look.wall && wall(cfg.look.wall)) c.wall = cfg.look.wall;
-      if (cfg.look.font && FONTS[cfg.look.font]) c.font = cfg.look.font;
+      /* Darstellung ueber den normalen Weg setzen (setLook): nur so werden
+       * Wandbild-Dateien geladen und getauscht. Direktes Setzen von c.wall
+       * aendert bloss den Wert, nicht das Bild. */
+      var patch = {}, lookKeys = ['bg', 'layout', 'apps', 'controls', 'focus', 'material', 'wall', 'font'];
+      lookKeys.forEach(function (k) {
+        var v = cfg.look[k];
+        if (!v) return;
+        if (k === 'wall' && !wall(v)) return;
+        if (k === 'font' && !FONTS[v]) return;
+        if (v !== c[k]) patch[k] = v;
+      });
+      if (Object.keys(patch).length) {
+        try { setLook(patch, { transient: true }); } catch (e) { console.warn('Darstellung: ' + e.message); }
+      }
       if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
       if (typeof cfg.look.clock24 === 'boolean') c.clock24 = cfg.look.clock24;
     }
@@ -2398,6 +2404,8 @@
 
     if (cfg.ui) {
       var scale = parseInt(cfg.ui.textScale, 10);
+      /* Senioren-Modus hebt die Schrift mindestens auf 125 % an. */
+      if (cfg.ui.senior && (!isFinite(scale) || scale < 125)) scale = 125;
       if (isFinite(scale) && scale !== 100) stage.style.setProperty('--cf-scale', String(scale / 100));
       else stage.style.removeProperty('--cf-scale');
     }
