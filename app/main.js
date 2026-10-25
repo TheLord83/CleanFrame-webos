@@ -381,11 +381,41 @@
   function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; return c; }
   function snap() { return { home: S.c.home.slice(), recent: S.c.recent.slice() }; }
   function pushRecent(list, id) { return [id].concat(without(list, id)).slice(0, 5); }
+  /* Was der Server wissen muss: Darstellung und Startseite. Namen und Icons der
+   * Kacheln bleiben erhalten, weil sie nur in der Server-Konfiguration stehen. */
+  function serverPayload(c) {
+    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
+    cfg.schemaVersion = cfg.schemaVersion || 1;
+    cfg.look = { layout: c.layout, apps: c.apps, wall: c.wall, font: c.font, clock: !!c.clock };
+    cfg.home = c.home.map(function (id) {
+      var out = { appId: id };
+      prev.forEach(function (e) { if (e && e.appId === id) { if (e.name) out.name = e.name; if (e.icon) out.icon = e.icon; if (e.url) out.url = e.url; } });
+      return out;
+    });
+    return cfg;
+  }
+
+  /* Aenderungen an der Darstellung sofort an den Server geben. Sonst gilt beim
+   * naechsten Start wieder die alte Server-Konfiguration — genau das liess die
+   * Einstellungen "nach Neustart auf default" zurueckspringen. */
+  function syncServer(c) {
+    S.syncLog = S.syncLog || [];
+    if (!S.ready) { S.syncLog.push('nicht bereit'); return; }
+    if (!window.FrameDevice || !FrameDevice.saveConfig) { S.syncLog.push('keine Anbindung'); return; }
+    S.syncLog.push('gesendet');
+    try {
+      var payload = serverPayload(c);
+      S.serverCfg = payload;
+      FrameDevice.saveConfig(payload, function (err) { S.syncLog.push(err ? ('Fehler: ' + err) : 'ok'); });
+    } catch (e) {}
+  }
+
   function write(c, label) {
     try { localStorage.setItem(KEY, JSON.stringify(serialise(c))); }
     catch (e) { storageOk = false; S.failed++; S.err = label; log(T('Not saved: ') + label); return false; }
     if (c.wall !== S.c.wall || c.mode !== S.c.mode) resetRotation();
     storageOk = true; S.c = c; S.writes++; S.err = null; log(T('Saved: ') + label);
+    syncServer(c);
     return true;
   }
   function errText(lifted) {
@@ -439,7 +469,7 @@
       if (!found) list.push({ appId: id, name: name });
       var payload = JSON.parse(JSON.stringify(cfg));
       payload.home = list;
-      FrameDevice.saveConfig(payload, function () {});
+      FrameDevice.saveConfig(payload, function (err) { S.syncLog.push(err ? ('Fehler: ' + err) : 'ok'); });
       S.serverCfg = payload;
     }
     return true;
@@ -856,6 +886,7 @@
       { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
+      { id: 'language', label: T('Language'), value: langLabel(S.serverCfg ? S.serverCfg.lang : '') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
@@ -876,7 +907,24 @@
     if (id === 'editor') openEditor('settings');
     else openAppearance(id);
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), samsung: 'LG' };
+  /* Sprache: 'system' folgt dem Fernseher, Deutsch und Englisch sind fest
+   * waehlbar. Die Auswahl landet in der Server-Konfiguration; danach wird die
+   * Oberflaeche neu geladen, damit auch die beim Start gebauten Texte passen. */
+  var LANGS = [{ id: 'system', name: T('Like the TV') }, { id: 'de', name: 'Deutsch' }, { id: 'en', name: 'English' }];
+  function langLabel(code) {
+    for (var i = 0; i < LANGS.length; i++) if (LANGS[i].id === code) return LANGS[i].name;
+    return LANGS[0].name;
+  }
+  function setLanguage(code) {
+    if (window.CleanFrameI18n && window.CleanFrameI18n.set) window.CleanFrameI18n.set(code === 'system' ? 'de' : code);
+    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
+    cfg.lang = code;
+    S.serverCfg = cfg;
+    function reload() { setTimeout(function () { try { location.reload(); } catch (e) {} }, 250); }
+    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
+    else reload();
+  }
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -900,6 +948,9 @@
       { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
         reason: inactive ? flat ? 'Materials are available with a Photo background.' : T('Choose Glass focus or the Dock layout to use materials.') : '' }
     ];
+    if (t.group === 'language') return [{ id: 'lang', title: T('Language'), horizontal: true, items: LANGS.map(function (l) {
+      return { action: 'language.set.' + l.id, value: l.id, label: l.name };
+    }) }];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
     return [{ id: 'samsung', title: '', items: [
@@ -949,6 +1000,7 @@
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
+    else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
     else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
   }
@@ -1017,10 +1069,19 @@
     push({ id: 'ctx', app: id, f: { i: 0 } });
     render(); renderSheet(top(), true);
   }
+  /* Lange OK: in "Alle Apps" der Katalogeintrag, auf der Startseite die Kachel.
+   * Ohne diesen Fall startet ein langer Druck sofort die App — das Menue war nur
+   * in der App-Liste erreichbar. */
   function longPressTarget() {
-    var t = top();
-    if (!t || t.id !== 'apps' || t.f.zone !== 'grid') return null;
-    return ALPHA[t.f.i] || null;
+    var t = top(), hs, it;
+    if (!t) return null;
+    if (t.id === 'apps' && t.f.zone === 'grid') return ALPHA[t.f.i] || null;
+    if (t.id === 'home' && t.f.zone === 'apps') {
+      hs = homeState(t);
+      it = hs.items[hs.i];
+      return it && it.id ? it.id : null;
+    }
+    return null;
   }
   V.rename = {
     sheet: true,
@@ -2065,6 +2126,9 @@
       var t = top();
       return {
         view: t.id,
+        group: t.group || null,
+        action: (t.f && t.f.action) || null,
+        lang: (window.CleanFrameI18n && window.CleanFrameI18n.lang) || null,
         stack: S.stack.map(function (e) { return e.id; }),
         zone: t.f && t.f.zone,
         index: t.f && t.f.i,
@@ -2075,6 +2139,22 @@
     },
     focusStage: focusStage,
     serverConfig: function () { return S.serverCfg || null; },
+    look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },
+    walls: function () { return WALLS.map(function (w) { return w.id; }); },
+    serverPayload: function () { return serverPayload(S.c); },
+    syncLog: function () { return (S.syncLog || []).slice(-6); },
+    ready: function () { return !!S.ready; },
+    settingsRows: settingsRows,
+    langOptions: function () { return LANGS.map(function (l) { return l.id; }); },
+    language: function (code) { setLanguage(code); return true; },
+    openSettings: function (group) {
+      while (S.stack.length > 1) S.stack.pop();
+      push({ id: 'settings', f: { id: 'language' } });
+      render(); renderSheet(top(), true);
+      if (group) { openAppearance(group); }
+      return top().id;
+    },
+    closeAll: function () { while (S.stack.length > 1) S.stack.pop(); S.stack[0].f = { zone: 'apps', u: 0 }; render(); return S.stack.length; },
     applyServerConfig: applyServerConfig,
     screensaver: function () { return S.cfgScreensaver || null; },
     idle: function () { return Math.round((Date.now() - idleSince) / 1000); },
@@ -2217,6 +2297,9 @@
     setLook({}, { transient: true, startup: true });
     norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
     startIdleWatch();
+    /* Erst ab hier darf die App schreiben: vorher wuerden die Standardwerte die
+     * Server-Konfiguration ueberschreiben. */
+    S.ready = true;
   }
 
   if (window.FrameDevice && FrameDevice.loadConfig) {

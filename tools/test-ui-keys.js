@@ -176,7 +176,9 @@ function run(wsUrl) {
     'settings: function (cb) { if (cb) cb(null); },' +
     'art: function (cb) { window.__screensaver = true; if (cb) cb(null); },' +
     LOADCFG +
-    'saveConfig: function (c, cb) { window.__saved = c; if (cb) cb(null); },' +
+    (STUB_SERVER
+      ? 'saveConfig: function (c, cb) { window.__saved = c; var x = new XMLHttpRequest(); x.open("PUT", ' + JSON.stringify(STUB_SERVER + '/api/config') + ', true); x.setRequestHeader("Content-Type", "application/json"); x.onreadystatechange = function () { if (x.readyState === 4) { if (cb) cb(null, c); } }; x.send(JSON.stringify({ config: c })); },'
+      : 'saveConfig: function (c, cb) { window.__saved = c; if (cb) cb(null); },') +
     'api: function () {} }; 1';
 
   function start() {
@@ -299,16 +301,115 @@ function run(wsUrl) {
     });
   }
 
+  /* Lange OK auf einer Startseiten-Kachel (700 ms halten) -> Kontextmenue. */
+  function longPressTest() {
+    evalJs('(window.CleanFrameDebug.closeAll ? window.CleanFrameDebug.closeAll() : 1, 1)', function () {
+      send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' }, function () {
+        setTimeout(function () {
+          send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 }, function () {
+            setTimeout(function () {
+              evalJs('window.CleanFrameDebug.state().view', function (v) {
+                check('Lange OK auf einer Kachel oeffnet das Menue', v === 'ctx', String(v));
+                key('back', function () { languageTest(); });
+              });
+            }, 400);
+          });
+        }, 800);
+      });
+    });
+  }
+
+  /* Einstellungen -> Sprache: Zeile vorhanden, Umschalten wirkt. */
+  function languageTest() {
+    evalJs('JSON.stringify(window.CleanFrameDebug.settingsRows ? window.CleanFrameDebug.settingsRows() : null)', function (rowsRaw) {
+      var rows = [];
+      try { rows = JSON.parse(rowsRaw) || []; } catch (e) {}
+      var ids = rows.map(function (r) { return r.id; });
+      check('Einstellungen bieten eine Sprachzeile', ids.indexOf('language') >= 0, ids.join(','));
+      if (ids.indexOf('language') < 0) { configTests(); return; }
+      evalJs('(window.CleanFrameDebug.openSettings ? window.CleanFrameDebug.openSettings("language") : 1)', function () {
+        setTimeout(function () {
+          evalJs('JSON.stringify({view: window.CleanFrameDebug.state().view, group: (window.CleanFrameDebug.state().group || "")})', function (r) {
+            var st = {};
+            try { st = JSON.parse(r); } catch (e) {}
+            check('Sprachseite oeffnet', st.view === 'appearance' && st.group === 'language', String(r));
+            evalJs('JSON.stringify(window.CleanFrameDebug.langOptions ? window.CleanFrameDebug.langOptions() : null)', function (opts) {
+              check('Sprachoptionen vorhanden', /de/.test(String(opts)) && /en/.test(String(opts)), String(opts));
+              evalJs('window.CleanFrameDebug.language("en")', function () {
+                setTimeout(function () {
+                  evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, titel: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Language") : "-")})', function (x) {
+                    var o = {};
+                    try { o = JSON.parse(x); } catch (e) {}
+                    check('Umschalten auf Englisch wirkt', o.lang === 'en' && o.titel === 'Language', x);
+                    evalJs('window.CleanFrameDebug.language("de")', function () {
+                      setTimeout(function () { finish(); }, 600);
+                    });
+                  });
+                }, 500);
+              });
+            });
+          });
+        }, 400);
+      });
+    });
+  }
+
   function backTest(appId) {
     evalJs('(window.CleanFrameDebug.openCtx(' + JSON.stringify(appId) + '), 1)', function () {
       setTimeout(function () {
         key('back', function () {
           evalJs('window.CleanFrameDebug.state().view', function (v) {
             check('Zurueck schliesst das Kontextmenue', v === 'home', String(v));
-            finish();
+            longPressTest();
           });
         });
       }, 400);
+    });
+  }
+
+  /* Darstellung aendern -> Server -> Neustart: bleibt die Einstellung? */
+  function configTests() {
+    if (!CONFIG_URL) { finish(); return; }
+    evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (beforeRaw) {
+      var before = {};
+      try { before = JSON.parse(beforeRaw); } catch (e) {}
+      var target = before.apps === 'icons' ? 'both' : 'icons';
+      evalJs('(window.CleanFrameDebug.look({ apps: ' + JSON.stringify(target) + ' }), 1)', function () {
+        setTimeout(function () {
+        evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (changedRaw) {
+        var changed = {};
+        try { changed = JSON.parse(changedRaw); } catch (e) {}
+        check('Darstellung laesst sich aendern', changed.apps === target, before.apps + ' -> ' + changed.apps);
+        if (DEBUG) evalJs('JSON.stringify({saved: !!window.__saved, hasSave: typeof (window.FrameDevice && window.FrameDevice.saveConfig), ready: window.CleanFrameDebug.ready(), sync: window.CleanFrameDebug.syncLog(), payloadLook: window.CleanFrameDebug.serverPayload().look})', function (x) { console.log('    sync: ' + x); });
+        // Bis zu 6 s auf den Server warten (das Geraet schreibt asynchron)
+        (function poll(n) {
+          get(CONFIG_URL, function (err, body) {
+            var cfg = {};
+            try { cfg = (JSON.parse(body) || {}).config || {}; } catch (e) {}
+            if ((cfg.look || {}).apps !== target && n > 0) { setTimeout(function () { poll(n - 1); }, 600); return; }
+            check('Aenderung steht im Server', (cfg.look || {}).apps === target, 'Server: ' + (cfg.look || {}).apps);
+            // Neustart der App: frisch laden, Konfiguration erneut holen
+            send('Page.reload', {}, function () {
+              setTimeout(function () {
+                evalJs('window.focus()', function () {
+                  evalJs('typeof window.CleanFrameDebug', function (typ) {
+                    setTimeout(function () {
+                      evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (afterRaw) {
+                        var after = {};
+                        try { after = JSON.parse(afterRaw); } catch (e) {}
+                        check('Einstellung ueberlebt den Neustart', after.apps === target, 'nach Neustart: ' + after.apps + ' (vorher ' + before.apps + ')');
+                        finish();
+                      });
+                    }, 1500);
+                  });
+                });
+              }, 500);
+            });
+          });
+        }(10));
+        });
+        }, 2000);
+      });
     });
   }
 

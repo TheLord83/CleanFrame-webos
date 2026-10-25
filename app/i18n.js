@@ -108,6 +108,8 @@
       'Not saved: ': 'Nicht gespeichert: ',
       'Last app': 'Letzte App',
       'Add to Home': 'Auf die Startseite',
+      'Language': 'Sprache',
+      'Like the TV': 'Wie der Fernseher',
       'Rename': 'Umbenennen',
       'Save': 'Speichern',
       'Remove from Home': 'Von der Startseite nehmen',

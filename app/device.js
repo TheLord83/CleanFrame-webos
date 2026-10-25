@@ -197,7 +197,7 @@
    * Ist er nicht installiert, bleibt alles wie bisher (localStorage). */
   var CF_API = 'http://127.0.0.1:8484';
 
-  function apiCall(method, path, body, done) {
+  function apiCall(method, path, body, done, contentType) {
     var xhr = new XMLHttpRequest(), finished = false;
     function finish(err, data) {
       if (finished) return;
@@ -207,7 +207,7 @@
     try {
       xhr.open(method, CF_API + path, true);
       xhr.timeout = 3000;
-      if (body) xhr.setRequestHeader('Content-Type', 'application/json');
+      if (body) xhr.setRequestHeader('Content-Type', contentType || 'application/json');
       xhr.onreadystatechange = function () {
         if (xhr.readyState !== 4) return;
         var parsed = null;
@@ -234,10 +234,13 @@
         cb(null, data.config);
       });
     },
+    /* Schreiben bewusst als POST mit text/plain: alles andere loest unter
+     * Chromium 79 aus file:// einen CORS-Preflight aus, der scheitert (die
+     * Anfrage kaeme nie an). Der Server nimmt text/plain nur vom Fernseher an. */
     saveConfig: function (cfg, cb) {
-      apiCall('PUT', '/api/config', { config: cfg }, function (err, data) {
+      apiCall('POST', '/api/config', { config: cfg }, function (err, data) {
         cb(err, data && data.config);
-      });
+      }, 'text/plain;charset=UTF-8');
     },
     api: apiCall,
     launch: launch,
