@@ -14,8 +14,10 @@ Fernseher laufenden [Glasshouse](https://github.com/rorygallagher2024/glasshouse
 
 | Datei | Änderung |
 | --- | --- |
-| `app/device.js` | vollständig neu: `launchApp`, `apps`, `home`, `settings`, `art` über die Glasshouse-API (`/api/control`, `/api/apps`, `/api/apps/icon`), inkl. Übersetzung alter Tizen-App-IDs |
-| `app/main.js` | 36 Zeilen: Marken-Kacheln auf webOS-App-IDs, `safeIcon` erlaubt TV-Icons über `http://127.0.0.1:8080/…`, sichtbare Texte „Samsung" → „LG", „Art Mode" → „Bildschirmschoner" |
+| `app/device.js` | vollständig neu: App-Start, Startseite, TV-Einstellungen und Bildschirmschoner über die native Luna-Brücke (`PalmServiceBridge`), App-Liste und Icons über Glasshouse (`/api/apps`, `/api/apps/icon`), inklusive eingebauter System-Apps (Browser, Homebrew Channel, Media Player), die Glasshouse nicht führt |
+| `app/main.js` | Marken-Kacheln auf webOS-App-IDs, `safeIcon` erlaubt TV-Icons über `http://127.0.0.1:8080/…`, sichtbare Texte „Samsung" → „LG", „Art Mode" → „Bildschirmschoner", Kontextmenü per langem OK, Leiste auf Inhalt zugeschnitten, Prüfschnittstelle `window.CleanFrameDebug` |
+| `app/i18n.js` | neu: Deutsch und Englisch, englische Strings als Schlüssel, Sprache über `localStorage['cleanframe.lang']` |
+| `app/style.css` | Chromium-79-Verträglichkeit: kein `inset`, kein Flex-`gap` (Geschwisterabstände statt `gap`), größere Marken, TV-Icons einfarbig |
 | `app/assets/` | unverändert (byte-identisch zum Original) |
 | `app/appinfo.json` | neu: webOS-Paketbeschreibung, Kategorie `home` |
 | `app/config.xml` | entfernt (Tizen-Verpackung) |
