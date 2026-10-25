@@ -69,6 +69,10 @@ t() {
       find_none)     echo "FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> Zustand des Fernsehers" ;;
       info_root)     echo "    root: %s" ;;
+      info_version)  echo "    launcher: %s (from this repo)" ;;
+      info_hub)      echo "    Hub: %s" ;;
+      info_version)  echo "    Launcher: %s (aus diesem Repo)" ;;
+      info_hub)      echo "    Hub: %s" ;;
       root_stage)    echo "==> Rooten (SlopBro)" ;;
       root_skip)     echo "    schon gerootet, SSH funktioniert" ;;
       root_need_tv)  echo "    Der Fernseher muss an sein und im selben Netz. Developer Mode ist NICHT noetig." ;;
@@ -92,9 +96,9 @@ t() {
       tv_off)        echo "    Port 22 zu. Fernseher im Standby? Mit --wake wecken." ;;
       tv_on)         echo "    Fernseher antwortet (SSH offen)" ;;
       check)         echo "==> Voraussetzungen pruefen" ;;
-      no_ssh)        echo "FEHLER: SSH auf root@%s nicht moeglich. Ist der Fernseher gerootet und der Schluessel hinterlegt? Siehe docs/INSTALL.md" ;;
+      no_ssh)        echo "FEHLER: SSH auf root@%s nicht moeglich. Ist der Fernseher gerootet und der Schluessel hinterlegt? Siehe https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md" ;;
       no_node)       echo "FEHLER: node fehlt auf dem Fernseher oder ist zu alt (gefunden: %s, gebraucht: 8+)" ;;
-      no_glass)      echo "FEHLER: Glasshouse antwortet nicht auf Port 8080 - ohne Glasshouse laesst sich kein IPK installieren." ;;
+      no_glass)      echo "FEHLER: Glasshouse antwortet nicht auf Port 8080 - ohne Glasshouse laesst sich kein IPK installieren. Glasshouse im Homebrew Channel installieren: https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md#step-0-root-the-tv" ;;
       glass_ok)      echo "    Glasshouse antwortet (%s)" ;;
       node_ok)       echo "    node %s" ;;
       plan)          echo "==> Vorhaben" ;;
@@ -123,6 +127,10 @@ t() {
       find_none)     echo "ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> State of the TV" ;;
       info_root)     echo "    root: %s" ;;
+      info_version)  echo "    launcher: %s (from this repo)" ;;
+      info_hub)      echo "    Hub: %s" ;;
+      info_version)  echo "    Launcher: %s (aus diesem Repo)" ;;
+      info_hub)      echo "    Hub: %s" ;;
       root_stage)    echo "==> Rooting (SlopBro)" ;;
       root_skip)     echo "    already rooted, SSH works" ;;
       root_need_tv)  echo "    The TV must be on and on the same network. Developer Mode is NOT needed." ;;
@@ -146,9 +154,9 @@ t() {
       tv_off)        echo "    port 22 closed. TV in standby? Use --wake." ;;
       tv_on)         echo "    TV answers (SSH open)" ;;
       check)         echo "==> Checking prerequisites" ;;
-      no_ssh)        echo "ERROR: cannot ssh root@%s. Is the TV rooted and the key installed? See docs/INSTALL.md" ;;
+      no_ssh)        echo "ERROR: cannot ssh root@%s. Is the TV rooted and the key installed? See https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md" ;;
       no_node)       echo "ERROR: node missing on the TV or too old (found: %s, need: 8+)" ;;
-      no_glass)      echo "ERROR: Glasshouse does not answer on port 8080 - without it no IPK can be installed." ;;
+      no_glass)      echo "ERROR: Glasshouse does not answer on port 8080 - without it no IPK can be installed. Install Glasshouse from the Homebrew Channel: https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md#step-0-root-the-tv" ;;
       glass_ok)      echo "    Glasshouse answers (%s)" ;;
       node_ok)       echo "    node %s" ;;
       plan)          echo "==> Plan" ;;
@@ -225,6 +233,25 @@ echo "rooted:  yes"; true' 2>/dev/null || true
   else
     say "$(printf "$(t info_root)" "no")"
   fi
+  read -r LAUNCHERVER HUBVER <<EOF
+$(python3 - "$ROOT" <<'PY' 2>/dev/null || echo "? ?"
+import json, re, sys, os
+root = sys.argv[1]
+try:
+    launcher = json.load(open(os.path.join(root, "app", "appinfo.json")))["version"]
+except Exception:
+    launcher = "?"
+try:
+    text = open(os.path.join(root, "web", "server.js")).read()
+    hub = re.search(r"VERSION\s*=\s*'([0-9.]+)'", text).group(1)
+except Exception:
+    hub = "?"
+print(launcher, hub)
+PY
+)
+EOF
+  say "$(printf "$(t info_version)" "${LAUNCHERVER:-?}")"
+  say "$(printf "$(t info_hub)" "${HUBVER:-?}")"
   # --info is a report, not a step: never fall through into the install
   exit 0
 fi

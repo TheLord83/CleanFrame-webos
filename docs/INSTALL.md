@@ -1,5 +1,9 @@
 # Install
 
+> Source: <https://github.com/TheLord83/CleanFrame-webos> — this file lives in the repo at
+> [`docs/INSTALL.md`](https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md).
+> Issues and questions: <https://github.com/TheLord83/CleanFrame-webos/issues>.
+
 Two things end up on the TV: the launcher (the start screen, an IPK) and the
 CleanFrame Hub (configuration server plus web interface). This guide goes from a
 stock TV to a running start screen.
@@ -238,6 +242,19 @@ after 350 ms and shows up on the TV within about two seconds.
 The launcher reads the configuration from the hub at start and every two seconds.
 Without the hub it starts with the embedded defaults — the hub is the convenience,
 not a requirement for the app to run.
+
+## Which version am I running?
+
+| Where | What it shows |
+| --- | --- |
+| `./tools/install.sh --info` | `launcher: 0.4.18 (from this repo)` and `Hub: 0.4.18` — the versions of the code you have |
+| IPK build | `App-ID: com.blackpearl.cleanframe  Version: 0.4.18`, plus size and SHA256 |
+| after installing | `launcher is in the app list: com.blackpearl.cleanframe 0.4.18` (read back from the TV, not from the build) |
+| hub footer | `v0.4.18 · Catalog from Glasshouse` |
+| `GET /api/health` | `{"ok":true,...,"version":"0.4.18"}` |
+
+The launcher version comes from `app/appinfo.json`, the hub version from the `VERSION`
+constant in `web/server.js`; both are kept in step.
 
 ## Updating
 
