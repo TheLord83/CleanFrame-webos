@@ -215,6 +215,8 @@ if (-not $NoHub) {
   & scp -q -o StrictHostKeyChecking=no $libFiles "root@$($Tv):/var/lib/cleanframe/lib/"
   & scp -q -o StrictHostKeyChecking=no $assetFiles "root@$($Tv):/var/lib/cleanframe/assets/"
   & scp -r -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\assets\icons') "root@$($Tv):/var/lib/cleanframe/assets/"
+  # Language files live in their own directory; without them the interface shows keys.
+  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\assets\lang') "root@$($Tv):/var/lib/cleanframe/assets/"
   & scp -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\cleanframectl') "root@$($Tv):/var/lib/cleanframe/cleanframectl"
   & scp -q -o StrictHostKeyChecking=no (Join-Path $Root 'web\init.d\52-cleanframe') "root@$($Tv):/var/lib/webosbrew/init.d/52-cleanframe"
   & ssh @sshBase 'chmod +x /var/lib/cleanframe/cleanframectl /var/lib/webosbrew/init.d/52-cleanframe; /var/lib/cleanframe/cleanframectl restart'

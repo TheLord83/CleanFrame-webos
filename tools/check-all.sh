@@ -65,26 +65,30 @@ run() {
 }
 
 # ---------------------------------------------------------------- Syntax
-step "1/5 source syntax"
-for f in app/*.js web/*.js web/lib/*.js tools/*.js; do
+step "1/6 source syntax"
+for f in app/*.js web/*.js web/lib/*.js web/assets/lang/*.js tools/*.js; do
   node --check "$f" || { echo "  syntax error: $f"; FAILED=1; }
 done
 [ "$FAILED" = "0" ] && echo "  --> all JavaScript files parse"
 
+# ------------------------------------------------- Interface translations
+step "2/6 interface translations (de/en)"
+run "translation keys" node tools/check-lang.js
+
 # ------------------------------------------------- node 8 (Fernseher)
-step "2/5 compatibility with node 8.12 (TV)"
+step "3/6 compatibility with node 8.12 (TV)"
 run "node-8 check" python3 tools/check-node8.py
 
 # --------------------------------------------------------------- Icons
-step "3/5 icon library"
+step "4/6 icon library"
 run "icon check" python3 tools/check-icons.py
 
 # ------------------------------------------------------------ API-Tests
-step "4/5 config server (API)"
+step "5/6 config server (API)"
 run "API checks" python3 tools/test-web-api.py
 
 # --------------------------------------- Server + Chrome fuer die UI-Tests
-step "5/5 interface (keys and live adoption)"
+step "6/6 interface (keys and live adoption)"
 if ! curl -sf -m 3 "http://127.0.0.1:$PORT_SERVER/api/health" >/dev/null 2>&1; then
   echo "  starting config server on port $PORT_SERVER"
   CF_PORT="$PORT_SERVER" \

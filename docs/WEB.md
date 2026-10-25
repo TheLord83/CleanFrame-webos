@@ -114,6 +114,37 @@ The interface itself switches between German and English (`DE`/`EN` in the
 header) independently of the app language; the choice is kept in the browser
 (`localStorage["cf.ui.lang"]`).
 
+## Interface languages (language files)
+
+Every visible string of the interface lives in a language file, not in the markup:
+
+| File | Content |
+| --- | --- |
+| `web/assets/lang/de.js` | German strings |
+| `web/assets/lang/en.js` | English strings, same keys |
+| `web/lib/schema.js` | option names, German in `name`, English in `nameEn` |
+| `web/lib/diag.js` | check names, German in `label`, English in `labelEn` |
+
+The keys are flat and dotted (`nav.home`, `card.accent.title`), both files are loaded as
+scripts (so the page also works from disk), and `t("key", {n: 5})` substitutes `{n}`
+placeholders. A missing key falls back to German and logs
+`missing i18n key: <key>` to the console instead of showing an empty label.
+
+`name` and `label` stay German on purpose: the launcher on the TV reads them. The
+interface picks `nameEn` / `labelEn` when English is selected, otherwise the German
+field — so nothing has to be changed on the device to translate the hub.
+
+Language parity is checked without a browser:
+
+```sh
+node tools/check-lang.js      # identical key sets in both files, prints RESULT n/n
+```
+
+Switching the language in the header re-renders the page (static `data-t` elements,
+settings cards, tile list, visible status lines) and is stored in
+`localStorage["cf.ui.lang"]`; the default stays German. For a headless check the language
+can be forced with `?lang=en`, e.g. `chrome --headless=new --dump-dom "http://127.0.0.1:8484/?lang=en"`.
+
 ## Security model
 
 - Without a token everything is allowed; with a token (`CF_TOKEN`) requests must

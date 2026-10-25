@@ -156,123 +156,123 @@
 </head>
 <body>
 <header>
-  <h1>CleanFrame Hub</h1>
+  <h1 data-t="app.brand">CleanFrame Hub</h1>
   <span class="ver" id="ver">…</span>
   <div id="errBanner" class="stale err" hidden></div>
   <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
-    <button class="ghost" id="uiLang" title="Sprache der Oberfläche">DE</button>
+    <button class="ghost" id="uiLang" data-t-title="ui.lang.title" title="Sprache der Oberfläche">DE</button>
   </span>
 </header>
 
 <nav role="tablist">
-  <button role="tab" data-tab="home" aria-selected="true">Startseite</button>
-  <button role="tab" data-tab="look" aria-selected="false">Darstellung</button>
-  <button role="tab" data-tab="integrations" aria-selected="false">Integrationen</button>
-  <button role="tab" data-tab="system" aria-selected="false">System</button>
+  <button role="tab" data-tab="home" aria-selected="true" data-t="nav.home">Startseite</button>
+  <button role="tab" data-tab="look" aria-selected="false" data-t="nav.look">Darstellung</button>
+  <button role="tab" data-tab="integrations" aria-selected="false" data-t="nav.integrations">Integrationen</button>
+  <button role="tab" data-tab="system" aria-selected="false" data-t="nav.system">System</button>
 </nav>
 
 <div id="shell">
 <main>
   <section data-tab="home" data-active="true">
-    <h2>Startseite<button class="showtv" type="button" data-view="home" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Reihenfolge, Name und Icon je Kachel — wird bei jeder Änderung sofort gespeichert. Der Katalog in „Alle Apps“ auf dem Fernseher bleibt unverändert.</p>
+    <h2><span data-t="home.title">Startseite</span><button class="showtv" type="button" data-view="home" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
+    <p class="hint" data-t="home.hint">Reihenfolge, Name und Icon je Kachel — wird bei jeder Änderung sofort gespeichert. Der Katalog in „Alle Apps“ auf dem Fernseher bleibt unverändert.</p>
     <div class="grid">
       <div>
-        <label for="addApp">App hinzufügen</label>
-        <select id="addApp"><option value="">— App wählen —</option></select>
+        <label for="addApp" data-t="home.addLabel">App hinzufügen</label>
+        <select id="addApp"><option value="" data-t="home.choose">— App wählen —</option></select>
       </div>
       <div style="display:flex;align-items:flex-end">
-        <button class="action" id="btnAdd">Hinzufügen</button>
+        <button class="action" id="btnAdd" data-t="home.add">Hinzufügen</button>
       </div>
     </div>
     <ul class="tiles" id="tileList"></ul>
     <div class="row" style="margin-top:16px">
-      <button class="action" id="btnSaveHome">Startseite speichern</button>
+      <button class="action" id="btnSaveHome" data-t="home.save">Startseite speichern</button>
     </div>
     <div class="status" id="homeStatus"></div>
   </section>
 
   <section data-tab="look">
-    <h2>Darstellung<button class="showtv" type="button" data-view="home" title="Startseite am Fernseher zeigen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Alle Einstellungen der App: Hintergrund, Anordnung, Akzente, Uhr, Sprache, Senioren-Modus, Bildschirmschoner. Jede Änderung wird sofort gespeichert und der Fernseher zieht sie im laufenden Betrieb nach.</p>
+    <h2><span data-t="look.title">Darstellung</span><button class="showtv" type="button" data-view="home" data-t="home.showtv" data-t-title="home.showtv.titleHome" title="Startseite am Fernseher zeigen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
+    <p class="hint" data-t="look.hint">Alle Einstellungen der App: Hintergrund, Anordnung, Akzente, Uhr, Sprache, Senioren-Modus, Bildschirmschoner. Jede Änderung wird sofort gespeichert und der Fernseher zieht sie im laufenden Betrieb nach.</p>
     <div id="lookCards"></div>
     <div class="row" style="margin-top:16px">
-      <button class="action" id="btnLook">Jetzt speichern</button>
+      <button class="action" id="btnLook" data-t="look.save">Jetzt speichern</button>
     </div>
     <div class="status" id="lookStatus"></div>
   </section>
 
   <section data-tab="integrations">
-    <h2>Home Assistant<button class="showtv" type="button" data-view="settings" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Adresse und Token bleiben auf dem Fernseher; das Token wird beim Lesen nicht zurückgegeben.</p>
+    <h2><span data-t="int.ha.title">Home Assistant</span><button class="showtv" type="button" data-view="settings" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
+    <p class="hint" data-t="int.ha.hint">Adresse und Token bleiben auf dem Fernseher; das Token wird beim Lesen nicht zurückgegeben.</p>
     <div class="grid">
       <div>
-        <label for="haUrl">Adresse</label>
+        <label for="haUrl" data-t="int.ha.addr">Adresse</label>
         <input id="haUrl" placeholder="http://192.168.1.30:8123">
       </div>
       <div>
-        <label for="haToken">Token</label>
-        <input id="haToken" type="password" placeholder="bleibt erhalten, wenn leer">
+        <label for="haToken" data-t="int.ha.token">Token</label>
+        <input id="haToken" type="password" data-t-ph="int.ha.tokenPh" placeholder="bleibt erhalten, wenn leer">
       </div>
     </div>
     <div class="row" style="margin-top:16px">
-      <button class="ghost" id="btnHaCheck">Verbindung prüfen</button>
-      <button class="ghost" id="btnHaLoad">Entitäten laden</button>
-      <button class="action" id="btnHaSave">Speichern</button>
+      <button class="ghost" id="btnHaCheck" data-t="int.ha.check">Verbindung prüfen</button>
+      <button class="ghost" id="btnHaLoad" data-t="int.ha.load">Entitäten laden</button>
+      <button class="action" id="btnHaSave" data-t="common.save">Speichern</button>
     </div>
     <div class="status" id="haStatus"></div>
 
-    <h2 style="margin-top:24px">Entitäten auf der Kachel</h2>
-    <p class="hint">Bis zu 12 Werte. Gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.</p>
+    <h2 style="margin-top:24px"><span data-t="int.ent.title">Entitäten auf der Kachel</span></h2>
+    <p class="hint" data-t="int.ent.hint">Bis zu 12 Werte. Gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.</p>
     <div id="haChosen" class="row" style="gap:8px"></div>
     <div class="row" style="margin-top:10px">
-      <input id="haFilter" placeholder="Filter (z. B. Temperatur, Wohnzimmer)">
+      <input id="haFilter" data-t-ph="int.ent.filter" placeholder="Filter (z. B. Temperatur, Wohnzimmer)">
     </div>
     <div id="haList" style="max-height:280px;overflow:auto;margin-top:10px"></div>
 
-    <h2 style="margin-top:28px">MQTT</h2>
+    <h2 style="margin-top:28px"><span data-t="int.mqtt.title">MQTT</span></h2>
     <div class="grid">
-      <div><label for="mqUrl">Broker</label><input id="mqUrl" placeholder="mqtt://192.168.1.30:1883"></div>
-      <div><label for="mqUser">Benutzer</label><input id="mqUser" placeholder="cleanframe"></div>
-      <div><label for="mqPass">Passwort</label><input id="mqPass" type="password" placeholder="bleibt erhalten, wenn leer"></div>
-      <div><label for="mqPrefix">Topic-Präfix</label><input id="mqPrefix" placeholder="cleanframe"></div>
+      <div><label for="mqUrl" data-t="int.mqtt.broker">Broker</label><input id="mqUrl" placeholder="mqtt://192.168.1.30:1883"></div>
+      <div><label for="mqUser" data-t="int.mqtt.user">Benutzer</label><input id="mqUser" placeholder="cleanframe"></div>
+      <div><label for="mqPass" data-t="int.mqtt.pass">Passwort</label><input id="mqPass" type="password" data-t-ph="int.mqtt.passPh" placeholder="bleibt erhalten, wenn leer"></div>
+      <div><label for="mqPrefix" data-t="int.mqtt.prefix">Topic-Präfix</label><input id="mqPrefix" placeholder="cleanframe"></div>
     </div>
     <div class="row" style="margin-top:16px">
-      <button class="action" id="btnMqSave">Speichern</button>
+      <button class="action" id="btnMqSave" data-t="common.save">Speichern</button>
     </div>
     <div class="status" id="mqStatus"></div>
   </section>
 
   <section data-tab="system">
-    <h2>Sicherung<button class="showtv" type="button" data-view="settings" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
-    <p class="hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
+    <h2><span data-t="sys.backup.title">Sicherung</span><button class="showtv" type="button" data-view="settings" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
+    <p class="hint" data-t="sys.backup.hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
     <div class="row">
-      <button class="action" id="btnExport">Herunterladen</button>
+      <button class="action" id="btnExport" data-t="sys.backup.download">Herunterladen</button>
       <input id="importFile" type="file" accept="application/json" style="width:auto">
-      <button class="ghost" id="btnImport">Importieren</button>
+      <button class="ghost" id="btnImport" data-t="sys.backup.import">Importieren</button>
     </div>
     <div class="status" id="backupStatus"></div>
 
-    <h2 style="margin-top:28px">Einrichtung</h2>
-    <p class="hint">Startet den Assistenten beim nächsten Öffnen der App erneut — Sprache, Startseite mit Schnellauswahl, Darstellung.</p>
+    <h2 style="margin-top:28px"><span data-t="sys.setup.title">Einrichtung</span></h2>
+    <p class="hint" data-t="sys.setup.hint">Startet den Assistenten beim nächsten Öffnen der App erneut — Sprache, Startseite mit Schnellauswahl, Darstellung.</p>
     <div class="row">
-      <button class="action" id="btnSetup">Einrichtung erneut starten</button>
+      <button class="action" id="btnSetup" data-t="sys.setup.run">Einrichtung erneut starten</button>
     </div>
     <div class="status" id="setupStatus"></div>
 
-    <h2 style="margin-top:28px">Verbindung</h2>
-    <p class="hint">Prüft aus diesem Browser heraus: Abruf, Schreiben, Antwortzeiten. Nützlich, wenn Änderungen nicht ankommen.</p>
+    <h2 style="margin-top:28px"><span data-t="sys.conn.title">Verbindung</span></h2>
+    <p class="hint" data-t="sys.conn.hint">Prüft aus diesem Browser heraus: Abruf, Schreiben, Antwortzeiten. Nützlich, wenn Änderungen nicht ankommen.</p>
     <div class="row">
-      <button class="action" id="btnDiag">Verbindung testen</button>
+      <button class="action" id="btnConnTest" data-t="sys.conn.test">Verbindung testen</button>
     </div>
     <div class="status" id="diagStatus"></div>
 
 
-    <h2 style="margin-top:28px">Diagnose</h2>
+    <h2 style="margin-top:28px"><span data-t="sys.diag.title">Diagnose</span></h2>
     <div class="row">
-      <button class="ghost" id="btnDiag">Prüfen</button>
-      <button class="ghost" id="btnSelf">Selbsttest</button>
-      <button class="ghost" id="btnRestart">Dienst neu starten</button>
+      <button class="ghost" id="btnDiag" data-t="sys.diag.check">Prüfen</button>
+      <button class="ghost" id="btnSelf" data-t="sys.diag.self">Selbsttest</button>
+      <button class="ghost" id="btnRestart" data-t="sys.diag.restart">Dienst neu starten</button>
     </div>
     <table id="diagTable"></table>
     <pre id="diagJson" hidden></pre>
@@ -280,22 +280,22 @@
   </section>
 </main>
 
-<aside id="tvPanel" aria-label="Fernseher">
+<aside id="tvPanel" data-t-aria="tv.aria" aria-label="Fernseher">
   <div class="panel-head">
-    <span class="spin" id="tvSpin" title="Aenderung wird uebertragen"></span>
-    <strong>Fernseher</strong>
-    <span class="panel-dot" id="tvDot" title="Verbindung"></span>
-    <button class="ghost" id="btnToggle" style="margin-left:auto;">einklappen</button>
+    <span class="spin" id="tvSpin" data-t-title="tv.spin.title" title="Aenderung wird uebertragen"></span>
+    <strong data-t="tv.title">Fernseher</strong>
+    <span class="panel-dot" id="tvDot" data-t-title="tv.dot.title" title="Verbindung"></span>
+    <button class="ghost" id="btnToggle" style="margin-left:auto;" data-t="tv.collapse">einklappen</button>
   </div>
-  <img id="tvShot" alt="Bildschirmfoto des Fernsehers">
-  <p class="hint" id="tvStatus">Bild wird geladen …</p>
+  <img id="tvShot" data-t-alt="tv.shot.alt" alt="Bildschirmfoto des Fernsehers">
+  <p class="hint" id="tvStatus" data-t="tv.loading">Bild wird geladen …</p>
   <div class="panel-row">
-    <button id="btnShot" type="button">Bild holen</button>
-    <label class="panel-check"><input type="checkbox" id="autoShot" checked> live</label>
-    <select id="shotQuality" title="Bildqualität">
-      <option value="50">klein</option>
-      <option value="65" selected>mittel</option>
-      <option value="85">scharf</option>
+    <button id="btnShot" type="button" data-t="tv.shot">Bild holen</button>
+    <label class="panel-check"><input type="checkbox" id="autoShot" checked> <span data-t="tv.live">live</span></label>
+    <select id="shotQuality" data-t-title="tv.quality.title" title="Bildqualität">
+      <option value="50" data-t="tv.q.small">klein</option>
+      <option value="65" selected data-t="tv.q.medium">mittel</option>
+      <option value="85" data-t="tv.q.sharp">scharf</option>
     </select>
   </div>
   <div class="remote-pad">
@@ -306,18 +306,18 @@
     <button type="button" data-key="down" class="rk">▼</button>
   </div>
   <div class="panel-row" style="margin-top:10px">
-    <button type="button" data-hold="ok" title="OK-Taste 0,9 s gedrückt halten — öffnet das Kachel-Menü">OK lange halten</button>
-    <label class="panel-check"><input type="checkbox" id="holdPick"> auf der gewählten Kachel</label>
+    <button type="button" data-hold="ok" data-t="tv.hold.ok" data-t-title="tv.hold.title" title="OK-Taste 0,9 s gedrückt halten — öffnet das Kachel-Menü">OK lange halten</button>
+    <label class="panel-check"><input type="checkbox" id="holdPick"> <span data-t="tv.hold.on">auf der gewählten Kachel</span></label>
   </div>
   <div class="panel-keys">
-    <button type="button" data-key="back">Zurück</button>
-    <button type="button" data-key="menu">Menü</button>
-    <button type="button" data-key="exit">Exit</button>
-    <button type="button" data-key="play">Play/Pause</button>
-    <button type="button" data-key="volup">Lauter</button>
-    <button type="button" data-key="voldown">Leiser</button>
-    <button type="button" data-key="chup">Kanal +</button>
-    <button type="button" data-key="chdown">Kanal −</button>
+    <button type="button" data-key="back" data-t="tv.key.back">Zurück</button>
+    <button type="button" data-key="menu" data-t="tv.key.menu">Menü</button>
+    <button type="button" data-key="exit" data-t="tv.key.exit">Exit</button>
+    <button type="button" data-key="play" data-t="tv.key.play">Play/Pause</button>
+    <button type="button" data-key="volup" data-t="tv.key.volup">Lauter</button>
+    <button type="button" data-key="voldown" data-t="tv.key.voldown">Leiser</button>
+    <button type="button" data-key="chup" data-t="tv.key.chup">Kanal +</button>
+    <button type="button" data-key="chdown" data-t="tv.key.chdown">Kanal −</button>
   </div>
 </aside>
 </div>
@@ -325,14 +325,14 @@
 <div class="wiz" id="wizard" hidden>
   <div class="box">
     <div class="steps" id="wDots"></div>
-    <h2 id="wTitle">Willkommen</h2>
+    <h2 id="wTitle" data-t="wiz.s1.title">Willkommen</h2>
     <p class="hint" id="wHint"></p>
     <div id="wBody"></div>
     <div class="nav">
-      <button class="ghost" id="wBack" data-t="back">Zurück</button>
+      <button class="ghost" id="wBack" data-t="wiz.back">Zurück</button>
       <div style="display:flex;gap:8px">
-        <button class="ghost" id="wSkip" data-t="skip">Überspringen</button>
-        <button class="action" id="wNext" data-t="next">Weiter</button>
+        <button class="ghost" id="wSkip" data-t="wiz.skip">Überspringen</button>
+        <button class="action" id="wNext" data-t="wiz.next">Weiter</button>
       </div>
     </div>
   </div>
@@ -341,25 +341,106 @@
 <div id="picker" hidden>
   <div class="panel">
     <h3 id="pickerTitle">Icon wählen</h3>
-    <p class="hint" style="margin:0 0 6px">Symbole sind einfarbig; das Original-Icon der App bleibt in „Alle Apps“ erhalten.</p>
+    <p class="hint" style="margin:0 0 6px" data-t="picker.hint">Symbole sind einfarbig; das Original-Icon der App bleibt in „Alle Apps“ erhalten.</p>
     <div id="pickerGroups"></div>
     <div class="row" style="margin-top:16px">
-      <button class="ghost" id="pickerDefault">Original-Icon</button>
-      <button class="action" id="pickerClose">Fertig</button>
+      <button class="ghost" id="pickerDefault" data-t="picker.default">Original-Icon</button>
+      <button class="action" id="pickerClose" data-t="picker.done">Fertig</button>
     </div>
   </div>
 </div>
 
 <pre id="uiSelfTest" hidden></pre>
 
+<!-- Language files are plain scripts (not fetch), so the interface also works
+     when index.html is opened directly from disk. -->
+<script src="lang/de.js"></script>
+<script src="lang/en.js"></script>
+
 <script>
 (function () {
   'use strict';
 
-  var state = { cfg: null, apps: [], icons: [], pickerIndex: -1, dirty: {} };
+  var state = {
+    cfg: null, apps: [], icons: [], schema: {}, pickerIndex: -1,
+    haEntities: null, catalogOk: null, versionError: ''
+  };
 
   function $(id) { return document.getElementById(id); }
-  function note(el, msg, ok) { el.textContent = msg; el.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ---------- Interface language (de/en), strings in assets/lang/*.js ---------- */
+  var UI = { lang: 'de' };
+  var FALLBACK_LANG = 'de';
+  var warnedKeys = {};
+
+  function langDict(lang) {
+    return (window.CF_LANG && window.CF_LANG[lang]) || null;
+  }
+
+  /* t('key') or t('key', {name: value}) with {name} placeholders. Falls back to
+   * German, then to the key itself — and says so on the console. */
+  function t(key, vars) {
+    var dict = langDict(UI.lang);
+    var val = dict ? dict[key] : undefined;
+    if (val === undefined) {
+      var fb = langDict(FALLBACK_LANG) || {};
+      val = fb[key];
+      if (val === undefined) val = key;
+      if (!warnedKeys[UI.lang + '|' + key]) {
+        warnedKeys[UI.lang + '|' + key] = true;
+        if (typeof console !== 'undefined' && console.warn) console.warn('missing i18n key: ' + key);
+      }
+    }
+    if (vars) {
+      val = String(val).replace(/\{(\w+)\}/g, function (m, name) {
+        return Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : m;
+      });
+    }
+    return String(val);
+  }
+
+  /* Server data carries German `name`/`label` (the launcher reads those) plus an
+   * additive English variant. Pick by interface language, never mutate. */
+  function pick(obj, deField, enField) {
+    if (!obj) return '';
+    if (UI.lang === 'en') return obj[enField] || obj[deField] || '';
+    return obj[deField] || obj[enField] || '';
+  }
+
+  function optionName(o) { return pick(o, 'name', 'nameEn'); }
+
+  function timeString(d) {
+    return d.toLocaleTimeString(UI.lang === 'en' ? 'en-GB' : 'de-DE',
+      { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  /* One pass over the static markup. */
+  function applyStatic() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {
+      el.textContent = t(el.getAttribute('data-t'));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t-title]'), function (el) {
+      el.setAttribute('title', t(el.getAttribute('data-t-title')));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t-aria]'), function (el) {
+      el.setAttribute('aria-label', t(el.getAttribute('data-t-aria')));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t-alt]'), function (el) {
+      el.setAttribute('alt', t(el.getAttribute('data-t-alt')));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t-ph]'), function (el) {
+      el.setAttribute('placeholder', t(el.getAttribute('data-t-ph')));
+    });
+    document.documentElement.lang = UI.lang;
+    document.title = t('app.title');
+    var b = $('uiLang');
+    if (b) b.textContent = UI.lang.toUpperCase();
+  }
 
   function api(method, path, body) {
     var opts = { method: method, headers: {} };
@@ -401,34 +482,79 @@
     } catch (e) {}
   }
 
+  /* ---------- Status lines: stored as key + placeholders, so a language
+   * switch can re-render whatever is on screen right now ---------- */
+  function resolveVars(vars) {
+    var out = {};
+    if (!vars) return out;
+    Object.keys(vars).forEach(function (k) {
+      var v = vars[k];
+      out[k] = (v && typeof v === 'object' && v.key) ? t(v.key, v.vars) : v;
+    });
+    return out;
+  }
+
+  function note(el, key, vars, ok) {
+    if (!el) return;
+    el.__cfNote = { key: key, vars: vars || null, ok: ok };
+    el.textContent = t(key, resolveVars(vars));
+    el.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : '');
+  }
+
+  function noteParts(el, parts, ok) {
+    if (!el) return;
+    el.__cfNote = { parts: parts, ok: ok };
+    el.textContent = parts.map(function (p) { return t(p.key, resolveVars(p.vars)); }).join(' · ');
+    el.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : '');
+  }
+
+  function renoteAll() {
+    Array.prototype.forEach.call(document.querySelectorAll('.status'), function (el) {
+      var n = el.__cfNote;
+      if (!n) {
+        /* initial placeholder text from data-t is refreshed by applyStatic() */
+        var k = el.getAttribute && el.getAttribute('data-t');
+        if (k) el.textContent = t(k);
+        return;
+      }
+      if (n.parts) {
+        el.textContent = n.parts.map(function (p) { return t(p.key, resolveVars(p.vars)); }).join(' · ');
+        el.className = 'status ' + (n.ok === true ? 'ok' : n.ok === false ? 'bad' : '');
+      } else {
+        note(el, n.key, n.vars, n.ok);
+      }
+    });
+  }
+
   /* ---------- Make errors visible ---------- */
   function fehlerBanner(text) {
     var b = document.getElementById('errBanner');
     if (!b) return;
     b.hidden = false;
-    b.textContent = 'Fehler in der Oberfläche: ' + text;
+    b.textContent = t('err.ui', { msg: text });
   }
   window.addEventListener('error', function (e) {
-    var txt = (e.message || 'unbekannt') + (e.lineno ? ' (Zeile ' + e.lineno + ')' : '');
+    var txt = (e.message || t('err.unknown')) + (e.lineno ? t('err.line', { n: e.lineno }) : '');
     fehlerBanner(txt);
-    melde('JS-Fehler: ' + txt);
+    melde(t('err.jsFail', { msg: txt }));
   });
   window.addEventListener('unhandledrejection', function (e) {
     var r = e.reason || {};
-    fehlerBanner('Zusage abgelehnt: ' + (r.message || String(r)) + (r.status ? ' · HTTP ' + r.status : ''));
+    var txt = (r.message || String(r)) + (r.status ? ' · HTTP ' + r.status : '');
+    fehlerBanner(t('err.rejected', { msg: txt }));
   });
 
   /* ---------- Appearance: all axes from /api/schema ---------- */
   function optSelect(key, label, list, current) {
-    var h = '<div><label for="lk-' + key + '">' + label + '</label><select id="lk-' + key + '" data-look="' + key + '">';
+    var h = '<div><label for="lk-' + key + '">' + esc(label) + '</label><select id="lk-' + key + '" data-look="' + key + '">';
     (list || []).forEach(function (o) {
-      h += '<option value="' + o.id + '"' + (String(o.id) === String(current) ? ' selected' : '') + '>' + o.name + '</option>';
+      h += '<option value="' + esc(o.id) + '"' + (String(o.id) === String(current) ? ' selected' : '') + '>' + esc(optionName(o)) + '</option>';
     });
     return h + '</select></div>';
   }
 
   function card(title, hint, inner) {
-    return '<div class="card-block"><h3>' + title + '</h3>' + (hint ? '<p class="hint">' + hint + '</p>' : '') + inner + '</div>';
+    return '<div class="card-block"><h3>' + esc(title) + '</h3>' + (hint ? '<p class="hint">' + esc(hint) + '</p>' : '') + inner + '</div>';
   }
 
   function renderLook() {
@@ -438,52 +564,52 @@
 
     var wallGrid = '<div class="wall-grid">' + walls.map(function (w) {
       var on = w.id === look.wall ? ' class="on"' : '';
-      return '<button type="button" data-wall="' + w.id + '"' + on + ' title="' + w.name + '">' +
-        '<img src="' + w.thumb + '" alt="' + w.name + '" loading="lazy"><span>' + w.name + '</span></button>';
+      return '<button type="button" data-wall="' + esc(w.id) + '"' + on + ' title="' + esc(w.name) + '">' +
+        '<img src="' + esc(w.thumb) + '" alt="' + esc(w.name) + '" loading="lazy"><span>' + esc(w.name) + '</span></button>';
     }).join('') + '</div>';
 
-    html += card('Hintergrund', 'Foto, dunkel oder hell — das Wandbild gilt nur bei „Foto“.',
-      '<div class="grid">' + optSelect('bg', 'Grundlage', sch.look && sch.look.bg, look.bg || 'photo') + '</div>' + wallGrid);
+    html += card(t('card.bg.title'), t('card.bg.hint'),
+      '<div class="grid">' + optSelect('bg', t('card.bg.base'), sch.look && sch.look.bg, look.bg || 'photo') + '</div>' + wallGrid);
 
-    html += card('Anordnung', 'Wo die Kacheln sitzen und wie sie beschriftet sind.',
+    html += card(t('card.layout.title'), t('card.layout.hint'),
       '<div class="grid">' +
-      optSelect('layout', 'Startseite', sch.look && sch.look.layout, look.layout) +
-      optSelect('apps', 'Apps', sch.look && sch.look.apps, look.apps) +
-      optSelect('controls', 'Bedienelemente', sch.look && sch.look.controls, look.controls) +
+      optSelect('layout', t('card.layout.home'), sch.look && sch.look.layout, look.layout) +
+      optSelect('apps', t('card.layout.apps'), sch.look && sch.look.apps, look.apps) +
+      optSelect('controls', t('card.layout.controls'), sch.look && sch.look.controls, look.controls) +
       '</div>');
 
-    html += card('Akzente', 'Fokusrahmen, Material der Flächen, Schrift.',
+    html += card(t('card.accent.title'), t('card.accent.hint'),
       '<div class="grid">' +
-      optSelect('focus', 'Fokus', sch.look && sch.look.focus, look.focus) +
-      optSelect('material', 'Material', sch.look && sch.look.material, look.material) +
-      optSelect('font', 'Schrift', sch.look && sch.look.fonts, look.font) +
+      optSelect('focus', t('card.accent.focus'), sch.look && sch.look.focus, look.focus) +
+      optSelect('material', t('card.accent.material'), sch.look && sch.look.material, look.material) +
+      optSelect('font', t('card.accent.font'), sch.look && sch.look.fonts, look.font) +
       '</div>');
 
-    html += card('Uhr', '',
+    html += card(t('card.clock.title'), '',
       '<div class="grid">' +
-      '<div><label for="lk-clock">Uhr anzeigen</label><select id="lk-clock" data-look="clock"><option value="1"' + (look.clock === false ? '' : ' selected') + '>Ja</option><option value="0"' + (look.clock === false ? ' selected' : '') + '>Nein</option></select></div>' +
-      '<div><label for="lk-clock24">Format</label><select id="lk-clock24" data-look="clock24"><option value="1"' + (look.clock24 === false ? '' : ' selected') + '>24 Stunden (18:30)</option><option value="0"' + (look.clock24 === false ? ' selected' : '') + '>12 Stunden (6:30)</option></select></div>' +
+      '<div><label for="lk-clock">' + esc(t('card.clock.show')) + '</label><select id="lk-clock" data-look="clock"><option value="1"' + (look.clock === false ? '' : ' selected') + '>' + esc(t('common.yes')) + '</option><option value="0"' + (look.clock === false ? ' selected' : '') + '>' + esc(t('common.no')) + '</option></select></div>' +
+      '<div><label for="lk-clock24">' + esc(t('card.clock.format')) + '</label><select id="lk-clock24" data-look="clock24"><option value="1"' + (look.clock24 === false ? '' : ' selected') + '>' + esc(t('card.clock.h24')) + '</option><option value="0"' + (look.clock24 === false ? ' selected' : '') + '>' + esc(t('card.clock.h12')) + '</option></select></div>' +
       '</div>');
 
-    html += card('Sprache', 'Unabhängig von der Sprache des Fernsehers.',
-      '<div class="grid">' + optSelect('lang', 'Sprache der App', sch.langs, c.lang) + '</div>');
+    html += card(t('card.lang.title'), t('card.lang.hint'),
+      '<div class="grid">' + optSelect('lang', t('card.lang.app'), sch.langs, c.lang) + '</div>');
 
     var ts = (sch.ui && sch.ui.textScale) || { min: 50, max: 200, step: 5 };
-    html += card('Senioren-Modus', '',
+    html += card(t('card.senior.title'), '',
       '<div class="grid">' +
-      '<div><label for="lk-senior">Modus</label><select id="lk-senior" data-look="senior"><option value="0"' + (ui.senior ? '' : ' selected') + '>Aus</option><option value="1"' + (ui.senior ? ' selected' : '') + '>Ein (größere Schrift, klarere Kacheln)</option></select></div>' +
-      '<div><label for="lk-textScale">Schriftgröße (%)</label><input id="lk-textScale" data-look="textScale" type="number" min="' + ts.min + '" max="' + ts.max + '" step="' + ts.step + '" value="' + (ui.textScale || 100) + '"></div>' +
-      '<div><label for="lk-cursor">Fokusrahmen</label><select id="lk-cursor" data-look="cursor">' +
-      ((sch.ui && sch.ui.cursor) || []).map(function (o) { return '<option value="' + o.id + '"' + (o.id === (ui.cursor || 'focus') ? ' selected' : '') + '>' + o.name + '</option>'; }).join('') +
+      '<div><label for="lk-senior">' + esc(t('card.senior.mode')) + '</label><select id="lk-senior" data-look="senior"><option value="0"' + (ui.senior ? '' : ' selected') + '>' + esc(t('common.off')) + '</option><option value="1"' + (ui.senior ? ' selected' : '') + '>' + esc(t('card.senior.on')) + '</option></select></div>' +
+      '<div><label for="lk-textScale">' + esc(t('card.senior.scale')) + '</label><input id="lk-textScale" data-look="textScale" type="number" min="' + ts.min + '" max="' + ts.max + '" step="' + ts.step + '" value="' + (ui.textScale || 100) + '"></div>' +
+      '<div><label for="lk-cursor">' + esc(t('card.senior.cursor')) + '</label><select id="lk-cursor" data-look="cursor">' +
+      ((sch.ui && sch.ui.cursor) || []).map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === (ui.cursor || 'focus') ? ' selected' : '') + '>' + esc(optionName(o)) + '</option>'; }).join('') +
       '</select></div></div>');
 
     var mins = (sch.screensaver && sch.screensaver.minutes) || { min: 1, max: 120, step: 1 };
-    html += card('Bildschirmschoner', 'Startet nach der eingestellten Ruhezeit.',
+    html += card(t('card.saver.title'), t('card.saver.hint'),
       '<div class="grid">' +
-      '<div><label for="lk-scrOn">Bildschirmschoner</label><select id="lk-scrOn" data-look="scrEnabled"><option value="0"' + (saver.enabled ? '' : ' selected') + '>Aus</option><option value="1"' + (saver.enabled ? ' selected' : '') + '>Ein</option></select></div>' +
-      '<div><label for="lk-scrMin">Ruhezeit (Minuten)</label><input id="lk-scrMin" data-look="scrMinutes" type="number" min="' + mins.min + '" max="' + mins.max + '" step="' + mins.step + '" value="' + (saver.minutes || 10) + '"></div>' +
-      '<div><label for="lk-scrVar">Variante</label><select id="lk-scrVar" data-look="scrVariant">' +
-      ((sch.screensaver && sch.screensaver.variants) || []).map(function (o) { return '<option value="' + o.id + '"' + (o.id === (saver.variant || '') ? ' selected' : '') + '>' + o.name + '</option>'; }).join('') +
+      '<div><label for="lk-scrOn">' + esc(t('card.saver.label')) + '</label><select id="lk-scrOn" data-look="scrEnabled"><option value="0"' + (saver.enabled ? '' : ' selected') + '>' + esc(t('common.off')) + '</option><option value="1"' + (saver.enabled ? ' selected' : '') + '>' + esc(t('common.on')) + '</option></select></div>' +
+      '<div><label for="lk-scrMin">' + esc(t('card.saver.minutes')) + '</label><input id="lk-scrMin" data-look="scrMinutes" type="number" min="' + mins.min + '" max="' + mins.max + '" step="' + mins.step + '" value="' + (saver.minutes || 10) + '"></div>' +
+      '<div><label for="lk-scrVar">' + esc(t('card.saver.variant')) + '</label><select id="lk-scrVar" data-look="scrVariant">' +
+      ((sch.screensaver && sch.screensaver.variants) || []).map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === (saver.variant || '') ? ' selected' : '') + '>' + esc(optionName(o)) + '</option>'; }).join('') +
       '</select></div></div>');
 
     $('lookCards').innerHTML = html;
@@ -497,7 +623,7 @@
         var bgSel = $('lk-bg');
         if (bgSel && bgSel.value !== 'photo') { bgSel.value = 'photo'; }
         collectLook();
-        autoSave($('lookStatus'), 'Übernommen');
+        autoSave($('lookStatus'), 'look.applied');
       };
     });
   }
@@ -529,32 +655,32 @@
     var home = state.cfg.home || [];
     if (!home.length) {
       var li = document.createElement('li');
-      li.innerHTML = '<span class="idx">–</span><span class="nm">Noch keine Kacheln. Oben eine App wählen und hinzufügen.</span>';
+      li.innerHTML = '<span class="idx">–</span><span class="nm">' + esc(t('home.empty')) + '</span>';
       ul.appendChild(li);
       return;
     }
-    home.forEach(function (t, i) {
+    home.forEach(function (entry, i) {
       var li = document.createElement('li');
       var idx = document.createElement('span'); idx.className = 'idx'; idx.textContent = (i + 1) + '.';
       var thumb = document.createElement('img'); thumb.className = 'thumb';
-      thumb.alt = ''; thumb.src = iconSrc(t) || '';
+      thumb.alt = ''; thumb.src = iconSrc(entry) || '';
       if (!thumb.src) thumb.style.visibility = 'hidden';
-      var nm = document.createElement('input'); nm.className = 'nm'; nm.value = t.name || '';
-      nm.placeholder = t.appId; nm.setAttribute('aria-label', 'Name');
-      var id = document.createElement('span'); id.className = 'id'; id.textContent = t.appId;
+      var nm = document.createElement('input'); nm.className = 'nm'; nm.value = entry.name || '';
+      nm.placeholder = entry.appId; nm.setAttribute('aria-label', t('home.nameAria'));
+      var id = document.createElement('span'); id.className = 'id'; id.textContent = entry.appId;
       var ctl = document.createElement('span'); ctl.className = 'ctl';
       var up = document.createElement('button'); up.className = 'ghost'; up.textContent = '↑';
       up.onclick = function () { move(i, i - 1); };
       var down = document.createElement('button'); down.className = 'ghost'; down.textContent = '↓';
       down.onclick = function () { move(i, i + 1); };
-      var ico = document.createElement('button'); ico.className = 'ghost'; ico.textContent = 'Icon';
+      var ico = document.createElement('button'); ico.className = 'ghost'; ico.textContent = t('home.icon');
       ico.onclick = function () { openPicker(i); };
-      var del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Entfernen';
-      del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); autoSave($('homeStatus'), 'Startseite gespeichert'); };
+      var del = document.createElement('button'); del.className = 'ghost'; del.textContent = t('home.remove');
+      del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); autoSave($('homeStatus'), 'home.saved'); };
       nm.oninput = function () {
         if (nm.value.trim()) state.cfg.home[i].name = nm.value.trim();
         else delete state.cfg.home[i].name;
-        autoSave($('homeStatus'), 'Startseite gespeichert');
+        autoSave($('homeStatus'), 'home.saved');
       };
       ctl.appendChild(up); ctl.appendChild(down); ctl.appendChild(ico); ctl.appendChild(del);
       li.appendChild(idx); li.appendChild(thumb); li.appendChild(nm); li.appendChild(id); li.appendChild(ctl);
@@ -564,44 +690,51 @@
 
   /* iconSrc: the stored value is either a catalog key ("playstation") or a
    * complete URL. */
-  function iconSrc(t) {
-    if (!t || !t.icon) return '';
-    if (/^https?:\/\//.test(t.icon)) return t.icon;
-    return '/icons/' + t.icon + '.svg';
+  function iconSrc(entry) {
+    if (!entry || !entry.icon) return '';
+    if (/^https?:\/\//.test(entry.icon)) return entry.icon;
+    return '/icons/' + entry.icon + '.svg';
   }
 
-  function openPicker(i) {
-    state.pickerIndex = i;
-    var entry = state.cfg.home[i] || {};
+  function renderPicker() {
+    var i = state.pickerIndex;
+    var entry = (state.cfg && state.cfg.home && state.cfg.home[i]) || {};
     document.getElementById('pickerTitle').textContent =
-      'Icon wählen — ' + (entry.name || entry.appId);
+      t('picker.titleFor', { name: entry.name || entry.appId || '' });
     var host = document.getElementById('pickerGroups');
     host.innerHTML = '';
     if (!state.icons.length) {
-      host.innerHTML = '<p class="hint">Kein Icon-Katalog vom Fernseher erhalten.</p>';
+      host.innerHTML = '<p class="hint">' + esc(t('picker.empty')) + '</p>';
     }
     state.icons.forEach(function (g) {
       var box = document.createElement('div'); box.className = 'grp';
-      var h = document.createElement('h4'); h.textContent = g.label.de || g.label.en || g.id;
+      var h = document.createElement('h4');
+      h.textContent = (g.label && (UI.lang === 'en' ? (g.label.en || g.label.de) : (g.label.de || g.label.en))) || g.id;
       box.appendChild(h);
       var grid = document.createElement('div'); grid.className = 'icons';
       (g.icons || []).forEach(function (ic) {
         var b = document.createElement('button');
         b.type = 'button';
         var img = document.createElement('img'); img.src = '/icons/' + ic.file; img.alt = '';
-        var cap = document.createElement('span'); cap.textContent = ic.de || ic.en || ic.key;
+        var cap = document.createElement('span');
+        cap.textContent = (UI.lang === 'en' ? (ic.en || ic.de) : (ic.de || ic.en)) || ic.key;
         b.appendChild(img); b.appendChild(cap);
         b.onclick = function () {
           state.cfg.home[i].icon = ic.key;
           renderTiles();
           document.getElementById('picker').hidden = true;
-          autoSave(document.getElementById('homeStatus'), 'Startseite gespeichert');
+          autoSave(document.getElementById('homeStatus'), 'home.saved');
         };
         grid.appendChild(b);
       });
       box.appendChild(grid);
       host.appendChild(box);
     });
+  }
+
+  function openPicker(i) {
+    state.pickerIndex = i;
+    renderPicker();
     document.getElementById('picker').hidden = false;
   }
 
@@ -611,20 +744,26 @@
     var x = h.splice(from, 1)[0];
     h.splice(to, 0, x);
     renderTiles();
-    autoSave($('homeStatus'), 'Startseite gespeichert');
+    autoSave($('homeStatus'), 'home.saved');
   }
 
   function renderCatalog() {
     var sel = $('addApp');
     var current = sel.value;
-    sel.innerHTML = '<option value="">— App wählen —</option>';
+    sel.innerHTML = '<option value="">' + esc(t('home.choose')) + '</option>';
     state.apps.forEach(function (a) {
       var o = document.createElement('option');
       o.value = a.appId;
-      o.textContent = a.name + (a.system ? ' (System)' : '');
+      o.textContent = pick(a, 'name', 'nameEn') + (a.system ? t('cat.system') : '');
       sel.appendChild(o);
     });
     if (current) sel.value = current;
+  }
+
+  function applySavedPlaceholders() {
+    var c = state.cfg, ha = c.integrations.ha, mq = c.integrations.mqtt;
+    $('haToken').placeholder = ha.hasToken ? t('int.ha.tokenPhSet') : t('int.ha.tokenPhEmpty');
+    $('mqPass').placeholder = mq.hasPassword ? t('int.mqtt.passPhSet') : t('int.mqtt.passPhEmpty');
   }
 
   function fillForm() {
@@ -636,9 +775,7 @@
     $('mqUser').value = c.integrations.mqtt.user || '';
     $('mqPass').value = '';
     $('mqPrefix').value = c.integrations.mqtt.prefix || 'cleanframe';
-
-    $('haToken').placeholder = c.integrations.ha.hasToken ? 'Token hinterlegt — leer lassen zum Behalten' : 'Token eintragen';
-    $('mqPass').placeholder = c.integrations.mqtt.hasPassword ? 'Passwort hinterlegt — leer lassen zum Behalten' : 'Passwort eintragen';
+    applySavedPlaceholders();
   }
 
   /* Saving always runs in sequence: while one write is in flight, the next one
@@ -648,7 +785,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.17';
+  var UI_BUILD = '0.4.18';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -668,10 +805,10 @@
   }
   setInterval(spinTick, 200);
 
-  function save(payload, statusEl, okMsg, retried) {
+  function save(payload, statusEl, okKey, retried) {
     if (saveBusy) {
       saveDirty = true;
-      saveNext = { statusEl: statusEl, okMsg: okMsg };
+      saveNext = { statusEl: statusEl, okKey: okKey };
       return Promise.resolve(null);
     }
     saveBusy = true;
@@ -680,20 +817,26 @@
       /* Only take the revision over — the response must not overwrite the
        * fields, otherwise clicks made while saving are lost. */
       if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
-      var zeit = r && r.updatedAt ? new Date(r.updatedAt).toLocaleTimeString() : '';
-      note(statusEl, okMsg + ' · Stand ' + (state.cfg.rev || '?') + (zeit ? ' · ' + zeit : ''), true);
-      melde('gespeichert ' + okMsg + ' rev ' + (state.cfg.rev || '?'));
+      var zeit = r && r.updatedAt ? timeString(new Date(r.updatedAt)) : '';
+      var vars = { msg: { key: okKey }, rev: state.cfg.rev || '?' };
+      if (zeit) {
+        note(statusEl, 'msg.savedRevTime', { msg: { key: okKey }, rev: vars.rev, time: zeit }, true);
+      } else {
+        note(statusEl, 'msg.savedRev', vars, true);
+      }
+      melde('gespeichert ' + okKey + ' rev ' + (state.cfg.rev || '?'));
     }).catch(function (e) {
       /* 409: someone (e.g. the app) wrote in the meantime. Do not throw the
        * change away, resend it with the new revision number instead. */
       if (e && e.status === 409 && !retried) {
         return api('GET', '/api/config').then(function (r2) {
           state.cfg.rev = r2.config.rev;
-          return save(state.cfg, statusEl, okMsg, true);
+          return save(state.cfg, statusEl, okKey, true);
         });
       }
-      note(statusEl, 'Fehler: ' + e.message + (e.status === 409 ? ' (erneut versucht)' : ''), false);
-      melde('Fehler beim Speichern: ' + e.message + (e.status ? ' HTTP ' + e.status : ''));
+      note(statusEl, 'err.save',
+        { msg: e.message, retried: e.status === 409 ? { key: 'err.retried' } : '' }, false);
+      melde(t('err.saveFailed', { msg: e.message + (e.status ? ' HTTP ' + e.status : '') }));
     }).then(function () {
       saveBusy = false;
       spinNachlauf(2500);
@@ -701,7 +844,7 @@
         saveDirty = false;
         var n = saveNext || {};
         saveNext = null;
-        return save(state.cfg, n.statusEl, n.okMsg || 'Gespeichert');
+        return save(state.cfg, n.statusEl, n.okKey || 'common.save');
       }
     });
   }
@@ -711,7 +854,7 @@
     api('GET', '/api/config').then(function (r) {
       state.cfg = r.config;
       renderTiles(); renderLook(); renderChosen();
-      note($('homeStatus'), 'Zwischenzeitlich geändert — neuester Stand geladen.', true);
+      note($('homeStatus'), 'home.reloaded', null, true);
     });
   }
 
@@ -719,14 +862,22 @@
    * is fetched from the TV (the launcher follows changes while running, hence a
    * second image after ~2.5 s). */
   var autoTimer = null;
-  function autoSave(statusEl, okMsg) {
+  function autoSave(statusEl, okKey) {
     clearTimeout(autoTimer);
-    if (statusEl) note(statusEl, 'Speichern …');
+    if (statusEl) note(statusEl, 'look.saving');
     autoTimer = setTimeout(function () {
-      save(state.cfg, statusEl, okMsg);
+      save(state.cfg, statusEl, okKey);
       setTimeout(loadShot, 450);
       setTimeout(loadShot, 2600);
     }, 350);
+  }
+
+  function updateVer() {
+    var el = $('ver');
+    if (!el) return;
+    if (state.versionError) { el.textContent = t('app.ver.unreachable', { msg: state.versionError }); return; }
+    if (state.catalogOk === null) return;
+    el.textContent = 'v' + UI_BUILD + ' · ' + (state.catalogOk ? t('app.ver.catalog') : t('app.ver.catalogLimited'));
   }
 
   function load() {
@@ -738,11 +889,14 @@
         state.apps = res[1].apps || [];
         state.schema = res[3].schema || {};
         state.icons = res[4].groups || [];
-        $('ver').textContent = 'v' + UI_BUILD + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
+        state.catalogOk = !!res[1].ok;
+        state.versionError = '';
+        updateVer();
         renderCatalog(); renderTiles(); fillForm(); renderChosen();
       })
       .catch(function (e) {
-        $('ver').textContent = 'Server nicht erreichbar: ' + e.message;
+        state.versionError = e.message;
+        updateVer();
       });
   }
 
@@ -767,14 +921,13 @@
     probe.onload = function () {
       img.src = url;
       setDot('ok');
-      var zeit = new Date().toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      note($('tvStatus'), 'Bild ' + zeit + ' — ' + probe.naturalWidth + '×' + probe.naturalHeight, true);
+      note($('tvStatus'), 'tv.img.ok', { time: timeString(new Date()), w: probe.naturalWidth, h: probe.naturalHeight }, true);
       shotBusy = false;
       spinNachlauf(600);
     };
     probe.onerror = function () {
       setDot('bad');
-      note($('tvStatus'), 'Kein Bild: Launcher am Fernseher geschlossen?', false);
+      note($('tvStatus'), 'tv.img.none', null, false);
       shotBusy = false;
       spinNachlauf(600);
     };
@@ -788,14 +941,14 @@
       body: JSON.stringify({ keys: [name], holdMs: holdMs || 0 })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.ok) {
-        note($('tvStatus'), 'Taste nicht gesendet: ' + (j.error || 'unbekannt'), false);
+        note($('tvStatus'), 'tv.key.fail', { err: j.error || t('err.unknown') }, false);
         return;
       }
       /* After each key press wait briefly, then fetch a fresh image — that way
        * you see the effect right away without polling constantly. */
       setTimeout(loadShot, 400);
     }).catch(function (e) {
-      note($('tvStatus'), 'Taste nicht gesendet: ' + e.message, false);
+      note($('tvStatus'), 'tv.key.fail', { err: e.message }, false);
     });
   }
 
@@ -811,7 +964,7 @@
   /* Long press: hold OK for 0.9 s (launcher threshold on the device: 650 ms). */
   document.querySelectorAll('[data-hold]').forEach(function (b) {
     b.onclick = function () {
-      note($('tvStatus'), 'Halte ' + b.dataset.hold.toUpperCase() + ' …', true);
+      note($('tvStatus'), 'tv.hold.running', { key: b.dataset.hold.toUpperCase() }, true);
       sendKey(b.dataset.hold, 900);
     };
   });
@@ -820,7 +973,7 @@
    * then a fresh image arrives. */
   document.querySelectorAll('[data-view]').forEach(function (b) {
     b.onclick = function () {
-      note($('tvStatus'), 'Ansicht wird am Fernseher geöffnet …', true);
+      note($('tvStatus'), 'tv.view.opening', null, true);
       fetch('/api/tv/view', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -828,14 +981,14 @@
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (!j.ok) {
           setDot('bad');
-          note($('tvStatus'), 'Ansicht nicht gesetzt: ' + (j.error || 'unbekannt'), false);
+          note($('tvStatus'), 'tv.view.fail', { err: j.error || t('err.unknown') }, false);
           return;
         }
-        note($('tvStatus'), 'Ansicht „' + j.view + '“ gesetzt — Bild folgt', true);
+        note($('tvStatus'), 'tv.view.ok', { view: j.view }, true);
         setTimeout(loadShot, 700);
       }).catch(function (e) {
         setDot('bad');
-        note($('tvStatus'), 'Ansicht nicht gesetzt: ' + e.message, false);
+        note($('tvStatus'), 'tv.view.fail', { err: e.message }, false);
       });
     };
   });
@@ -857,19 +1010,25 @@
     else if (shotTimer) { clearInterval(shotTimer); shotTimer = null; }
   };
 
+  function updatePanelToggle() {
+    var panel = $('tvPanel'), b = $('btnToggle');
+    if (!b) return;
+    b.textContent = panel && panel.classList.contains('collapsed') ? t('tv.expand') : t('tv.collapse');
+  }
+
   /* Remember the collapsed state (default: visible). */
   $('btnToggle').onclick = function () {
     var panel = $('tvPanel');
     var zu = panel.classList.toggle('collapsed');
-    $('btnToggle').textContent = zu ? 'ausklappen' : 'einklappen';
+    updatePanelToggle();
     try { localStorage.setItem('cf.panel.collapsed', zu ? '1' : '0'); } catch (e) {}
   };
   try {
     if (localStorage.getItem('cf.panel.collapsed') === '1') {
       $('tvPanel').classList.add('collapsed');
-      $('btnToggle').textContent = 'ausklappen';
     }
   } catch (e) {}
+  updatePanelToggle();
 
   document.querySelectorAll('nav button').forEach(function (b) {
     b.onclick = function () { tab(b.dataset.tab); location.hash = b.dataset.tab; loadShot(); };
@@ -891,14 +1050,14 @@
 
   $('btnAdd').onclick = function () {
     var id = $('addApp').value;
-    if (!id) return note($('homeStatus'), 'Bitte zuerst eine App wählen.', false);
-    var exists = (state.cfg.home || []).some(function (t) { return t.appId === id; });
-    if (exists) return note($('homeStatus'), 'Diese App liegt schon auf der Startseite.', false);
+    if (!id) return note($('homeStatus'), 'home.needApp', null, false);
+    var exists = (state.cfg.home || []).some(function (entry) { return entry.appId === id; });
+    if (exists) return note($('homeStatus'), 'home.already', null, false);
     var found = state.apps.filter(function (a) { return a.appId === id; })[0] || { appId: id, name: id };
     state.cfg.home = state.cfg.home || [];
     state.cfg.home.push({ appId: id, name: found.name });
     renderTiles();
-    autoSave($('homeStatus'), 'Startseite gespeichert');
+    autoSave($('homeStatus'), 'home.saved');
   };
 
   /* Field changed -> apply immediately (no save button needed). */
@@ -907,41 +1066,41 @@
       var el = e.target;
       if (!el || !el.getAttribute || !el.getAttribute('data-look')) return;
       collectLook();
-      autoSave($('lookStatus'), 'Übernommen');
+      autoSave($('lookStatus'), 'look.applied');
     });
   });
 
-  $('btnDiag').onclick = function () {
-    var el = $('diagStatus'), zeilen = [];
+  $('btnConnTest').onclick = function () {
+    var el = $('diagStatus'), parts = [];
     var t0 = Date.now();
     api('GET', '/api/health').then(function (h) {
-      zeilen.push('Abruf ok · Server v' + h.version + ' · ' + (Date.now() - t0) + ' ms');
-      if (h.version !== UI_BUILD) zeilen.push('Seite ist v' + UI_BUILD + ' — Server ist v' + h.version + ' (neu laden)');
+      parts.push({ key: 'sys.diag.fetchOk', vars: { v: h.version, ms: Date.now() - t0 } });
+      if (h.version !== UI_BUILD) parts.push({ key: 'sys.diag.pageOld', vars: { a: UI_BUILD, b: h.version } });
       return api('GET', '/api/config');
     }).then(function (r) {
-      zeilen.push('Konfiguration gelesen · Stand ' + (r.config.rev || '?') + ' · ' + r.config.home.length + ' Kacheln');
+      parts.push({ key: 'sys.diag.cfgRead', vars: { rev: r.config.rev || '?', n: r.config.home.length } });
       var probe = JSON.parse(JSON.stringify(state.cfg));
       probe.rev = r.config.rev;
       return api('PUT', '/api/config', probe);
     }).then(function (r) {
-      zeilen.push('Schreiben ok · Stand jetzt ' + r.config.rev);
+      parts.push({ key: 'sys.diag.writeOk', vars: { rev: r.config.rev } });
       state.cfg.rev = r.config.rev;
-      note(el, zeilen.join(' · '), true);
+      noteParts(el, parts, true);
     }).catch(function (e) {
-      zeilen.push('Schreiben fehlgeschlagen: ' + e.message + (e.status ? ' (HTTP ' + e.status + ')' : ''));
-      note(el, zeilen.join(' · '), false);
+      parts.push({ key: 'sys.diag.writeFail', vars: { msg: e.message + (e.status ? ' (HTTP ' + e.status + ')' : '') } });
+      noteParts(el, parts, false);
     });
   };
 
   $('btnSetup').onclick = function () {
     state.cfg.onboarding = { done: false, version: 1 };
-    save(state.cfg, $('setupStatus'), 'Einrichtung wird beim nächsten Öffnen der App gestartet');
+    save(state.cfg, $('setupStatus'), 'sys.setup.started');
   };
 
   $('btnLook').onclick = function () {
     collectLook();
     clearTimeout(autoTimer);
-    save(state.cfg, $('lookStatus'), 'Übernommen');
+    save(state.cfg, $('lookStatus'), 'look.applied');
     setTimeout(loadShot, 450);
     setTimeout(loadShot, 2200);
   };
@@ -949,23 +1108,24 @@
   /* Explicit save: write right away and fetch the image. */
   $('btnSaveHome').onclick = function () {
     clearTimeout(autoTimer);
-    save(state.cfg, $('homeStatus'), 'Startseite gespeichert');
+    save(state.cfg, $('homeStatus'), 'home.saved');
     setTimeout(loadShot, 450);
     setTimeout(loadShot, 2200);
   };
 
   $('btnHaCheck').onclick = function () {
-    note($('haStatus'), 'Prüfe …');
+    note($('haStatus'), 'sys.diag.running');
     api('POST', '/api/ha/check', { url: $('haUrl').value.trim(), token: $('haToken').value })
       .then(function (r) {
-        note($('haStatus'), r.ok ? 'Verbunden, Home Assistant antwortet' + (r.message ? ': ' + r.message : '') : 'Keine Verbindung (' + (r.error || r.status) + ')', r.ok);
-      }).catch(function (e) { note($('haStatus'), 'Fehler: ' + e.message, false); });
+        if (r.ok) note($('haStatus'), 'int.ha.connected', { detail: r.message ? ': ' + r.message : '' }, true);
+        else note($('haStatus'), 'int.ha.noConn', { err: r.error || r.status }, false);
+      }).catch(function (e) { note($('haStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
   };
 
   $('btnHaSave').onclick = function () {
     state.cfg.integrations.ha.url = $('haUrl').value.trim();
     if ($('haToken').value) state.cfg.integrations.ha.token = $('haToken').value;
-    save(state.cfg, $('haStatus'), 'Home Assistant gespeichert');
+    save(state.cfg, $('haStatus'), 'int.ha.saved');
   };
 
   $('btnMqSave').onclick = function () {
@@ -973,7 +1133,7 @@
     m.url = $('mqUrl').value.trim(); m.user = $('mqUser').value.trim();
     m.prefix = $('mqPrefix').value.trim() || 'cleanframe';
     if ($('mqPass').value) m.password = $('mqPass').value;
-    save(state.cfg, $('mqStatus'), 'MQTT gespeichert');
+    save(state.cfg, $('mqStatus'), 'int.mqtt.saved');
   };
 
   document.getElementById('pickerClose').onclick = function () {
@@ -994,27 +1154,36 @@
     host.innerHTML = '';
     var list = chosen();
     if (!list.length) {
-      host.innerHTML = '<span class="pill">noch keine Entität gewählt</span>';
+      host.innerHTML = '<span class="pill">' + esc(t('int.ent.none')) + '</span>';
       return;
     }
     list.forEach(function (e, i) {
       var b = document.createElement('button');
       b.className = 'ghost';
       b.textContent = (e.label || e.id) + '  ✕';
-      b.title = 'entfernen';
+      b.title = t('int.ent.remove');
       b.onclick = function () {
         state.cfg.integrations.ha.entities.splice(i, 1);
         renderChosen();
-        note($('haStatus'), 'Auswahl geändert — mit „Speichern“ übernehmen.', true);
+        note($('haStatus'), 'int.ent.changed', null, true);
       };
       host.appendChild(b);
+    });
+  }
+
+  function filteredEntities() {
+    var needle = ($('haFilter') && $('haFilter').value || '').toLowerCase();
+    if (!state.haEntities) return [];
+    if (!needle) return state.haEntities;
+    return state.haEntities.filter(function (e) {
+      return (e.name + ' ' + e.id).toLowerCase().indexOf(needle) >= 0;
     });
   }
 
   function renderEntities(list) {
     var host = $('haList');
     host.innerHTML = '';
-    if (!list.length) { host.innerHTML = '<p class="hint">Keine Entitäten erhalten.</p>'; return; }
+    if (!list.length) { host.innerHTML = '<p class="hint">' + esc(t('int.ent.empty')) + '</p>'; return; }
     var taken = {};
     chosen().forEach(function (e) { taken[e.id] = true; });
     list.slice(0, 400).forEach(function (ent) {
@@ -1040,77 +1209,80 @@
   }
 
   $('btnHaLoad').onclick = function () {
-    note($('haStatus'), 'Lade Entitäten …');
-    // Erst speichern, damit der Server mit den aktuellen Zugangsdaten arbeitet.
-    save(state.cfg, $('haStatus'), 'Zugangsdaten gespeichert').then(function () {
+    note($('haStatus'), 'int.ha.loading');
+    /* Save first so the server works with the current credentials. */
+    save(state.cfg, $('haStatus'), 'int.ha.creds').then(function () {
       return api('GET', '/api/ha/entities');
     }).then(function (r) {
       state.haEntities = r.entities || [];
       renderEntities(state.haEntities);
-      note($('haStatus'), r.ok ? r.count + ' Entitäten geladen' : 'Fehler: ' + (r.error || 'unbekannt'), r.ok);
-    }).catch(function (e) { note($('haStatus'), 'Fehler: ' + e.message, false); });
+      if (r.ok) note($('haStatus'), 'int.ha.loaded', { n: r.count }, true);
+      else note($('haStatus'), 'err.save', { msg: r.error || t('err.unknown'), retried: '' }, false);
+    }).catch(function (e) { note($('haStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
   };
 
   $('haFilter').oninput = function () {
-    var needle = $('haFilter').value.toLowerCase();
     if (!state.haEntities) return;
-    renderEntities(state.haEntities.filter(function (e) {
-      return (e.name + ' ' + e.id).toLowerCase().indexOf(needle) >= 0;
-    }));
+    renderEntities(filteredEntities());
   };
 
   $('btnExport').onclick = function () { window.location.href = '/api/backup'; };
 
   $('btnImport').onclick = function () {
     var f = $('importFile').files[0];
-    if (!f) return note($('backupStatus'), 'Bitte eine Sicherungsdatei wählen.', false);
+    if (!f) return note($('backupStatus'), 'sys.backup.choose', null, false);
     var reader = new FileReader();
     reader.onload = function () {
       var data;
-      try { data = JSON.parse(reader.result); } catch (e) { return note($('backupStatus'), 'Datei ist kein JSON.', false); }
+      try { data = JSON.parse(reader.result); }
+      catch (e) { return note($('backupStatus'), 'sys.backup.nojson', null, false); }
       api('POST', '/api/backup', data).then(function (r) {
         state.cfg = r.config; renderTiles(); fillForm();
-        note($('backupStatus'), 'Importiert.', true);
-      }).catch(function (e) { note($('backupStatus'), 'Fehler: ' + e.message, false); });
+        note($('backupStatus'), 'sys.backup.imported', null, true);
+      }).catch(function (e) { note($('backupStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
     };
     reader.readAsText(f);
   };
 
   function diagTable(out) {
-    var t = $('diagTable');
-    t.innerHTML = '';
+    var table = $('diagTable');
+    table.innerHTML = '';
     (out.checks || []).forEach(function (c) {
       var tr = document.createElement('tr');
-      var a = document.createElement('td'); a.textContent = c.name;
+      var a = document.createElement('td');
+      a.textContent = UI.lang === 'en'
+        ? (c.labelEn || c.nameEn || pick(c, 'label', 'labelEn') || c.name)
+        : (c.label || c.name);
       var b = document.createElement('td');
-      b.innerHTML = '<span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? 'ok' : 'fehlt') + '</span>' +
-                    (c.detail ? ' <span class="pill">' + c.detail + '</span>' : '');
-      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+      b.innerHTML = '<span class="' + (c.ok ? 'ok' : 'bad') + '">' + esc(c.ok ? t('result.ok') : t('result.missing')) + '</span>' +
+                    (c.detail ? ' <span class="pill">' + esc(c.detail) + '</span>' : '');
+      tr.appendChild(a); tr.appendChild(b); table.appendChild(tr);
     });
   }
 
   $('btnDiag').onclick = function () {
-    note($('sysStatus'), 'Prüfe …');
+    note($('sysStatus'), 'sys.diag.running');
     api('GET', '/api/diag').then(function (r) {
       diagTable(r);
-      note($('sysStatus'), r.ok ? 'Alle Prüfungen bestanden' : 'Es fehlen Voraussetzungen', r.ok);
-    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+      note($('sysStatus'), r.ok ? 'sys.diag.allOk' : 'sys.diag.missing', null, r.ok);
+    }).catch(function (e) { note($('sysStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
   };
 
   $('btnSelf').onclick = function () {
-    note($('sysStatus'), 'Selbsttest läuft …');
+    note($('sysStatus'), 'sys.self.running');
     api('GET', '/api/selftest').then(function (r) {
       var failed = (r.checks || []).filter(function (c) { return !c.ok; });
       diagTable({ checks: r.checks });
-      note($('sysStatus'), r.ok ? 'Selbsttest bestanden (' + r.checks.length + ' Prüfungen)' : 'Selbsttest: ' + failed.length + ' fehlgeschlagen', r.ok);
-    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+      if (r.ok) note($('sysStatus'), 'sys.self.ok', { n: r.checks.length }, true);
+      else note($('sysStatus'), 'sys.self.fail', { n: failed.length }, false);
+    }).catch(function (e) { note($('sysStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
   };
 
   $('btnRestart').onclick = function () {
-    if (!window.confirm('Dienst jetzt neu starten?')) return;
+    if (!window.confirm(t('sys.restart.confirm'))) return;
     api('POST', '/api/system/restart', {}).then(function () {
-      note($('sysStatus'), 'Neustart angefordert — Seite in ein paar Sekunden neu laden.', true);
-    }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
+      note($('sysStatus'), 'sys.restart.ok', null, true);
+    }).catch(function (e) { note($('sysStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
   };
 
   /* Automatic interface self-test: ?selftest=ui runs the most important
@@ -1120,101 +1292,54 @@
   function selfTest() {
     var out = document.getElementById('uiSelfTest');
     var steps = [];
-    function step(name, ok, detail) { steps.push({ name: name, ok: !!ok, detail: detail || '' }); }
+    function step(nameKey, ok, detail) { steps.push({ name: t(nameKey), ok: !!ok, detail: detail || '' }); }
     var target = (state.apps[0] || {}).appId;
 
-    step('Katalog geladen', state.apps.length > 0, state.apps.length + ' Einträge');
-    step('Kachel-Liste vorhanden', !!document.getElementById('tileList'));
-    step('Sprachauswahl gefüllt', document.getElementById('lang').options.length === 3);
+    step('uitest.catalog', state.apps.length > 0, t('uitest.catalogDetail', { n: state.apps.length }));
+    step('uitest.tiles', !!document.getElementById('tileList'));
+    step('uitest.langSelect', !!document.getElementById('lk-lang') && document.getElementById('lk-lang').options.length === 3);
 
     if (!target) { out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1); out.hidden = false; return; }
     document.getElementById('addApp').value = target;
     document.getElementById('btnAdd').click();
-    step('Klick auf Hinzufügen legt Kachel an', (state.cfg.home || []).some(function (t) { return t.appId === target; }), target);
+    step('uitest.addClick', (state.cfg.home || []).some(function (e) { return e.appId === target; }), target);
 
     document.getElementById('btnSaveHome').click();
     setTimeout(function () {
       fetch('/api/config').then(function (r) { return r.json(); }).then(function (d) {
-        var saved = (d.config.home || []).some(function (t) { return t.appId === target; });
-        step('Speichern landet im Server', saved);
-            var withIcon = (d.config.home || []).filter(function (t) { return t.icon; });
-        step('Icon bleibt gespeichert', d.config.home.length === 0 || withIcon.length >= 0);
+        var saved = (d.config.home || []).some(function (e) { return e.appId === target; });
+        step('uitest.saveServer', saved);
+        var withIcon = (d.config.home || []).filter(function (e) { return e.icon; });
+        step('uitest.iconKept', d.config.home.length === 0 || withIcon.length >= 0);
 
-        // Assistent: Schritte durchlaufen und Abschluss pruefen
-        step('Assistent vorhanden', !!document.getElementById('wizard'));
+        /* Wizard: walk the steps and check the finish. */
+        step('uitest.wizard', !!document.getElementById('wizard'));
         renderWizard(2);
-        step('Schritt Startseite rendert Schnellauswahl', document.querySelectorAll('#wBody .quick button').length >= 4,
-             document.querySelectorAll('#wBody .quick button').length + ' Vorschläge');
+        step('uitest.wizQuick', document.querySelectorAll('#wBody .quick button').length >= 4,
+             t('uitest.wizQuickDetail', { n: document.querySelectorAll('#wBody .quick button').length }));
         renderWizard(3);
-        step('Schritt Darstellung rendert Regler', !!document.getElementById('wLayout') && !!document.getElementById('wSenior'));
+        step('uitest.wizLayout', !!document.getElementById('wLayout') && !!document.getElementById('wSenior'));
         renderWizard(4);
-        step('Schritt Fertig zeigt Zusammenfassung', document.getElementById('wBody').children.length >= 1);
+        step('uitest.wizDone', document.getElementById('wBody').children.length >= 1);
 
-        // Sprache der Oberflaeche umschalten
-        var before = document.querySelector('[data-t="setup"]').textContent;
+        /* Switch the interface language. */
+        var before = document.querySelector('[data-t="nav.look"]').textContent;
         document.getElementById('uiLang').click();
-        var after = document.querySelector('[data-t="setup"]').textContent;
-        step('Sprachumschalter ändert die Oberfläche', before !== after, before + ' -> ' + after);
+        var after = document.querySelector('[data-t="nav.look"]').textContent;
+        step('uitest.langSwitch', before !== after, before + ' -> ' + after);
         document.getElementById('uiLang').click();
         var ok = steps.every(function (x) { return x.ok; });
         out.textContent = JSON.stringify({ ok: ok, steps: steps }, null, 1);
         out.hidden = false;
         document.title = ok ? 'SELFTEST-OK' : 'SELFTEST-FAIL';
       }).catch(function (e) {
-        step('Speichern landet im Server', false, e.message);
+        step('uitest.saveServer', false, e.message);
         out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1);
         out.hidden = false;
         document.title = 'SELFTEST-FAIL';
       });
     }, 700);
   }
-
-
-  /* ---------- Interface language (de/en) ---------- */
-  var UI = { lang: localStorage.getItem('cf.ui.lang') || 'de' };
-  var T = {
-    de: {
-      setup: 'Einrichtung', home: 'Startseite', look: 'Darstellung',
-      integrations: 'Integrationen', system: 'System',
-      back: 'Zurück', next: 'Weiter', skip: 'Überspringen', done: 'Fertig',
-      w1t: 'Willkommen', w1h: 'Vier Schritte, danach steht dein Startbildschirm. Alles lässt sich später hier ändern.',
-      w2t: 'Sprache', w2h: 'Sprache der App auf dem Fernseher und der Oberfläche hier.',
-      w3t: 'Startseite', w3h: 'Diese Apps zuerst auf die Leiste legen — alles Weitere danach in „Startseite“.',
-      w4t: 'Darstellung', w4h: 'Anordnung und Schrift.',
-      w5t: 'Fertig', w5h: 'Zusammenfassung. „Fertig“ schließt den Assistenten; die Einstellungen bleiben hier jederzeit erreichbar.',
-      langApp: 'Sprache der App', langUi: 'Sprache der Oberfläche',
-      layout: 'Anordnung', appsMode: 'App-Darstellung', senior: 'Senioren-Modus', scale: 'Schriftgröße (%)'
-    },
-    en: {
-      setup: 'Setup', home: 'Home screen', look: 'Appearance',
-      integrations: 'Integrations', system: 'System',
-      back: 'Back', next: 'Next', skip: 'Skip', done: 'Done',
-      w1t: 'Welcome', w1h: 'Four steps and your home screen is ready. Everything stays editable here.',
-      w2t: 'Language', w2h: 'Language of the app on the television and of this interface.',
-      w3t: 'Home screen', w3h: 'These apps first — add the rest later under “Home screen”.',
-      w4t: 'Appearance', w4h: 'Layout and type size.',
-      w5t: 'Done', w5h: 'Summary. “Done” closes the wizard; the settings stay available at any time.',
-      langApp: 'App language', langUi: 'Interface language',
-      layout: 'Layout', appsMode: 'App display', senior: 'Senior mode', scale: 'Text size (%)'
-    }
-  };
-  function t(key) { return (T[UI.lang] && T[UI.lang][key]) || (T.de[key] || key); }
-
-  function applyUiLang() {
-    document.querySelectorAll('[data-t]').forEach(function (el) {
-      var key = el.getAttribute('data-t');
-      if (T[UI.lang][key]) el.textContent = t(key);
-    });
-    document.getElementById('uiLang').textContent = UI.lang.toUpperCase();
-    document.documentElement.lang = UI.lang;
-  }
-
-  document.getElementById('uiLang').onclick = function () {
-    UI.lang = UI.lang === 'de' ? 'en' : 'de';
-    localStorage.setItem('cf.ui.lang', UI.lang);
-    applyUiLang();
-    if (!document.getElementById('wizard').hidden) renderWizard(WIZ.step);
-  };
 
   /* ---------- First-start wizard ---------- */
   var WIZ = { step: 0, total: 5 };
@@ -1226,7 +1351,7 @@
   ];
 
   function wizPickIds() {
-    // Katalog-IDs zu den Marken-Schluesseln, soweit vorhanden
+    /* catalog ids for the brand keys, where available */
     var map = {
       netflix: 'netflix', youtube: 'youtube.leanback.v4',
       ard: 'com.webos.app.enactbrowser', playstation: 'com.webos.app.hdmi2'
@@ -1243,23 +1368,24 @@
       d.className = 'dot' + (i <= step ? ' on' : '');
       dots.appendChild(d);
     }
-    document.getElementById('wTitle').textContent = t('w' + (step + 1) + 't');
-    document.getElementById('wHint').textContent = t('w' + (step + 1) + 'h');
+    document.getElementById('wTitle').textContent = t('wiz.s' + (step + 1) + '.title');
+    document.getElementById('wHint').textContent = t('wiz.s' + (step + 1) + '.hint');
     var body = document.getElementById('wBody');
     body.innerHTML = '';
 
     if (step === 1) {
       body.innerHTML =
         '<div class="grid">' +
-        '<div><label>' + t('langUi') + '</label>' +
+        '<div><label>' + esc(t('wiz.langUi')) + '</label>' +
         '<select id="wUiLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>' +
-        '<div><label>' + t('langApp') + '</label>' +
-        '<select id="wAppLang"><option value="system">' + (UI.lang === 'de' ? 'Wie der Fernseher' : 'Like the TV') + '</option>' +
+        '<div><label>' + esc(t('wiz.langApp')) + '</label>' +
+        '<select id="wAppLang"><option value="system">' + esc(t('wiz.langLikeTv')) + '</option>' +
         '<option value="de">Deutsch</option><option value="en">English</option></select></div></div>';
       document.getElementById('wUiLang').value = UI.lang;
       document.getElementById('wAppLang').value = state.cfg.lang || 'system';
       document.getElementById('wUiLang').onchange = function () {
-        UI.lang = this.value; localStorage.setItem('cf.ui.lang', UI.lang); applyUiLang(); renderWizard(step);
+        setUiLang(this.value);
+        renderWizard(step);
       };
       document.getElementById('wAppLang').onchange = function () { state.cfg.lang = this.value; };
     } else if (step === 2) {
@@ -1271,7 +1397,7 @@
         b.type = 'button'; b.className = 'ghost';
         var img = document.createElement('img'); img.src = '/icons/' + p.key + '.svg'; img.alt = '';
         var lab = document.createElement('span'); lab.textContent = p.label;
-        var has = (state.cfg.home || []).some(function (t2) { return t2.appId === appId; });
+        var has = (state.cfg.home || []).some(function (x) { return x.appId === appId; });
         if (has) b.style.borderColor = 'var(--ok)';
         b.appendChild(img); b.appendChild(lab);
         b.onclick = function () {
@@ -1279,7 +1405,7 @@
           if (has) return;
           state.cfg.home.push({ appId: appId, name: p.label, icon: p.key });
           renderTiles(); b.style.borderColor = 'var(--ok)';
-          note(document.getElementById('homeStatus'), p.label + ' — ' + (UI.lang === 'de' ? 'hinzugefügt' : 'added'), true);
+          note(document.getElementById('homeStatus'), 'wiz.added', { name: p.label }, true);
         };
         quick.appendChild(b);
       });
@@ -1287,22 +1413,22 @@
       var hint = document.createElement('p');
       hint.className = 'hint';
       hint.style.marginTop = '12px';
-      hint.textContent = (state.cfg.home || []).length + (UI.lang === 'de' ? ' Kacheln gewählt' : ' tiles chosen');
+      hint.textContent = t('wiz.count', { n: (state.cfg.home || []).length });
       body.appendChild(hint);
     } else if (step === 3) {
       body.innerHTML =
         '<div class="grid">' +
-        '<div><label>' + t('layout') + '</label><select id="wLayout">' +
-        '<option value="dock">' + (UI.lang === 'de' ? 'Leiste unten' : 'Bottom bar') + '</option>' +
-        '<option value="list">' + (UI.lang === 'de' ? 'Liste' : 'List') + '</option></select></div>' +
-        '<div><label>' + t('appsMode') + '</label><select id="wApps">' +
-        '<option value="both">' + (UI.lang === 'de' ? 'Symbol und Text' : 'Icon and text') + '</option>' +
-        '<option value="icons">' + (UI.lang === 'de' ? 'Nur Symbole' : 'Icons only') + '</option>' +
-        '<option value="text">' + (UI.lang === 'de' ? 'Nur Text' : 'Text only') + '</option></select></div>' +
-        '<div><label>' + t('senior') + '</label><select id="wSenior"><option value="0">' +
-        (UI.lang === 'de' ? 'Aus' : 'Off') + '</option><option value="1">' +
-        (UI.lang === 'de' ? 'Ein' : 'On') + '</option></select></div>' +
-        '<div><label>' + t('scale') + '</label><input id="wScale" type="number" min="50" max="200" step="10"></div></div>';
+        '<div><label>' + esc(t('wiz.layout')) + '</label><select id="wLayout">' +
+        '<option value="dock">' + esc(t('wiz.layoutDock')) + '</option>' +
+        '<option value="list">' + esc(t('wiz.layoutList')) + '</option></select></div>' +
+        '<div><label>' + esc(t('wiz.apps')) + '</label><select id="wApps">' +
+        '<option value="both">' + esc(t('wiz.appsBoth')) + '</option>' +
+        '<option value="icons">' + esc(t('wiz.appsIcons')) + '</option>' +
+        '<option value="text">' + esc(t('wiz.appsText')) + '</option></select></div>' +
+        '<div><label>' + esc(t('wiz.senior')) + '</label><select id="wSenior"><option value="0">' +
+        esc(t('common.off')) + '</option><option value="1">' +
+        esc(t('common.on')) + '</option></select></div>' +
+        '<div><label>' + esc(t('wiz.scale')) + '</label><input id="wScale" type="number" min="50" max="200" step="10"></div></div>';
       document.getElementById('wLayout').value = state.cfg.look.layout;
       document.getElementById('wApps').value = state.cfg.look.apps;
       document.getElementById('wSenior').value = state.cfg.ui && state.cfg.ui.senior ? '1' : '0';
@@ -1320,13 +1446,13 @@
       body.appendChild(list);
       if (!(state.cfg.home || []).length) {
         var p2 = document.createElement('p'); p2.className = 'hint';
-        p2.textContent = UI.lang === 'de' ? 'Noch keine Kachel — du kannst auch später welche hinzufügen.' : 'No tiles yet — you can add them later.';
+        p2.textContent = t('wiz.noTiles');
         body.appendChild(p2);
       }
     }
 
     document.getElementById('wBack').style.visibility = step === 0 ? 'hidden' : 'visible';
-    document.getElementById('wNext').textContent = step === WIZ.total - 1 ? t('done') : t('next');
+    document.getElementById('wNext').textContent = step === WIZ.total - 1 ? t('wiz.done') : t('wiz.next');
   }
 
   function wizardFinish() {
@@ -1338,8 +1464,7 @@
       state.cfg.ui.textScale = parseInt(document.getElementById('wScale').value, 10) || 100;
     }
     state.cfg.onboarding = { done: true, version: 1 };
-    save(state.cfg, document.getElementById('homeStatus'),
-         UI.lang === 'de' ? 'Einrichtung abgeschlossen' : 'Setup complete');
+    save(state.cfg, document.getElementById('homeStatus'), 'wiz.finished');
     document.getElementById('wizard').hidden = true;
   }
 
@@ -1352,13 +1477,50 @@
   };
   document.getElementById('wSkip').onclick = function () {
     state.cfg.onboarding = { done: true, version: 1 };
-    save(state.cfg, document.getElementById('homeStatus'),
-         UI.lang === 'de' ? 'Assistent übersprungen' : 'Wizard skipped');
+    save(state.cfg, document.getElementById('homeStatus'), 'wiz.skipped');
     document.getElementById('wizard').hidden = true;
   };
 
+  /* ---------- Interface language: switch and re-render everything on screen ---------- */
+  function setUiLang(lang) {
+    UI.lang = lang === 'en' ? 'en' : 'de';
+    try { localStorage.setItem('cf.ui.lang', UI.lang); } catch (e) {}
+    applyStatic();
+    if (state.cfg) {
+      renderCatalog();
+      renderTiles();
+      renderLook();
+      renderChosen();
+      if (state.haEntities) renderEntities(filteredEntities());
+      applySavedPlaceholders();
+    }
+    updatePanelToggle();
+    updateVer();
+    renoteAll();
+    var wiz = $('wizard');
+    if (wiz && !wiz.hidden) renderWizard(WIZ.step);
+    var picker = $('picker');
+    if (picker && !picker.hidden) renderPicker();
+  }
+
+  $('uiLang').onclick = function () {
+    setUiLang(UI.lang === 'de' ? 'en' : 'de');
+  };
+
+  /* Language on first load: ?lang=en wins, then the stored choice, else German. */
+  (function () {
+    var m = /[?&]lang=(de|en)(&|$)/.exec(location.search || '');
+    var fromUrl = m ? m[1] : '';
+    var stored = '';
+    try { stored = localStorage.getItem('cf.ui.lang') || ''; } catch (e) {}
+    UI.lang = fromUrl || (stored === 'en' ? 'en' : 'de');
+    if (fromUrl) { try { localStorage.setItem('cf.ui.lang', fromUrl); } catch (e) {} }
+  }());
+
+  applyStatic();
+
   load().then(function () {
-    applyUiLang();
+    applyStatic();
     var testing = location.search.indexOf('selftest=ui') >= 0;
     if (!testing && !(state.cfg.onboarding && state.cfg.onboarding.done)) {
       document.getElementById('wizard').hidden = false;

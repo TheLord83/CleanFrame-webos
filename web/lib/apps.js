@@ -11,18 +11,21 @@
 var http = require('http');
 var urlmod = require('url');
 
+/* `name` is what the TV (and the stored configuration) uses — never change it.
+ * `nameEn` is additive: only the web interface shows it, and only when its own
+ * language is English. */
 var BUILTIN = [
-  { appId: 'com.webos.app.enactbrowser', name: 'Webbrowser', system: true },
-  { appId: 'org.webosbrew.hbchannel', name: 'Homebrew Channel', system: true },
-  { appId: 'com.blackpearl.cleanframe', name: 'CleanFrame', system: true },
-  { appId: 'com.webos.app.mediadiscovery', name: 'Media Player', system: true },
-  { appId: 'com.webos.app.hdmi1', name: 'HDMI 1', system: true },
-  { appId: 'com.webos.app.hdmi2', name: 'HDMI 2', system: true },
-  { appId: 'com.webos.app.hdmi3', name: 'HDMI 3', system: true },
-  { appId: 'com.webos.app.hdmi4', name: 'HDMI 4', system: true },
-  { appId: 'com.palm.app.settings', name: 'TV-Einstellungen', system: true },
-  { appId: 'com.webos.app.screensaver', name: 'Bildschirmschoner', system: true },
-  { appId: 'com.webos.app.home', name: 'LG Startseite', system: true }
+  { appId: 'com.webos.app.enactbrowser', name: 'Webbrowser', nameEn: 'Web browser', system: true },
+  { appId: 'org.webosbrew.hbchannel', name: 'Homebrew Channel', nameEn: 'Homebrew Channel', system: true },
+  { appId: 'com.blackpearl.cleanframe', name: 'CleanFrame', nameEn: 'CleanFrame', system: true },
+  { appId: 'com.webos.app.mediadiscovery', name: 'Media Player', nameEn: 'Media Player', system: true },
+  { appId: 'com.webos.app.hdmi1', name: 'HDMI 1', nameEn: 'HDMI 1', system: true },
+  { appId: 'com.webos.app.hdmi2', name: 'HDMI 2', nameEn: 'HDMI 2', system: true },
+  { appId: 'com.webos.app.hdmi3', name: 'HDMI 3', nameEn: 'HDMI 3', system: true },
+  { appId: 'com.webos.app.hdmi4', name: 'HDMI 4', nameEn: 'HDMI 4', system: true },
+  { appId: 'com.palm.app.settings', name: 'TV-Einstellungen', nameEn: 'TV settings', system: true },
+  { appId: 'com.webos.app.screensaver', name: 'Bildschirmschoner', nameEn: 'Screensaver', system: true },
+  { appId: 'com.webos.app.home', name: 'LG Startseite', nameEn: 'LG home screen', system: true }
 ];
 
 function merge(list) {
@@ -36,7 +39,7 @@ function merge(list) {
   BUILTIN.forEach(function (b) {
     if (seen[b.appId]) return;
     seen[b.appId] = true;
-    out.push({ appId: b.appId, name: b.name, system: true, icon: '' });
+    out.push({ appId: b.appId, name: b.name, nameEn: b.nameEn, system: true, icon: '' });
   });
   out.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'de'); });
   return out;

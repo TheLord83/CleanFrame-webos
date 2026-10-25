@@ -29,6 +29,8 @@ scp -q -o StrictHostKeyChecking=no "$SRC"/assets/*.html "$SRC"/assets/*.json "ro
 # The icons exist as a directory; for the launcher they stay the only source,
 # here only the catalog is copied along so /api/icons answers without the launcher too.
 scp -r -q -o StrictHostKeyChecking=no "$SRC"/assets/icons "root@$HOST:/var/lib/cleanframe/assets/" 2>/dev/null || true
+# Language files live in their own directory; without them the interface shows keys.
+scp -r -q -o StrictHostKeyChecking=no "$SRC"/assets/lang "root@$HOST:/var/lib/cleanframe/assets/"
 scp -q -o StrictHostKeyChecking=no "$SRC/cleanframectl" "root@$HOST:/var/lib/cleanframe/cleanframectl"
 $SSH 'chmod +x /var/lib/cleanframe/cleanframectl'
 

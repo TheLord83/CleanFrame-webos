@@ -32,8 +32,10 @@ function run(opts, cb) {
   var checks = [];
   var pending = 0;
 
-  function add(name, ok, detail) {
-    checks.push({ name: name, ok: !!ok, detail: detail || '' });
+  /* `label`/`labelEn` describe the check for the interface; `name` stays the
+   * German name the API has always returned (installer and tests read it). */
+  function add(name, nameEn, ok, detail) {
+    checks.push({ name: name, label: name, labelEn: nameEn, ok: !!ok, detail: detail || '' });
   }
   function finish() {
     cb({
@@ -45,31 +47,34 @@ function run(opts, cb) {
     });
   }
 
-  add('Konfigurationsdatei lesbar', !!opts.configPath, opts.configPath || 'kein Pfad');
+  add('Konfigurationsdatei lesbar', 'Configuration file readable',
+      !!opts.configPath, opts.configPath || 'kein Pfad');
   try {
     var dir = require('path').dirname(opts.configPath);
     configLib.mkdirp(dir);
     fs.accessSync(dir, fs.constants.W_OK);
-    add('Konfigurationsordner schreibbar', true, dir);
+    add('Konfigurationsordner schreibbar', 'Configuration folder writable', true, dir);
   } catch (e) {
-    add('Konfigurationsordner schreibbar', false, String(e && e.message));
+    add('Konfigurationsordner schreibbar', 'Configuration folder writable', false, String(e && e.message));
   }
 
-  add('Root-Rechte', typeof process.getuid === 'function' ? process.getuid() === 0 : true,
+  add('Root-Rechte', 'Root privileges',
+      typeof process.getuid === 'function' ? process.getuid() === 0 : true,
       typeof process.getuid === 'function' ? 'uid=' + process.getuid() : 'nicht ermittelbar');
 
   /* Glasshouse is the icon and app source; without it the launcher runs, but
    * without real icons. Hence a warning, not an error. */
   pending++;
   tcpOk('127.0.0.1', 8080, 1500, function (r) {
-    add('Glasshouse erreichbar (127.0.0.1:8080)', r.ok, r.ok ? '' : r.error);
+    add('Glasshouse erreichbar (127.0.0.1:8080)', 'Glasshouse reachable (127.0.0.1:8080)',
+        r.ok, r.ok ? '' : r.error);
     pending--;
     if (!pending) finish();
   });
 
   pending++;
   tcpOk('127.0.0.1', 3000, 1500, function (r) {
-    add('SSAP-Port 3000 offen', r.ok, r.ok ? '' : r.error);
+    add('SSAP-Port 3000 offen', 'SSAP port 3000 open', r.ok, r.ok ? '' : r.error);
     pending--;
     if (!pending) finish();
   });

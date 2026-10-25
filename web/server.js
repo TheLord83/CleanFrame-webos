@@ -40,7 +40,7 @@ var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.17';
+var VERSION = '0.4.18';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -381,30 +381,32 @@ function handle(req, res) {
 
   if (req.method === 'GET' && p === '/api/selftest') {
     var checks = [];
-    function check(name, fn) {
-      try { var r = fn(); checks.push({ name: name, ok: !!r, detail: r === true ? '' : String(r) }); }
-      catch (e) { checks.push({ name: name, ok: false, detail: e.message }); }
+    /* `name` stays German (API contract); label/labelEn are what the interface
+     * shows, so the English UI stays free of German. */
+    function check(name, nameEn, fn) {
+      try { var r = fn(); checks.push({ name: name, label: name, labelEn: nameEn, ok: !!r, detail: r === true ? '' : String(r) }); }
+      catch (e) { checks.push({ name: name, label: name, labelEn: nameEn, ok: false, detail: e.message }); }
     }
-    check('Standardkonfiguration ist gueltig', function () {
+    check('Standardkonfiguration ist gueltig', 'Default configuration is valid', function () {
       var c = config.validate(config.defaults());
       return c.schemaVersion === config.VERSION;
     });
-    check('Unbekannte Sprache faellt auf system zurueck', function () {
+    check('Unbekannte Sprache faellt auf system zurueck', 'Unknown language falls back to system', function () {
       return config.validate({ lang: 'klingon' }).lang === 'system';
     });
-    check('Startseiten-Eintrag ohne appId wird verworfen', function () {
+    check('Startseiten-Eintrag ohne appId wird verworfen', 'Home entry without appId is dropped', function () {
       return config.validate({ home: [{ name: 'x' }] }).home.length === 0;
     });
-    check('Doppelte appIds werden entfernt', function () {
+    check('Doppelte appIds werden entfernt', 'Duplicate appIds are removed', function () {
       var c = config.validate({ home: [{ appId: 'netflix' }, { appId: 'netflix' }] });
       return c.home.length === 1;
     });
-    check('Token wird beim Lesen redigiert', function () {
+    check('Token wird beim Lesen redigiert', 'Token is redacted on read', function () {
       var c = config.validate({ integrations: { ha: { url: 'http://x', token: 'geheim' } } });
       var r = config.redact(c);
       return r.integrations.ha.token === '' && r.integrations.ha.hasToken === true;
     });
-    check('Konfiguration laesst sich schreiben und lesen', function () {
+    check('Konfiguration laesst sich schreiben und lesen', 'Configuration can be written and read', function () {
       var tmp = new config.Store(CONFIG_PATH + '.selftest');
       tmp.write({ lang: 'de', home: [{ appId: 'netflix', name: 'Filme' }] });
       var back = tmp.read();
