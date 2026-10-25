@@ -157,6 +157,13 @@
         </select>
       </div>
       <div>
+        <label for="clockFormat">Uhrzeit</label>
+        <select id="clockFormat">
+          <option value="24">24 Stunden (18:30)</option>
+          <option value="12">12 Stunden (6:30)</option>
+        </select>
+      </div>
+      <div>
         <label for="lang">Sprache der App</label>
         <select id="lang">
           <option value="system">Wie der Fernseher</option>
@@ -442,6 +449,7 @@
   function fillForm() {
     var c = state.cfg;
     $('layout').value = c.look.layout;
+    $('clockFormat').value = c.look.clock24 === false ? '12' : '24';
     $('appsMode').value = c.look.apps;
     $('lang').value = c.lang;
     $('wall').value = c.look.wall || '';
@@ -501,6 +509,7 @@
 
   $('btnLook').onclick = function () {
     state.cfg.look.layout = $('layout').value;
+    state.cfg.look.clock24 = $('clockFormat').value === '24';
     state.cfg.look.apps = $('appsMode').value;
     state.cfg.look.wall = $('wall').value.trim() || state.cfg.look.wall;
     state.cfg.lang = $('lang').value;

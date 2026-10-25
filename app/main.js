@@ -92,7 +92,7 @@
     for (var i = 0; i < list.length; i++) if (list[i].toLowerCase() === v) return list[i];
     return fallback;
   }
-  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material }; }
+  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material, clock24: c.clock24 !== false }; }
   function materialApplies(c) { c = c || S.c; return c.bg === 'photo' && (c.layout === 'dock' || c.focus === 'glass'); }
   function derivedTheme() { return S.c.layout === 'list' ? 'list' : 'shore'; }
 
@@ -352,6 +352,7 @@
       apps: pick(modern.apps, LOOK_VALUES.apps, legacyList ? 'text' : 'both'), controls: pick(modern.controls, LOOK_VALUES.controls, 'both'),
       focus: pick(modern.focus, LOOK_VALUES.focus, legacyList ? 'type' : 'glass'), material: pick(modern.material, LOOK_VALUES.material, 'soft'),
       font: pick(modern.font, LOOK_VALUES.font, 'manrope'), wall: wall(modern.wall || s.wallpaper) ? modern.wall || s.wallpaper : WALLS[0].id,
+      clock24: modern.clock24 !== false,
       home: h, recent: recent, lastApp: h.indexOf(s.lastApp) >= 0 ? s.lastApp : h[0],
       mode: pick(s.mode, MODES.map(function (m) { return m.id; }), 'fixed')
     };
@@ -386,7 +387,7 @@
   function serverPayload(c) {
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
     cfg.schemaVersion = cfg.schemaVersion || 1;
-    cfg.look = { layout: c.layout, apps: c.apps, wall: c.wall, font: c.font, clock: !!c.clock };
+    cfg.look = { layout: c.layout, apps: c.apps, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
     cfg.home = c.home.map(function (id) {
       var out = { appId: id };
       prev.forEach(function (e) { if (e && e.appId === id) { if (e.name) out.name = e.name; if (e.icon) out.icon = e.icon; if (e.url) out.url = e.url; } });
@@ -400,7 +401,9 @@
    * Einstellungen "nach Neustart auf default" zurueckspringen. */
   function syncServer(c) {
     S.syncLog = S.syncLog || [];
-    if (!S.ready) { S.syncLog.push('nicht bereit'); return; }
+    /* Vor der Bereitschaft nur vormerken: die Server-Konfiguration steht dann noch
+     * nicht, ein sofortiges Schreiben wuerde sie ueberschreiben. */
+    if (!S.ready) { S.syncPending = c; S.syncLog.push('vorgemerkt'); return; }
     if (!window.FrameDevice || !FrameDevice.saveConfig) { S.syncLog.push('keine Anbindung'); return; }
     S.syncLog.push('gesendet');
     try {
@@ -886,7 +889,7 @@
       { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
-      { id: 'language', label: T('Language'), value: langLabel(S.serverCfg ? S.serverCfg.lang : '') },
+      { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
@@ -911,6 +914,15 @@
    * waehlbar. Die Auswahl landet in der Server-Konfiguration; danach wird die
    * Oberflaeche neu geladen, damit auch die beim Start gebauten Texte passen. */
   var LANGS = [{ id: 'system', name: T('Like the TV') }, { id: 'de', name: 'Deutsch' }, { id: 'en', name: 'English' }];
+  function clockLabel() { return S.c.clock24 !== false ? '24 h' : '12 h'; }
+  function setClock24(on) {
+    var c = next(S.c.home.slice(), S.c.recent.slice());
+    c.clock24 = !!on;
+    if (!write(c, 'Uhrzeit')) return;
+    /* lookOf traegt clock24 mit, deshalb hier direkt in den Server-Stand spiegeln. */
+    if (S.serverCfg) { S.serverCfg.look = serverPayload(c).look; syncServer(c); }
+    render(); updateClock();
+  }
   function langLabel(code) {
     for (var i = 0; i < LANGS.length; i++) if (LANGS[i].id === code) return LANGS[i].name;
     return LANGS[0].name;
@@ -924,7 +936,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -948,9 +960,13 @@
       { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
         reason: inactive ? flat ? 'Materials are available with a Photo background.' : T('Choose Glass focus or the Dock layout to use materials.') : '' }
     ];
-    if (t.group === 'language') return [{ id: 'lang', title: T('Language'), horizontal: true, items: LANGS.map(function (l) {
-      return { action: 'language.set.' + l.id, value: l.id, label: l.name };
-    }) }];
+    if (t.group === 'clocklang') return [
+      { id: 'clock', title: T('Clock'), horizontal: true, items: [
+        { action: 'clock.set.24', value: '24', label: '24 h' },
+        { action: 'clock.set.12', value: '12', label: '12 h' }] },
+      { id: 'lang', title: T('Language'), horizontal: true, items: LANGS.map(function (l) {
+        return { action: 'language.set.' + l.id, value: l.id, label: l.name };
+      }) }];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
     return [{ id: 'samsung', title: '', items: [
@@ -1000,6 +1016,7 @@
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
+    else if (item.action.indexOf('clock.set.') === 0) setClock24(item.action.slice('clock.set.'.length) === '24');
     else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
     else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
@@ -1047,7 +1064,8 @@
     } else {
       list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
     }
-    list.push({ label: T('Cancel'), run: function () {} });
+    /* Kein eigener "Abbrechen"-Eintrag: Zurueck schliesst das Menue. Damit bleibt
+     * die Liste kurz und verdeckt die Kacheln darunter nicht. */
     return list;
   }
 
@@ -1227,9 +1245,11 @@
     renderAppFocusName(hs);
   }
 
+  /* 24-Stunden-Anzeige ist der Standard (Deutschland/Europa); 12 Stunden mit
+   * fuehrender Null wie im Original, wenn ausdruecklich gewaehlt. */
   function clockText() {
-    var d = new Date(), h = d.getHours() % 12 || 12, m = d.getMinutes();
-    return h + ':' + (m < 10 ? '0' : '') + m;
+    var d = new Date(), h = S.c.clock24 !== false ? d.getHours() : (d.getHours() % 12 || 12), m = d.getMinutes();
+    return (S.c.clock24 !== false && h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
   function clockHtml() {
     var text = clockText(), metrics = fontMetrics[homeFont()];
@@ -1572,7 +1592,10 @@
     appearanceTitle.textContent = DETAIL_NAMES[t.group];
     var at = detailLocation(t), selected = at.item, error = S.lookError, status = '', hint;
     function command(item, inner, cls) {
-      var applied = item.axis && S.c[item.axis] === item.value;
+      var applied = (item.axis && S.c[item.axis] === item.value)
+        || (item.action === 'clock.set.24' && S.c.clock24 !== false)
+        || (item.action === 'clock.set.12' && S.c.clock24 === false)
+        || (item.action.indexOf && item.action.indexOf('language.set.') === 0 && S.serverCfg && S.serverCfg.lang === item.action.slice('language.set.'.length));
       var loading = !!(item.axis && S.pending && S.pending.target[item.axis] === item.value && S.pending.row === item.axis);
       return '<button type="button" tabindex="-1" class="setting-choice' + (cls ? ' ' + cls : '') + (t.f.action === item.action ? ' is-focus' : '') + (item.disabled ? ' is-disabled' : '') + (applied ? ' is-applied' : '') + (loading ? ' is-loading' : '') + '"'
         + (item.axis ? ' role="radio" aria-checked="' + !!applied + '"' : '') + ' aria-label="' + esc(item.axis && item.value === 'both' ? T('Icons and text') : item.label) + '" aria-disabled="' + !!item.disabled + '" aria-busy="' + loading + '"'
@@ -2146,12 +2169,15 @@
     ready: function () { return !!S.ready; },
     settingsRows: settingsRows,
     langOptions: function () { return LANGS.map(function (l) { return l.id; }); },
+    clockText: function () { return clockText(); },
+    clock24: function () { return S.c.clock24 !== false; },
+    setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
     language: function (code) { setLanguage(code); return true; },
     openSettings: function (group) {
       while (S.stack.length > 1) S.stack.pop();
       push({ id: 'settings', f: { id: 'language' } });
       render(); renderSheet(top(), true);
-      if (group) { openAppearance(group); }
+      if (group) { openAppearance(group); render(); }
       return top().id;
     },
     closeAll: function () { while (S.stack.length > 1) S.stack.pop(); S.stack[0].f = { zone: 'apps', u: 0 }; render(); return S.stack.length; },
@@ -2239,6 +2265,7 @@
       if (cfg.look.wall && wall(cfg.look.wall)) c.wall = cfg.look.wall;
       if (cfg.look.font && FONTS[cfg.look.font]) c.font = cfg.look.font;
       if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
+      if (typeof cfg.look.clock24 === 'boolean') c.clock24 = cfg.look.clock24;
     }
 
     if (cfg.home && cfg.home.length) {
@@ -2300,6 +2327,7 @@
     /* Erst ab hier darf die App schreiben: vorher wuerden die Standardwerte die
      * Server-Konfiguration ueberschreiben. */
     S.ready = true;
+    if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }
   }
 
   if (window.FrameDevice && FrameDevice.loadConfig) {

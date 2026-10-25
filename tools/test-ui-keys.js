@@ -222,67 +222,56 @@ function run(wsUrl) {
             var labels = [];
             try { labels = JSON.parse(labelsJson); } catch (e) {}
             check('Menue bietet Umbenennen an', labels.indexOf('Umbenennen') >= 0, labels.join(' / '));
-            if (DEBUG) evalJs('JSON.stringify(window.CleanFrameDebug.rawActions().map(function (a) { return a.label; }))', function (x) { console.log('    Aktionen: ' + x); });
-            if (DEBUG) evalJs('(window.CleanFrameI18n ? window.CleanFrameI18n.lang : "?") + " / " + (window.CleanFrameI18n ? window.CleanFrameI18n.t("Rename") : "?")', function (x) { console.log('    i18n jetzt: ' + x); });
+            check('Menue bleibt kurz (hoechstens 2 Eintraege)', labels.length <= 2, labels.length + ' Eintraege');
 
+            // Von oben nach unten durchgehen, dann zurueck
             var seen = [];
-            focusInfo(function (i0) { seen.push(i0); });
-            // Zurueck auf den ersten Eintrag, dann zweimal nach unten
             key('up', function () {
               key('up', function () {
-                focusInfo(function (i1) {
-                  seen.push(i1);
-                  key('down', function () {
-                    focusInfo(function (i2) {
-                      seen.push(i2);
-                      key('down', function () {
-                        focusInfo(function (i3) {
-                          seen.push(i3);
-                          key('down', function () {
-                            focusInfo(function (i4) {
-                              seen.push(i4);
-                              var distinct = {};
-                              seen.forEach(function (x) { distinct[x] = 1; });
-                              check('Pfeil unten bewegt den Fokus durch das Menue', Object.keys(distinct).length >= 3,
-                                    'Positionen: ' + seen.join(','));
-                              check('letzter Eintrag erreichbar (Abrechen)', Math.max.apply(null, seen) === labels.length - 1,
-                                    'hoechster Index ' + Math.max.apply(null, seen));
-                              key('up', function () {
-                                focusInfo(function (i5) {
-                                  check('Pfeil oben bewegt zurueck', i5 === labels.length - 2, 'index ' + i5);
-                                  key('up', function () {
-                                    key('up', function () {
-                                      focusInfo(function (i6) {
-                                        check('Pfeil oben erreicht den ersten Eintrag', i6 === 0, 'index ' + i6);
-                                        key('ok', function () {
-                                          setTimeout(function () {
-                                            evalJs('window.CleanFrameDebug.state().view', function (v2) {
-                                              check('OK auf dem ersten Eintrag oeffnet den Dialog', v2 === 'rename', String(v2));
-                                              evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (before) {
-                                                send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
-                                                  send('Input.dispatchKeyEvent', { type: 'char', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
-                                                    send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88 }, function () {
-                                                  evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (after) {
-                                                    var a = {}, b = {};
-                                                    try { a = JSON.parse(before); b = JSON.parse(after); } catch (e) {}
-                                                    check('Tippen haengt ein Zeichen an', (b.text || '').length === (a.text || '').length + 1,
-                                                          a.text + ' -> ' + b.text);
-                                                    key('back', function () {
-                                                      evalJs('window.CleanFrameDebug.state().view', function (v3) {
-                                                        check('Zurueck schliesst den Dialog', v3 === 'home', String(v3));
-                                                        backTest(appId);
-                                                      });
-                                                    });
-                                                  });
-                                                    });
-                                                  });
-                                                });
-                                              });
-                                            });
-                                          }, 300);
-                                        });
-                                      });
-                                    });
+                (function down(n) {
+                  focusInfo(function (i) { seen.push(i); });
+                  if (n === 0) return afterDown();
+                  key('down', function () { down(n - 1); });
+                }(labels.length + 1));
+              });
+            });
+            function afterDown() {
+              var distinct = {};
+              seen.forEach(function (x) { distinct[x] = 1; });
+              check('Pfeil unten erreicht alle Eintraege', Object.keys(distinct).length === labels.length,
+                    'Positionen: ' + seen.join(','));
+              check('letzter Eintrag erreichbar', Math.max.apply(null, seen) === labels.length - 1,
+                    'hoechster Index ' + Math.max.apply(null, seen));
+              key('up', function () {
+                focusInfo(function (i) {
+                  check('Pfeil oben bewegt zurueck', i === Math.max(0, labels.length - 2), 'index ' + i);
+                  (function up(n) {
+                    if (n === 0) return afterUp();
+                    key('up', function () { up(n - 1); });
+                  }(labels.length + 1));
+                });
+              });
+            }
+            function afterUp() {
+              focusInfo(function (i) {
+                check('Pfeil oben erreicht den ersten Eintrag', i === 0, 'index ' + i);
+                key('ok', function () {
+                  setTimeout(function () {
+                    evalJs('window.CleanFrameDebug.state().view', function (v2) {
+                      check('OK auf dem ersten Eintrag oeffnet den Dialog', v2 === 'rename', String(v2));
+                      evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (before) {
+                        send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
+                          send('Input.dispatchKeyEvent', { type: 'char', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
+                            send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88 }, function () {
+                              evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (after) {
+                                var a = {}, b = {};
+                                try { a = JSON.parse(before); b = JSON.parse(after); } catch (e) {}
+                                check('Tippen haengt ein Zeichen an', (b.text || '').length === (a.text || '').length + 1,
+                                      a.text + ' -> ' + b.text);
+                                key('back', function () {
+                                  evalJs('window.CleanFrameDebug.state().view', function (v3) {
+                                    check('Zurueck schliesst den Dialog', v3 === 'home', String(v3));
+                                    backTest(appId);
                                   });
                                 });
                               });
@@ -291,17 +280,17 @@ function run(wsUrl) {
                         });
                       });
                     });
-                  });
+                  }, 300);
                 });
               });
-            });
+            }
           });
         });
       }, 450);
     });
   }
 
-  /* Lange OK auf einer Startseiten-Kachel (700 ms halten) -> Kontextmenue. */
+  /* Lange OK auf einer Startseiten-Kachel (800 ms halten) -> Kontextmenue. */
   function longPressTest() {
     evalJs('(window.CleanFrameDebug.closeAll ? window.CleanFrameDebug.closeAll() : 1, 1)', function () {
       send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' }, function () {
@@ -319,37 +308,62 @@ function run(wsUrl) {
     });
   }
 
-  /* Einstellungen -> Sprache: Zeile vorhanden, Umschalten wirkt. */
+  /* Einstellungen -> "Uhr und Sprache": Seite da, Umschalten wirkt. */
   function languageTest() {
     evalJs('JSON.stringify(window.CleanFrameDebug.settingsRows ? window.CleanFrameDebug.settingsRows() : null)', function (rowsRaw) {
       var rows = [];
       try { rows = JSON.parse(rowsRaw) || []; } catch (e) {}
       var ids = rows.map(function (r) { return r.id; });
-      check('Einstellungen bieten eine Sprachzeile', ids.indexOf('language') >= 0, ids.join(','));
-      if (ids.indexOf('language') < 0) { configTests(); return; }
-      evalJs('(window.CleanFrameDebug.openSettings ? window.CleanFrameDebug.openSettings("language") : 1)', function () {
+      check('Einstellungen bieten Uhr und Sprache', ids.indexOf('clocklang') >= 0, ids.join(','));
+      if (ids.indexOf('clocklang') < 0) { configTests(); return; }
+      evalJs('(window.CleanFrameDebug.openSettings("clocklang"), 1)', function () {
         setTimeout(function () {
-          evalJs('JSON.stringify({view: window.CleanFrameDebug.state().view, group: (window.CleanFrameDebug.state().group || "")})', function (r) {
+          evalJs('JSON.stringify(window.CleanFrameDebug.state())', function (r) {
             var st = {};
             try { st = JSON.parse(r); } catch (e) {}
-            check('Sprachseite oeffnet', st.view === 'appearance' && st.group === 'language', String(r));
-            evalJs('JSON.stringify(window.CleanFrameDebug.langOptions ? window.CleanFrameDebug.langOptions() : null)', function (opts) {
-              check('Sprachoptionen vorhanden', /de/.test(String(opts)) && /en/.test(String(opts)), String(opts));
-              evalJs('window.CleanFrameDebug.language("en")', function () {
-                setTimeout(function () {
-                  evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, titel: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Language") : "-")})', function (x) {
-                    var o = {};
-                    try { o = JSON.parse(x); } catch (e) {}
-                    check('Umschalten auf Englisch wirkt', o.lang === 'en' && o.titel === 'Language', x);
-                    evalJs('window.CleanFrameDebug.language("de")', function () {
-                      setTimeout(function () { finish(); }, 600);
+            check('Seite fuer Uhr und Sprache oeffnet', st.view === 'appearance' && st.group === 'clocklang', String(r).slice(0, 90));
+            evalJs('JSON.stringify({detailSichtbar: !(document.getElementById("appearance")||{}).hidden, listenInhalt: (document.getElementById("sheetView")||{innerHTML:""}).innerHTML.trim().length, titel: (document.getElementById("appearanceTitle")||{}).textContent})', function (d) {
+              var o = {};
+              try { o = JSON.parse(d); } catch (e) {}
+              check('Detailseite ist sichtbar, Liste geleert', o.detailSichtbar === true && o.listenInhalt === 0, d);
+            });
+            evalJs('JSON.stringify({langs: window.CleanFrameDebug.langOptions(), clock: window.CleanFrameDebug.clockText()})', function (opts) {
+              var o = {};
+              try { o = JSON.parse(opts); } catch (e) {}
+              check('Sprachoptionen vorhanden', (o.langs || []).indexOf('de') >= 0 && (o.langs || []).indexOf('en') >= 0, opts);
+              check('24-Stunden-Anzeige ist Standard', /^\d\d:[0-5]\d$/.test(o.clock || '') && /^([01]\d|2[0-3])$/.test(String(o.clock || '').slice(0, 2)), o.clock);
+              evalJs('JSON.stringify({vorher: window.CleanFrameDebug.clockText(), h24: window.CleanFrameDebug.clock24()})', function (c0) {
+                evalJs('window.CleanFrameDebug.setClock24(false)', function () {
+                  setTimeout(function () {
+                    evalJs('JSON.stringify({text: window.CleanFrameDebug.clockText(), h24: window.CleanFrameDebug.clock24()})', function (c1) {
+                      var o0 = {}, o1 = {};
+                      try { o0 = JSON.parse(c0); o1 = JSON.parse(c1); } catch (e) {}
+                      check('12-Stunden-Anzeige wirkt', o1.h24 === false, c0 + ' -> ' + c1);
+                      evalJs('window.CleanFrameDebug.setClock24(true)', function () {
+                        setTimeout(function () {
+                          evalJs('window.CleanFrameDebug.language("en")', function () {
+                            setTimeout(function () {
+                              evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, t: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Language") : "-")})', function (x) {
+                                var o2 = {};
+                                try { o2 = JSON.parse(x); } catch (e) {}
+                                check('Umschalten auf Englisch wirkt', o2.lang === 'en' && o2.t === 'Language', x);
+                                evalJs('window.CleanFrameDebug.language("de")', function () {
+                                  /* language() laedt die Oberflaeche neu — warten, bis die
+                                   * Konfiguration wieder da ist, sonst schreibt der Test zu frueh. */
+                                  setTimeout(function () { configTests(); }, 2600);
+                                });
+                              });
+                            }, 500);
+                          });
+                        }, 700);
+                      });
                     });
-                  });
-                }, 500);
+                  }, 700);
+                });
               });
             });
           });
-        }, 400);
+        }, 450);
       });
     });
   }
@@ -388,6 +402,9 @@ function run(wsUrl) {
             try { cfg = (JSON.parse(body) || {}).config || {}; } catch (e) {}
             if ((cfg.look || {}).apps !== target && n > 0) { setTimeout(function () { poll(n - 1); }, 600); return; }
             check('Aenderung steht im Server', (cfg.look || {}).apps === target, 'Server: ' + (cfg.look || {}).apps);
+            if ((cfg.look || {}).apps !== target) {
+              evalJs('JSON.stringify({ready: window.CleanFrameDebug.ready(), sync: window.CleanFrameDebug.syncLog()})', function (x) { console.log('    sync-verlauf: ' + x); });
+            }
             // Neustart der App: frisch laden, Konfiguration erneut holen
             send('Page.reload', {}, function () {
               setTimeout(function () {

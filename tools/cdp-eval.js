@@ -18,6 +18,7 @@ function arg(name, fallback) {
 var PORT = parseInt(arg('port', '9333'), 10);
 var NEEDLE = arg('url', '');
 var EXPR = process.argv[2];
+var SHOT = arg('shot', '');
 
 function get(url, cb) {
   http.get(url, function (res) {
@@ -94,8 +95,17 @@ get('http://127.0.0.1:' + PORT + '/json/list', function (err, body) {
         var v = res.result && res.result.value;
         console.log(typeof v === 'string' ? v : JSON.stringify(v));
       }
-      ws.close();
-      process.exit(0);
+      if (!SHOT) { ws.close(); process.exit(0); return; }
+      /* Screenshot des aktuellen Stands (--shot /pfad.png) */
+      var sid = ++id;
+      pending[sid] = function (r2) {
+        var data = (r2.result || {}).data || '';
+        require('fs').writeFileSync(SHOT, Buffer.from(data, 'base64'));
+        console.log('Screenshot: ' + SHOT);
+        ws.close();
+        process.exit(0);
+      };
+      ws.send({ id: sid, method: 'Page.captureScreenshot', params: { format: 'png' } });
     };
     ws.send({ id: mid, method: 'Runtime.evaluate', params: { expression: EXPR, returnByValue: true, awaitPromise: true } });
   });

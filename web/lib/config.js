@@ -38,7 +38,8 @@ function defaults() {
       apps: 'both',
       wall: 'misty',
       font: 'manrope',
-      clock: true
+      clock: true,
+      clock24: true
     },
     home: [],
     /* Bildschirmschoner-Kopplung: der Launcher startet nach N Minuten Ruhe den
@@ -90,6 +91,8 @@ function validate(input) {
   if (isStr(look.wall, 120) && look.wall) cfg.look.wall = look.wall;
   if (isStr(look.font, 60) && look.font) cfg.look.font = look.font;
   cfg.look.clock = look.clock === undefined ? true : !!look.clock;
+  /* 24-Stunden-Anzeige ist Standard (Europa); 12 Stunden nur auf Wunsch. */
+  cfg.look.clock24 = look.clock24 === undefined ? true : !!look.clock24;
 
   if (Array.isArray(src.home)) {
     var seen = {};
