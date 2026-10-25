@@ -402,6 +402,13 @@
   /* Aenderungen an der Darstellung sofort an den Server geben. Sonst gilt beim
    * naechsten Start wieder die alte Server-Konfiguration — genau das liess die
    * Einstellungen "nach Neustart auf default" zurueckspringen. */
+  /* Sperrt ein offener Dialog die Uebernahme? Nur Menue, Umbenennen, Meldung. */
+  function istDialog() {
+    var t = top();
+    if (!t) return false;
+    return t.id === 'ctx' || t.id === 'rename' || t.id === 'message';
+  }
+
   /* Aenderungen aus der Web-Oberflaeche im laufenden Betrieb uebernehmen:
    * der Server zaehlt bei jeder Speicherung `rev` hoch. Aendert sich die Nummer,
    * ohne dass wir selbst geschrieben haben, laden wir die Konfiguration neu.
@@ -409,13 +416,16 @@
   function startConfigWatch() {
     if (S.watchTimer) clearInterval(S.watchTimer);
     S.watchTimer = setInterval(function () {
-      if (S.pendingCfg && S.stack.length === 1) { applyConfigInto(S.pendingCfg); return; }
+      if (S.pendingCfg && !istDialog()) { applyConfigInto(S.pendingCfg); return; }
       if (!window.FrameDevice || !FrameDevice.loadConfig) return;
       FrameDevice.loadConfig(function (err, cfg) {
         if (err || !cfg) return;
         var rev = parseInt(cfg.rev, 10) || 0;
         if (!rev || rev === S.appliedRev) return;
-        if (S.stack.length > 1) { S.pendingCfg = cfg; return; }  /* Dialog offen: spaeter */
+        /* Nur bei echten Dialogen warten (Kachel-Menue, Umbenennen, Meldung).
+       * Auf der Startseite, in den Einstellungen und auf den Detailseiten wird
+       * sofort uebernommen — dort will man die Aenderung ja sehen. */
+      if (istDialog()) { S.pendingCfg = cfg; return; }
         applyConfigInto(cfg);
       });
     }, 2000);
@@ -2349,9 +2359,10 @@
     /* Revision merken: der Waechter (startConfigWatch) laesst dieselbe Revision
      * nicht erneut anwenden. */
     S.appliedRev = parseInt(cfg.rev, 10) || S.appliedRev || 0;
-    /* Neue Konfiguration: alle Kacheln neu aufbauen (auch die gerade fokussierte,
-     * die sonst ihren alten Inhalt behaelt). */
+    /* Neue Konfiguration: alle Bausteine neu aufbauen — Kacheln, App-Raster und die
+     * Zeilen der Darstellung haengen an setContent() und dessen Zwischenspeicher. */
     S.renderEpoch = (S.renderEpoch || 0) + 1;
+    catalog.revision++;
     var c = S.c;
 
     if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
