@@ -1,10 +1,10 @@
-name: Pruefungen
+name: Checks
 
-# Alle Pruefungen, die ohne Fernseher laufen: Syntax, node-8-Vertraeglichkeit,
-# Icons, Konfigurations-Server, Tasten und Live-Uebernahme im kopflosen Chrome.
+# Every check that works without a TV: syntax, node 8 compatibility, icons,
+# configuration server, key presses and live apply in headless Chrome.
 #
-# Der Fernseher selbst ist nicht Teil der CI — die Geraetepruefung bleibt ein
-# eigener Schritt (tools/install-launcher.sh + Sichtpruefung).
+# The TV itself is not part of CI — the device check stays a separate step
+# (tools/install.sh plus looking at the screen).
 
 on:
   push:
@@ -23,17 +23,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Chrome bereitstellen
+      - name: Provide Chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
 
-      - name: Fassung von node und Chrome anzeigen
+      - name: Show node and Chrome versions
         run: |
           node --version
           google-chrome --version || chrome --version
 
-      - name: Pruefungen ausfuehren
+      - name: Run the checks
         env:
           CHROME: /opt/hostedtoolcache/chrome/stable/x64/chrome
         run: |
