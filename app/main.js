@@ -1495,7 +1495,7 @@
       /* Schluessel enthaelt Name und Icon: aendert sich nur das Icon (z.B. aus der
        * Web-Oberflaeche), muss die Kachel neu aufgebaut werden. */
       var markKey = a ? (a.name + '|' + (a.icon || '') + '|' + (a.mark ? 'mark' : 'text')) : '';
-      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + markKey + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
+      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + markKey + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
       el.className = 'tile k-' + it.kind + (focus ? ' is-focus' : '') + (sel ? ' is-sel' : '') + (lifted ? ' is-lifted' : '') + (partial ? ' is-partial' : '')
         + (a && !a.mark ? ' is-text' : '') + (it.kind === 'add' && full ? ' is-full' : '') + (it.kind === 'app' && S.press === it.id ? ' is-press' : '')
         + (lifted && i === 0 ? ' no-l' : '') + (lifted && i >= ns - 1 ? ' no-r' : '');
@@ -1599,7 +1599,9 @@
       var typography = photoLabel(it.id, compact), focus = rowFocus && i === anchor, lifted = hs.lifted && i === anchor, markImage, body = '';
       if (S.c.apps !== 'text') body += appMark(app(it.id), S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 60 : 84, S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 44 : 64, S.c.apps === 'icons' ? compact ? 52 : 72 : compact ? 42 : 54);
       if (S.c.apps !== 'icons') body += '<span class="ph-name" style="font-size:' + typography.size + 'px;top:' + typography.top + 'px">' + esc(app(it.id).name) + '</span>';
-      setContent(row, it.id + '|' + typography.size + '|' + S.c.bg + '|' + S.c.apps + '|' + homeFont(), '<span class="ph-group">' + body + '</span><span class="ph-move ph-move-up">' + icon('up') + '</span><span class="ph-move ph-move-down">' + icon('down') + '</span>');
+      /* Schluessel mit Name und Icon: in der Listenansicht sonst veralteter Inhalt. */
+      setContent(row, it.id + '|' + typography.size + '|' + S.c.bg + '|' + S.c.apps + '|' +
+        (app(it.id).name || '') + '|' + (app(it.id).icon || '') + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="ph-group">' + body + '</span><span class="ph-move ph-move-up">' + icon('up') + '</span><span class="ph-move ph-move-down">' + icon('down') + '</span>');
       markImage = row.querySelector('.mark img');
       if (markImage) {
         markImage.onerror = function () { this.style.visibility = 'hidden'; };
@@ -1852,7 +1854,7 @@
       t.top = clamp(t.top, 0, Math.max(0, rows - vis));
       keyed(el.grid, items.map(function (id) { return { key: id, id: id }; }), function (tile, it, i) {
         var focus = f.zone === 'grid' && i === f.i;
-        setContent(tile, [it.id, app(it.id).name, app(it.id).icon || '', onHome(it.id)].join('|'), gridTileHtml(it.id));
+        setContent(tile, [it.id, app(it.id).name, app(it.id).icon || '', onHome(it.id), S.renderEpoch || 0].join('|'), gridTileHtml(it.id));
         tile.className = 'gt' + (focus ? ' is-focus' : '');
         tile.style.transform = 'translate3d(' + ((i % COLS) * GRID_COL) + 'px,' + (Math.floor(i / COLS) * GRID_ROW) + 'px,0)';
         tile.setAttribute('role', 'button'); tile.setAttribute('aria-label', app(it.id).name);
@@ -2347,6 +2349,9 @@
     /* Revision merken: der Waechter (startConfigWatch) laesst dieselbe Revision
      * nicht erneut anwenden. */
     S.appliedRev = parseInt(cfg.rev, 10) || S.appliedRev || 0;
+    /* Neue Konfiguration: alle Kacheln neu aufbauen (auch die gerade fokussierte,
+     * die sonst ihren alten Inhalt behaelt). */
+    S.renderEpoch = (S.renderEpoch || 0) + 1;
     var c = S.c;
 
     if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
