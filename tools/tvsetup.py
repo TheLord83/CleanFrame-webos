@@ -42,9 +42,14 @@ class Telnet:
         self.buffer = b""
 
     def _read(self, wait=1.0):
-        end = time.time() + wait
+        """Read whatever arrives within `wait` seconds.
+
+        The socket timeout has to follow `wait`, otherwise a recv blocks for the
+        connect timeout (8 s) on every command and the whole run drags on.
+        """
+        self.sock.settimeout(max(0.2, wait))
         chunks = b""
-        while time.time() < end:
+        while True:
             try:
                 data = self.sock.recv(4096)
             except socket.timeout:
@@ -117,20 +122,20 @@ def port_open(ip, port, timeout=3):
         sock.close()
 
 
-def setup(ip, pubkey, private_key, dry_run=False, keep_telnet=False):
+def setup(ip, pubkey, private_key, dry_run=False, keep_telnet=False, telnet_port=23, verify=True):
     say = print
     with open(pubkey) as handle:
         key_line = handle.read().strip()
     if not key_line.startswith(("ssh-ed25519", "ssh-rsa", "ecdsa-")):
         raise SystemExit("%s does not look like a public key" % pubkey)
 
-    if not dry_run and not port_open(ip, 23):
+    if not dry_run and not port_open(ip, telnet_port):
         probe = ssh(ip, private_key, "true")
         if probe is not None and probe.returncode == 0:
             say("   Telnet already closed and SSH works — nothing to do")
             return True
-        raise SystemExit("no Telnet on port 23 and SSH does not work either; "
-                         "is the exploit done and the TV awake?")
+        raise SystemExit("no Telnet on port %d and SSH does not work either; "
+                         "is the exploit done and the TV awake?" % telnet_port)
 
     commands = [
         "mkdir -p /home/root/.ssh",
@@ -158,8 +163,8 @@ def setup(ip, pubkey, private_key, dry_run=False, keep_telnet=False):
             say("     %s" % command)
         return True
 
-    say("   writing key and closing Telnet over %s:23" % ip)
-    client = Telnet(ip)
+    say("   writing key and closing Telnet over %s:%d" % (ip, telnet_port))
+    client = Telnet(ip, telnet_port)
     try:
         client.login()
         for command in commands:
@@ -171,6 +176,10 @@ def setup(ip, pubkey, private_key, dry_run=False, keep_telnet=False):
     match = re.search(r"uid=(\d+)", check or "")
     if not match or match.group(1) != "0":
         say("   warning: could not confirm a root shell (answer was: %r)" % (check or "")[:120])
+
+    if not verify:
+        say("   commands sent (verification skipped)")
+        return True
 
     # sshd usually needs a moment; retry instead of reporting a false failure.
     for _ in range(10):
@@ -195,11 +204,14 @@ def main(argv=None):
     parser.add_argument("--private-key", default=None, help="private key for the SSH check (default: ~/.ssh/lgtv)")
     parser.add_argument("--keep-telnet", action="store_true", help="do not close Telnet")
     parser.add_argument("--dry-run", action="store_true", help="show the commands, change nothing")
+    parser.add_argument("--telnet-port", type=int, default=23, help="Telnet port (tests use another one)")
+    parser.add_argument("--no-verify", action="store_true", help="skip the SSH verification (tests)")
     args = parser.parse_args(argv)
 
     pubkey = os.path.expanduser(args.key)
     private = os.path.expanduser(args.private_key) if args.private_key else os.path.expanduser("~/.ssh/lgtv")
-    ok = setup(args.tv, pubkey, private, args.dry_run, args.keep_telnet)
+    ok = setup(args.tv, pubkey, private, args.dry_run, args.keep_telnet,
+               args.telnet_port, not args.no_verify)
     return 0 if ok else 1
 
 
