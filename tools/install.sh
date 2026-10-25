@@ -83,6 +83,7 @@ t() {
       root_offer)    echo "Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]" ;;
       root_declined) echo "    ohne root: Hub wird uebersprungen, Launcher wird installiert" ;;
       root_no_root)  echo "    --no-root gesetzt: Hub wird uebersprungen" ;;
+      root_no_tty)   echo "    keine Eingabe moeglich: Hub wird uebersprungen. Mit --root wird vorher gerootet." ;;
       key_missing)   echo "FEHLER: oeffentlicher Schluessel fehlt: %s (mit --ssh-key angeben)" ;;
       detect)        echo "==> Fernseher suchen" ;;
       tv_off)        echo "    Port 22 zu. Fernseher im Standby? Mit --wake wecken." ;;
@@ -133,6 +134,7 @@ t() {
       root_offer)    echo "Root it now? The launcher works without root, the hub needs it. [Y/n]" ;;
       root_declined) echo "    without root: hub skipped, launcher only" ;;
       root_no_root)  echo "    --no-root given: hub skipped" ;;
+      root_no_tty)   echo "    no terminal to ask: hub skipped. Pass --root to root first." ;;
       key_missing)   echo "ERROR: public key not found: %s (pass --ssh-key)" ;;
       detect)        echo "==> Looking for the TV" ;;
       tv_off)        echo "    port 22 closed. TV in standby? Use --wake." ;;
@@ -241,15 +243,19 @@ elif [ "$DO_ROOT" = "1" ]; then
 else
   say "$(t root_missing)"
   printf '%s ' "$(t root_offer)"
+  antwort=""
   if [ -n "${CF_ANSWER:-}" ]; then
     antwort="$CF_ANSWER"
   else
-    read -r antwort </dev/tty || antwort="y"
+    # No terminal (cron, CI, docker without -t): never root on our own, that would
+    # change the TV without anybody saying yes.
+    { read -r antwort </dev/tty; } 2>/dev/null || antwort=""
   fi
   printf '\n'
   case "$antwort" in
+    y|Y|yes|ja|j) ROOT_IT=1 ;;
     n|N|no|nein) say "$(t root_declined)"; DO_HUB=0 ;;
-    *) ROOT_IT=1 ;;
+    *) say "$(t root_no_tty)"; DO_HUB=0 ;;
   esac
 fi
 

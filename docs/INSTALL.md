@@ -184,6 +184,11 @@ The first thing the installer does is ask the TV whether it already has a root s
 - **no root** → it offers to root the TV (`Root it now? [Y/n]`), because the launcher runs
   without root but the hub does not. Answer `n` (or pass `--no-root` / `-NoRoot`) and it
   installs the launcher only and says that the hub was skipped.
+- **no terminal to ask** (cron, CI, `docker run` without `-t`) → it never roots on its own.
+  It says so and installs the launcher only; pass `--root` / `-Root` to root in scripts.
+
+Rooting changes the TV, so "yes" has to come from a person or from an explicit switch — the
+installer never assumes it.
 
 ### TV in another network?
 

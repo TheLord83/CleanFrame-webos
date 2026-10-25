@@ -80,6 +80,7 @@ $Text = @{
     root_offer    = 'Root it now? The launcher works without root, the hub needs it. [Y/n]'
     root_declined = '    without root: hub skipped, launcher only'
     root_no_root  = '    -NoRoot given: hub skipped'
+    root_no_tty   = '    no terminal to ask: hub skipped. Pass -Root to root first.'
     root_stage    = '==> Rooting (SlopBro)'
     root_skip     = '    already rooted, SSH works'
     root_pair     = '    A pairing prompt will appear on the TV - accept it with the remote.'
@@ -127,6 +128,7 @@ $Text = @{
     root_offer    = 'Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]'
     root_declined = '    ohne root: Hub wird uebersprungen, Launcher wird installiert'
     root_no_root  = '    -NoRoot gesetzt: Hub wird uebersprungen'
+    root_no_tty   = '    keine Eingabe moeglich: Hub wird uebersprungen. Mit -Root wird vorher gerootet.'
     root_stage    = '==> Rooten (SlopBro)'
     root_skip     = '    schon gerootet, SSH funktioniert'
     root_pair     = '    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen.'
@@ -224,11 +226,17 @@ if ($rooted) {
     $NoHub = $true
   } elseif ($Root -or $Yes) {
     $rootNow = $true
+  } elseif ([Console]::IsInputRedirected) {
+    # No terminal to ask: never root on our own
+    $NoHub = $true
+    $noTty = $true
   } else {
     $answer = Read-Host (T 'root_offer')
-    if ($answer -notmatch '^(n|no|nein)$') { $rootNow = $true }
+    if ($answer -match '^(y|yes|j|ja)$') { $rootNow = $true }
   }
-  if (-not $rootNow -and -not $NoRoot) {
+  if ($noTty) {
+    Say (T 'root_no_tty')
+  } elseif (-not $rootNow -and -not $NoRoot) {
     Say (T 'root_declined')
     $NoHub = $true
   }
