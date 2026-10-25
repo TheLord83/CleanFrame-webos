@@ -177,6 +177,9 @@
       </div>
     </div>
     <ul class="tiles" id="tileList"></ul>
+    <div class="row" style="margin-top:16px">
+      <button class="action" id="btnSaveHome">Startseite speichern</button>
+    </div>
     <div class="status" id="homeStatus"></div>
   </section>
 
@@ -351,7 +354,12 @@
       var ct = r.headers.get('content-type') || '';
       var p = ct.indexOf('json') >= 0 ? r.json() : r.text();
       return p.then(function (data) {
-        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        if (!r.ok) {
+          var err = new Error((data && data.error) || ('HTTP ' + r.status));
+          err.status = r.status;   /* 409 = jemand war schneller */
+          err.data = data;
+          throw err;
+        }
         return data;
       });
     });
@@ -589,12 +597,45 @@
     $('mqPass').placeholder = c.integrations.mqtt.hasPassword ? 'Passwort hinterlegt — leer lassen zum Behalten' : 'Passwort eintragen';
   }
 
+  /* Speichern laeuft immer der Reihe nach: waehrend ein Schreibvorgang laeuft,
+   * wird der naechste nur vorgemerkt und danach mit dem aktuellsten Stand
+   * gesendet. Sonst koennten Antworten aeltere Klicks ueberschreiben. */
+  var saveBusy = false, saveDirty = false, saveNext = null;
+
   function save(payload, statusEl, okMsg) {
+    if (saveBusy) {
+      saveDirty = true;
+      saveNext = { statusEl: statusEl, okMsg: okMsg };
+      return Promise.resolve(null);
+    }
+    saveBusy = true;
     return api('PUT', '/api/config', payload).then(function (r) {
+      /* Nur die Revision uebernehmen — die Antwort darf die Felder nicht
+       * ueberschreiben, sonst gehen Klicks waehrend des Speicherns verloren. */
+      if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
+      var zeit = r && r.updatedAt ? new Date(r.updatedAt).toLocaleTimeString() : '';
+      note(statusEl, okMsg + (zeit ? ' (gespeichert ' + zeit + ')' : ''), true);
+    }).catch(function (e) {
+      if (e && e.status === 409) { reloadConfig(); return; }
+      note(statusEl, 'Fehler: ' + e.message, false);
+    }).then(function () {
+      saveBusy = false;
+      if (saveDirty) {
+        saveDirty = false;
+        var n = saveNext || {};
+        saveNext = null;
+        return save(state.cfg, n.statusEl, n.okMsg || 'Gespeichert');
+      }
+    });
+  }
+
+  /* Nach einem Konflikt (jemand anders hat gespeichert) den neuesten Stand holen. */
+  function reloadConfig() {
+    api('GET', '/api/config').then(function (r) {
       state.cfg = r.config;
-      fillForm();
-      note(statusEl, okMsg + ' (gespeichert ' + new Date(r.updatedAt).toLocaleTimeString() + ')', true);
-    }).catch(function (e) { note(statusEl, 'Fehler: ' + e.message, false); });
+      renderTiles(); renderLook(); renderChosen();
+      note($('homeStatus'), 'Zwischenzeitlich geändert — neuester Stand geladen.', true);
+    });
   }
 
   /* Automatisch speichern: jede Aenderung geht nach 350 ms an den Server, danach
@@ -797,17 +838,19 @@
 
   $('btnLook').onclick = function () {
     collectLook();
+    clearTimeout(autoTimer);
     save(state.cfg, $('lookStatus'), 'Übernommen');
+    setTimeout(loadShot, 450);
+    setTimeout(loadShot, 2200);
   };
 
-  document.addEventListener('click', function (ev) {
-    if (ev.target && ev.target.id === 'btnSaveHome') save(state.cfg, $('homeStatus'), 'Startseite gespeichert');
-  });
-
-  var saveHomeBtn = document.createElement('button');
-  saveHomeBtn.className = 'action'; saveHomeBtn.id = 'btnSaveHome'; saveHomeBtn.textContent = 'Startseite speichern';
-  saveHomeBtn.style.marginTop = '16px';
-  $('tileList').parentNode.insertBefore(saveHomeBtn, $('homeStatus'));
+  /* Ausdrueckliches Speichern: sofort schreiben und Bild holen. */
+  $('btnSaveHome').onclick = function () {
+    clearTimeout(autoTimer);
+    save(state.cfg, $('homeStatus'), 'Startseite gespeichert');
+    setTimeout(loadShot, 450);
+    setTimeout(loadShot, 2200);
+  };
 
   $('btnHaCheck').onclick = function () {
     note($('haStatus'), 'Prüfe …');

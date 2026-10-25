@@ -387,6 +387,8 @@
   function serverPayload(c) {
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
     cfg.schemaVersion = cfg.schemaVersion || 1;
+    /* Stand, auf dem diese Aenderung beruht — der Server weist aeltere Staende ab. */
+    cfg.rev = S.appliedRev || undefined;
     cfg.look = { bg: c.bg, layout: c.layout, apps: c.apps, controls: c.controls, focus: c.focus,
                  material: c.material, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
     cfg.home = c.home.map(function (id) {
@@ -438,7 +440,14 @@
     try {
       var payload = serverPayload(c);
       S.serverCfg = payload;
-      FrameDevice.saveConfig(payload, function (err, saved) {
+      FrameDevice.saveConfig(payload, function (err, saved, conflict) {
+        if (conflict && saved) {
+          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
+           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
+          S.syncLog.push('Konflikt: neueren Stand uebernommen');
+          applyConfigInto(saved);
+          return;
+        }
         /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
          * nicht gleich wieder als fremde Aenderung anwendet. */
         if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
@@ -506,7 +515,14 @@
       if (!found) list.push({ appId: id, name: name });
       var payload = JSON.parse(JSON.stringify(cfg));
       payload.home = list;
-      FrameDevice.saveConfig(payload, function (err, saved) {
+      FrameDevice.saveConfig(payload, function (err, saved, conflict) {
+        if (conflict && saved) {
+          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
+           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
+          S.syncLog.push('Konflikt: neueren Stand uebernommen');
+          applyConfigInto(saved);
+          return;
+        }
         /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
          * nicht gleich wieder als fremde Aenderung anwendet. */
         if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;

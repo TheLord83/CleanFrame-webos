@@ -215,7 +215,9 @@
           try { parsed = JSON.parse(xhr.responseText); } catch (e) { parsed = null; }
           finish(parsed ? null : 'Antwort ist kein JSON', parsed);
         } else {
-          finish('HTTP ' + xhr.status, null);
+          var fehler = { status: xhr.status, data: null };
+          try { fehler.data = JSON.parse(xhr.responseText); } catch (e) {}
+          finish(fehler, null);
         }
       };
       xhr.ontimeout = function () { finish('timeout', null); };
@@ -237,9 +239,13 @@
     /* Schreiben bewusst als POST mit text/plain: alles andere loest unter
      * Chromium 79 aus file:// einen CORS-Preflight aus, der scheitert (die
      * Anfrage kaeme nie an). Der Server nimmt text/plain nur vom Fernseher an. */
+    /* Speichern mit Revisionsnummer: sitzt die App auf einem aelteren Stand,
+     * antwortet der Server mit 409 und dem neueren Stand — der wird dann
+     * uebernommen, statt ihn zu ueberschreiben. */
     saveConfig: function (cfg, cb) {
       apiCall('POST', '/api/config', { config: cfg }, function (err, data) {
-        cb(err, data && data.config);
+        if (err && err.status === 409 && err.data && err.data.config) return cb(null, err.data.config, true);
+        cb(err && (err.status || err), data && data.config);
       }, 'text/plain;charset=UTF-8');
     },
     api: apiCall,

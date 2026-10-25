@@ -170,6 +170,19 @@ def main():
             st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
             assert st in (200, 503), (st, d)
 
+        def t_rev_conflict():
+            """Ein veralteter Stand darf den neueren nicht ueberschreiben (409)."""
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            current = cfg.get("rev", 0)
+            stale = dict(cfg)
+            stale["rev"] = max(0, (current or 1) - 1)
+            stale["home"] = [{"appId": "netflix", "name": "Veraltet"}]
+            st2, d2, _ = req("POST", "/api/config", {"config": stale})
+            assert st2 == 409, (st2, d2)
+            st3, d3, _ = req("GET", "/api/config")
+            assert d3["config"].get("rev") == current, (d3["config"].get("rev"), current)
+
         def t_tv_keys():
             st, d, _ = req("GET", "/api/tv/keys")
             assert st == 200, st
@@ -270,11 +283,13 @@ def main():
             # Geschrieben wird immer die vollstaendige Konfiguration — wie in der App.
             _, cur, _ = req("GET", "/api/config")
             full = cur["config"]
+            full.pop("rev", None)   # wie ein Client ohne Revisionsanspruch
             full["look"]["apps"] = "icons"
             st2, d2, _ = req("POST", "/api/config", {"config": full},
                              headers={"Content-Type": "text/plain;charset=UTF-8", "Origin": "null"})
             assert st2 == 200, f"POST /api/config von der TV-App haette 200 sein muessen, war {st2}"
             assert d2["config"]["look"]["apps"] == "icons"
+            full.pop("rev", None)
             full["look"]["apps"] = "both"
             st3, d3, _ = req("POST", "/api/config", {"config": full})
             assert st3 == 200, f"POST /api/config mit JSON haette 200 sein muessen, war {st3}"
@@ -486,6 +501,7 @@ def main():
             ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
             ("Ansichten am Fernseher: Liste und Ablehnung", t_tv_views),
             ("Neustart wird angenommen (202)", t_restart),
+            ("Veralteter Stand wird abgewiesen (409)", t_rev_conflict),
         ]:
             check(name, fn)
 

@@ -192,6 +192,19 @@ Store.prototype.read = function () {
 Store.prototype.write = function (input) {
   var cfg = validate(input);
   var before = this.read();
+  /* Revisionskonflikt: wer auf einem aelteren Stand sitzt (z.B. die App mit
+   * ihrem zuletzt angewendeten Stand), darf die neuere Fassung nicht
+   * ueberschreiben. Die Oberflaeche gewinnt, der Aufrufer laedt neu. */
+  var claim = input && input.rev;
+  var current = parseInt(before.rev, 10) || 0;
+  /* rev 0 oder keine Angabe heisst "kein Anspruch" (z.B. Neuanfang, Import). */
+  if (claim !== undefined && claim !== null && claim !== '' &&
+      (parseInt(claim, 10) || 0) > 0 && parseInt(claim, 10) < current) {
+    var err = new Error('config veraltet');
+    err.code = 'CONFLICT';
+    err.rev = current;
+    throw err;
+  }
   cfg.createdAt = before.createdAt || new Date().toISOString();
   /* Revisionsnummer: jede Speicherung zaehlt hoch. Der launcher fragt sie
    * regelmaessig ab und uebernimmt Aenderungen aus der Web-Oberflaeche sofort. */

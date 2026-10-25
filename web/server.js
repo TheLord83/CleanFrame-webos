@@ -257,6 +257,10 @@ function handle(req, res) {
       }
       var saved;
       try { saved = store.write(incoming); } catch (e) {
+        if (e.code === 'CONFLICT') {
+          /* Aelterer Stand: nicht ueberschreiben, neuesten Stand zurueckgeben. */
+          return json(res, 409, { ok: false, error: 'Konfiguration wurde zwischenzeitlich geaendert', config: config.redact(store.read()) });
+        }
         return json(res, 500, { ok: false, error: 'Speichern fehlgeschlagen: ' + e.message });
       }
       json(res, 200, { ok: true, config: config.redact(saved), updatedAt: saved.updatedAt });
@@ -353,6 +357,8 @@ function handle(req, res) {
         return json(res, 400, { ok: false, error: 'keine CleanFrame-Sicherung' });
       }
       var saved;
+      /* Eine Sicherung wird bewusst immer eingespielt (kein Revisionsvergleich). */
+      delete payload.rev;
       try { saved = store.write(payload); } catch (e) {
         return json(res, 500, { ok: false, error: e.message });
       }
