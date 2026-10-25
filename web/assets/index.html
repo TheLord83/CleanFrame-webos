@@ -40,6 +40,7 @@
   .panel-check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   .panel-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
   .panel-keys button { font-size: 13px; padding: 8px 6px; }
+  .stale.err { display: block; margin: 10px 0 0; background: #5a1414; color: #ffc9c9; }
   .stale { display: inline-block; margin-left: 12px; padding: 4px 10px; border-radius: 8px; background: #7a3b00; color: #ffd8a8; font-size: 13px; }
   .card-block { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .card-block h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
@@ -151,7 +152,7 @@
 <header>
   <h1>CleanFrame — <span data-t="setup">Einrichtung</span></h1>
   <span class="ver" id="ver">…</span>
-  <span id="uiStale" class="stale" hidden>Neue Fassung verfügbar — mit Strg+F5 neu laden</span>
+  <div id="errBanner" class="stale err" hidden></div>
   <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
     <button class="ghost" id="uiLang" title="Sprache der Oberfläche">DE</button>
   </span>
@@ -252,6 +253,13 @@
       <button class="action" id="btnSetup">Einrichtung erneut starten</button>
     </div>
     <div class="status" id="setupStatus"></div>
+
+    <h2 style="margin-top:28px">Verbindung</h2>
+    <p class="hint">Prüft aus diesem Browser heraus: Abruf, Schreiben, Antwortzeiten. Nützlich, wenn Änderungen nicht ankommen.</p>
+    <div class="row">
+      <button class="action" id="btnDiag">Verbindung testen</button>
+    </div>
+    <div class="status" id="diagStatus"></div>
 
 
     <h2 style="margin-top:28px">Diagnose</h2>
@@ -375,6 +383,33 @@
       s.setAttribute('data-active', String(s.dataset.tab === name));
     });
   }
+
+  /* ---------- Meldungen an den Server (Diagnose im Browser) ---------- */
+  function melde(text) {
+    try {
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meldung: text })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  /* ---------- Fehler sichtbar machen ---------- */
+  function fehlerBanner(text) {
+    var b = document.getElementById('errBanner');
+    if (!b) return;
+    b.hidden = false;
+    b.textContent = 'Fehler in der Oberfläche: ' + text;
+  }
+  window.addEventListener('error', function (e) {
+    var txt = (e.message || 'unbekannt') + (e.lineno ? ' (Zeile ' + e.lineno + ')' : '');
+    fehlerBanner(txt);
+    melde('JS-Fehler: ' + txt);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason || {};
+    fehlerBanner('Zusage abgelehnt: ' + (r.message || String(r)) + (r.status ? ' · HTTP ' + r.status : ''));
+  });
 
   /* ---------- Darstellung: alle Achsen aus /api/schema ---------- */
   function optSelect(key, label, list, current) {
@@ -607,6 +642,7 @@
   /* Bau-Stempel dieser Seite — weicht er von der Serverversion ab, laeuft im
    * Browser noch eine alte Fassung (häufigste Ursache für "geht nicht"). */
   var UI_BUILD = '0.4.9';
+  setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   function save(payload, statusEl, okMsg, retried) {
     if (saveBusy) {
@@ -621,6 +657,7 @@
       if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
       var zeit = r && r.updatedAt ? new Date(r.updatedAt).toLocaleTimeString() : '';
       note(statusEl, okMsg + ' · Stand ' + (state.cfg.rev || '?') + (zeit ? ' · ' + zeit : ''), true);
+      melde('gespeichert ' + okMsg + ' rev ' + (state.cfg.rev || '?'));
     }).catch(function (e) {
       /* 409: jemand (z.B. die App) hat zwischenzeitlich geschrieben. Nicht die
        * Aenderung wegwerfen, sondern mit der neuen Revisionsnummer erneut senden. */
@@ -631,6 +668,7 @@
         });
       }
       note(statusEl, 'Fehler: ' + e.message + (e.status === 409 ? ' (erneut versucht)' : ''), false);
+      melde('Fehler beim Speichern: ' + e.message + (e.status ? ' HTTP ' + e.status : ''));
     }).then(function () {
       saveBusy = false;
       if (saveDirty) {
@@ -641,16 +679,6 @@
       }
     });
   }
-
-  /* Laeuft im Browser eine aeltere Fassung als auf dem Server? */
-  function checkBuild(serverVersion) {
-    var stale = document.getElementById('uiStale');
-    if (!stale) return;
-    stale.hidden = !serverVersion || String(serverVersion) === UI_BUILD;
-  }
-  setInterval(function () {
-    api('GET', '/api/health').then(function (h) { checkBuild(h.version); }).catch(function () {});
-  }, 30000);
 
   /* Nach einem Konflikt (jemand anders hat gespeichert) den neuesten Stand holen. */
   function reloadConfig() {
@@ -685,7 +713,6 @@
         state.schema = res[3].schema || {};
         state.icons = res[4].groups || [];
         $('ver').textContent = 'v' + UI_BUILD + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
-        checkBuild(res[2].version);
         renderCatalog(); renderTiles(); fillForm(); renderChosen();
       })
       .catch(function (e) {
@@ -854,6 +881,28 @@
       autoSave($('lookStatus'), 'Übernommen');
     });
   });
+
+  $('btnDiag').onclick = function () {
+    var el = $('diagStatus'), zeilen = [];
+    var t0 = Date.now();
+    api('GET', '/api/health').then(function (h) {
+      zeilen.push('Abruf ok · Server v' + h.version + ' · ' + (Date.now() - t0) + ' ms');
+      if (h.version !== UI_BUILD) zeilen.push('Seite ist v' + UI_BUILD + ' — Server ist v' + h.version + ' (neu laden)');
+      return api('GET', '/api/config');
+    }).then(function (r) {
+      zeilen.push('Konfiguration gelesen · Stand ' + (r.config.rev || '?') + ' · ' + r.config.home.length + ' Kacheln');
+      var probe = JSON.parse(JSON.stringify(state.cfg));
+      probe.rev = r.config.rev;
+      return api('PUT', '/api/config', probe);
+    }).then(function (r) {
+      zeilen.push('Schreiben ok · Stand jetzt ' + r.config.rev);
+      state.cfg.rev = r.config.rev;
+      note(el, zeilen.join(' · '), true);
+    }).catch(function (e) {
+      zeilen.push('Schreiben fehlgeschlagen: ' + e.message + (e.status ? ' (HTTP ' + e.status + ')' : ''));
+      note(el, zeilen.join(' · '), false);
+    });
+  };
 
   $('btnSetup').onclick = function () {
     state.cfg.onboarding = { done: false, version: 1 };

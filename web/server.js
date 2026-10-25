@@ -54,6 +54,7 @@ var ICON_DIR = process.env.CF_ICONS_DIR ||
   '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons';
 var WALL_DIR = process.env.CF_WALL_DIR ||
   '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/wallpapers';
+var CLIENT_LOG = process.env.CF_CLIENT_LOG || '/var/lib/cleanframe/client.log';
 var STUB = process.env.CF_STUB_APPS || '';
 
 var store = new config.Store(CONFIG_PATH);
@@ -130,12 +131,14 @@ function postGuard(req, res) {
    * umgehen, indem sie ueber einen lokalen Umweg sendet. */
   if (isFileOrigin(origin)) {
     if (!fromTV(req)) {
+      console.log('[write-result] 403 Datei-Origin ohne TV');
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }
   } else if (origin) {
     var o = url.parse(origin);
     if (!o || !o.host || o.host !== req.headers.host) {
+      console.log('[write-result] 403 Herkunft ' + o.host + ' != Host ' + req.headers.host);
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }
@@ -257,12 +260,15 @@ function handle(req, res) {
       }
       var saved;
       try { saved = store.write(incoming); } catch (e) {
+        console.log('[write-result] 500 ' + e.message);
         if (e.code === 'CONFLICT') {
           /* Aelterer Stand: nicht ueberschreiben, neuesten Stand zurueckgeben. */
+          console.log('[write-result] 409 veraltet (kam rev ' + (incoming && incoming.rev) + ', aktuell ' + (store.read().rev) + ')');
           return json(res, 409, { ok: false, error: 'Konfiguration wurde zwischenzeitlich geaendert', config: config.redact(store.read()) });
         }
         return json(res, 500, { ok: false, error: 'Speichern fehlgeschlagen: ' + e.message });
       }
+      console.log('[write-result] 200 rev=' + saved.rev + ' kacheln=' + (saved.home || []).length);
       json(res, 200, { ok: true, config: config.redact(saved), updatedAt: saved.updatedAt });
     });
   }
@@ -270,6 +276,20 @@ function handle(req, res) {
   if (req.method === 'GET' && p === '/api/apps') {
     return appCatalog.catalog({ base: TV_BASE, stub: stubApps() }, function (err, out) {
       json(res, 200, out);
+    });
+  }
+
+  if (req.method === 'POST' && p === '/api/log') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var zeile = JSON.stringify({
+        zeit: new Date().toISOString(),
+        ua: String((req.headers['user-agent'] || '')).slice(0, 120),
+        herkunft: String(req.headers.origin || ''),
+        meldung: body && body.meldung ? String(body.meldung).slice(0, 300) : ''
+      }) + '\n';
+      try { fs.appendFileSync(CLIENT_LOG, zeile); } catch (e) {}
+      json(res, 200, { ok: true });
     });
   }
 
