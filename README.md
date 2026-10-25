@@ -45,16 +45,20 @@ reinstall.
 ## Install
 
 ```sh
-# launcher (IPK) on the TV
-python3 tools/build-ipk.py app ipk/cleanframe_all.ipk
-tools/install-launcher.sh --ipk ipk/cleanframe_all.ipk
-
-# hub (configuration server) on the TV
-tools/install-web.sh <tv-ip>
+./tools/install.sh <tv-ip>          # Linux and macOS
+.\tools\install.ps1 -Tv <tv-ip>     # Windows PowerShell
 ```
 
-The hub then answers on `http://<tv-ip>:8484/`, and the launcher appears in the app list.
-On the TV the service is controlled with `/var/lib/cleanframe/cleanframectl status`.
+One command puts both parts on the TV: it builds the IPK, uploads it through
+Glasshouse's installer, sets up the hub with autostart, then proves the result — the
+hub answers on port 8484, the app is in the catalogue, and the hub can take a picture
+of the launcher. `--dry-run` (`-DryRun`) only detects, checks and prints the plan.
+
+The hub then answers on `http://<tv-ip>:8484/`. On the TV the service is controlled
+with `/var/lib/cleanframe/cleanframectl status`.
+
+Rooting the TV cannot be automated — it needs the remote control. Step by step in
+[docs/INSTALL.md](docs/INSTALL.md).
 
 ## Build and test
 
@@ -70,6 +74,8 @@ syntax, node 8 compatibility, icon, API, remote-key and live-apply checks in one
 
 ## Documentation
 
+- [docs/INSTALL.md](docs/INSTALL.md) — from a stock TV to a running start screen
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — symptom, cause, command
 - [docs/WEB.md](docs/WEB.md) — hub: API endpoints, configuration schema, operating the service
 - [docs/TESTS.md](docs/TESTS.md) — what is tested and how
 - [docs/ICONS.md](docs/ICONS.md) — icon library and its sources

@@ -1,15 +1,15 @@
 /*
- * Fernsteuerung fuer den laufenden Launcher am Fernseher (Screenshot + Tasten).
+ * Remote control for the running launcher on the TV (screenshot + keys).
  *
- * Der Launcher ist eine Chromium-Web-App (webOS). Auf dem Geraet laeuft Chrome
- * DevTools auf Port 9998 — gebunden an 127.0.0.1 und per iptables gesperrt.
+ * The launcher is a Chromium web app (webOS). On the device Chrome DevTools
+ * runs on port 9998 — bound to 127.0.0.1 and blocked by iptables.
  *
- * Warum kein SSH: auf webOS gibt es kein ssh-Binary (nur den Server). Der Server
- * oeffnet die Sperre deshalb selbst fuer die Dauer einer Anfrage und laesst ein
- * Einmal-Forward auf 9998 aufbauen (CF_FORWARD_CMD, auf dem TV z. B.
- * "tcpsvd -v 127.0.0.1"), danach wird die Sperre wieder gesetzt.
+ * Why not SSH: webOS has no ssh binary (only the server). The server therefore
+ * opens the block itself for the duration of one request and sets up a
+ * one-shot forward to 9998 (CF_FORWARD_CMD, on the TV e.g.
+ * "tcpsvd -v 127.0.0.1"), then the block is restored.
  *
- * Nur Bordmittel (node 8): kein WebSocket-Paket, eigener kleiner Client.
+ * Stock tools only (node 8): no WebSocket package, just a small client of ours.
  */
 'use strict';
 
@@ -20,7 +20,7 @@ var spawn = require('child_process').spawn;
 var DEVTOOLS_PORT = parseInt(process.env.CF_DEVTOOLS_PORT || '9998', 10);
 var FORWARD_CMD = process.env.CF_FORWARD_CMD || '';
 
-/* Tasten wie auf der Fernbedienung (webOS keyCodes). */
+/* Keys as on the remote control (webOS keyCodes). */
 var KEYS = {
   up: 38, down: 40, left: 37, right: 39, ok: 13, back: 461,
   menu: 457, play: 415, pause: 19, stop: 413, info: 457, exit: 462,
@@ -38,7 +38,7 @@ function freePort(cb) {
   srv.on('error', function () { cb(0); });
 }
 
-/* Einmal-Forward auf den DevTools-Port. */
+/* One-shot forward to the DevTools port. */
 function openForward(cb) {
   if (FORWARD_CMD) {
     freePort(function (port) {
@@ -51,8 +51,8 @@ function openForward(cb) {
     });
     return;
   }
-  /* Kein Hilfsprogramm konfiguriert: direkt verbinden. Sinnvoll fuer Tests, in
-   * denen der DevTools-Port ohnehin lokal erreichbar ist. */
+  /* No helper program configured: connect directly. Useful for tests in which
+   * the DevTools port is reachable locally anyway. */
   cb(null, { port: DEVTOOLS_PORT, child: null, opened: false });
 }
 
@@ -61,9 +61,9 @@ function closeForward(f, cb) {
   cb && cb();
 }
 
-/* HTTP gegen den Forward (DevTools spricht JSON). Der Antwortkoerper wird als
- * Buffer gesammelt und erst am Ende in Text gewandelt — sonst zerreissen
- * mehrbytige Umlaute. */
+/* HTTP against the forward (DevTools speaks JSON). The response body is
+ * collected as a buffer and only converted to text at the end — otherwise
+ * multi-byte umlauts would be torn apart. */
 function httpLocal(port, pathname, cb) {
   var sock = net.connect({ host: '127.0.0.1', port: port });
   var chunks = [], done = false;
@@ -79,8 +79,8 @@ function httpLocal(port, pathname, cb) {
   });
   sock.on('data', function (c) {
     chunks.push(c);
-    /* DevTools haelt die Verbindung offen (kein "end") — deshalb nach
-     * Content-Length auswerten, sobald die Kopfzeilen da sind. */
+    /* DevTools keeps the connection open (no "end") — so evaluate against
+     * Content-Length as soon as the header lines are complete. */
     var raw = Buffer.concat(chunks), idx = raw.indexOf('\r\n\r\n');
     if (idx < 0) return;
     var head = raw.slice(0, idx).toString('latin1');
@@ -97,7 +97,7 @@ function httpLocal(port, pathname, cb) {
   sock.on('error', function (e) { finish(String(e && e.message || e)); });
 }
 
-/* Kleiner WebSocket-Client fuer CDP (nur Textframes). */
+/* Small WebSocket client for CDP (text frames only). */
 function wsConnect(port, wsPath, onMessage, onOpen, onError) {
   var sock = net.connect({ host: '127.0.0.1', port: port });
   var buf = Buffer.alloc(0), handshaken = false;
@@ -118,11 +118,11 @@ function wsConnect(port, wsPath, onMessage, onOpen, onError) {
     while (buf.length >= 2) {
       var len = buf[1] & 127, offset = 2;
       if (len === 126) { len = buf.readUInt16BE(2); offset = 4; }
-      /* node 8 kennt readBigUInt64BE nicht — 64 Bit von Hand aus zwei 32-Bit-Werten. */
+      /* node 8 does not know readBigUInt64BE — build the 64 bits by hand from two 32-bit values. */
       else if (len === 127) { len = buf.readUInt32BE(2) * 4294967296 + buf.readUInt32BE(6); offset = 10; }
       if (buf[1] & 128) offset += 4;
       if (buf.length < offset + len) return;
-      onMessage(buf.slice(offset, offset + len).toString('utf8'));  /* Textframes: UTF-8 */
+      onMessage(buf.slice(offset, offset + len).toString('utf8'));      /* text frames: UTF-8 */
       buf = buf.slice(offset + len);
     }
   });
@@ -197,8 +197,8 @@ function snapshot(opts, cb) {
   }, cb);
 }
 
-/* names: Liste von Tastennamen. opts.holdMs: Taste so lange gedrueckt halten
- * (fuer Langdruck, z. B. OK 900 ms) — sonst 90 ms wie ein kurzer Druck. */
+/* names: list of key names. opts.holdMs: hold the key down that long
+ * (for long press, e.g. OK 900 ms) — otherwise 90 ms like a short press. */
 function sendKeys(names, opts, cb) {
   if (typeof opts === 'function') { cb = opts; opts = {}; }
   opts = opts || {};
@@ -225,7 +225,7 @@ function sendKeys(names, opts, cb) {
         if (c.code === 39) keyName = 'ArrowRight';
         if (c.code === 40) keyName = 'ArrowDown';
         if (c.code === 461) keyName = 'Backspace';
-        /* Langdruck gilt fuer die letzte Taste, wenn holdMs gesetzt ist. */
+        /* A long press applies to the last key when holdMs is set. */
         var downFor = (holdMs && i === codes.length - 1) ? holdMs : 90;
         ws.send({ id: ++id, method: 'Input.dispatchKeyEvent', params: { type: 'rawKeyDown', key: keyName, windowsVirtualKeyCode: c.code, nativeVirtualKeyCode: c.code } });
         setTimeout(function () {
@@ -238,17 +238,17 @@ function sendKeys(names, opts, cb) {
   }, cb);
 }
 
-/* Ansichten, die die Weboberflaeche am Fernseher anzeigen kann. Die App
- * bietet dafuer bereits window.CleanFrameDebug (openSettings/closeAll) an -
- * damit laesst sich die Ansicht gezielt setzen, statt Tastenfolgen zu raten. */
+/* Views the web interface can bring up on the TV. The app already offers
+ * window.CleanFrameDebug (openSettings/closeAll) for this — that sets the view
+ * directly instead of guessing key sequences. */
 var VIEWS = {
   home: 'window.CleanFrameDebug && CleanFrameDebug.closeAll()',
   settings: 'window.CleanFrameDebug && CleanFrameDebug.openSettings()',
   appearance: "window.CleanFrameDebug && CleanFrameDebug.openSettings('background')"
 };
 
-/* Wertet einen Ausdruck im Launcher aus (Runtime.evaluate, returnByValue) und
- * gibt das Ergebnis zurueck. */
+/* Evaluates an expression in the launcher (Runtime.evaluate, returnByValue)
+ * and returns the result. */
 function evaluate(expression, cb) {
   var expr = String(expression || '');
   if (!expr) return cb('leerer Ausdruck');

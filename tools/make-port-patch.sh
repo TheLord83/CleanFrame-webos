@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Erzeugt docs/PORT-CHANGES.patch: der Unterschied zwischen dem Original und
-# dieser Portierung. Damit laesst sich ein neues Upstream-Release nachziehen,
-# ohne die Aenderungen von Hand zu suchen.
+# Generates docs/PORT-CHANGES.patch: the difference between the original and
+# this port. That makes it possible to follow a new upstream release without
+# hunting for the changes by hand.
 #
-# Aufruf:  tools/make-port-patch.sh [pfad-zum-upstream-klon]
-# Ohne Argument wird das Original nach /tmp/cf-upstream geklont.
+# Usage:   tools/make-port-patch.sh [path-to-upstream-clone]
+# Without an argument the original is cloned to /tmp/cf-upstream.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,7 +19,7 @@ fi
 cd "$ROOT"
 : > docs/PORT-CHANGES.patch
 
-# Nur der Code; die Bilder unter app/assets/ sind byte-identisch und bleiben weg.
+# Code only; the images under app/assets/ are byte-identical and stay out.
 for f in main.js device.js style.css index.html i18n.js appinfo.json; do
   src=""
   for kandidat in "$UP/app/$f" "$UP/src/$f" "$UP/$f"; do
@@ -29,8 +29,8 @@ for f in main.js device.js style.css index.html i18n.js appinfo.json; do
   if [ -f "app/$f" ]; then
     diff -u --label "upstream/app/$f" --label "port/app/$f" "$src" "app/$f" >> docs/PORT-CHANGES.patch || true
   else
-    printf 'Nur in der Portierung: app/%s\n' "$f" >> docs/PORT-CHANGES.patch
+    printf 'Only in the port: app/%s\n' "$f" >> docs/PORT-CHANGES.patch
   fi
 done
 
-echo "docs/PORT-CHANGES.patch: $(wc -l < docs/PORT-CHANGES.patch) Zeilen, $(grep -c '^+++' docs/PORT-CHANGES.patch || true) Dateien"
+echo "docs/PORT-CHANGES.patch: $(wc -l < docs/PORT-CHANGES.patch) lines, $(grep -c '^+++' docs/PORT-CHANGES.patch || true) files"

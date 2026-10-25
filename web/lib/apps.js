@@ -1,10 +1,10 @@
 /*
- * App-Katalog fuer die Web-Oberflaeche.
+ * App catalog for the web interface.
  *
- * Quelle ist Glasshouse auf dem Fernseher (127.0.0.1:8080). Glasshouse fuehrt
- * nur entfernbare Apps und die Kacheln von LGs Leiste; eingebaute System-Apps
- * fehlen dort und werden hier ergaenzt. Ohne erreichbares Glasshouse bleibt der
- * Katalog nutzbar (System-Apps), damit die Oberflaeche nicht leer ist.
+ * The source is Glasshouse on the TV (127.0.0.1:8080). Glasshouse only lists
+ * removable apps and the tiles of LG's bar; built-in system apps are missing
+ * there and are added here. Without a reachable Glasshouse the catalog stays
+ * usable (system apps), so the interface is not empty.
  */
 'use strict';
 
@@ -42,9 +42,9 @@ function merge(list) {
   return out;
 }
 
-/* Glasshouse liefert `installed` (App-Liste) und `systemTiles`. Fuer die
- * Oberflaeche zaehlt nur: welche App kann auf die Startseite, wie heisst sie,
- * wo liegt ihr Icon. */
+/* Glasshouse returns `installed` (app list) and `systemTiles`. For the
+ * interface the only things that count are: which app can go on the home
+ * screen, what is it called, where is its icon. */
 function fromGlasshouse(payload, base) {
   var list = [];
   ((payload && payload.installed) || []).forEach(function (a) {
@@ -68,8 +68,8 @@ function fromGlasshouse(payload, base) {
   return list;
 }
 
-/* `stub` ist ein JSON-Array im selben Format wie oben. Der Testbetrieb ohne
- * Fernseher laeuft damit, ohne dass eine Verzweigung in den Anfragepfad muss. */
+/* `stub` is a JSON array in the same format as above. Test operation without a
+ * TV runs on it, so no branch is needed in the request path. */
 function catalog(opts, cb) {
   if (opts && opts.stub) {
     return cb(null, { ok: true, source: 'stub', apps: merge(fromGlasshouse(opts.stub, '')) });

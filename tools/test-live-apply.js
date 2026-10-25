@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /*
- * Prueft die Live-Uebernahme: Aenderungen aus der Web-Oberflaeche muessen am
- * laufenden Launcher ankommen, ohne Neustart.
+ * Checks live adoption: changes from the web interface must reach the running
+ * launcher without a restart.
  *
- * Hintergrund: Drei Fehler am 25.10.2026 hatten dieselbe Form — der Wert kam am
- * Geraet an, die Anzeige blieb aber alt (Aufbau-Schluessel ohne Name, Icon oder
- * Schriftgroesse; Darstellung nur halb uebernommen). Genau diese Faelle prueft
- * dieses Skript ohne Fernseher: es laedt die Startseite in einem kopflosen
- * Chrome gegen einen lokalen Konfigurations-Server, aendert die Konfiguration
- * ueber die HTTP-Schnittstelle und misst das DOM.
+ * Background: three bugs shared the same shape — the value arrived on the device
+ * but the display stayed old (build key without name, icon or text size;
+ * appearance only half applied). Exactly those cases are what this script checks
+ * without a TV: it loads the home screen in a headless Chrome against a local
+ * config server, changes the configuration over the HTTP interface and measures
+ * the DOM.
  *
- * Gemessen wird immer das sichtbare Ergebnis mit Wartezeit (bis 12 s), nicht der
- * Revisionszaehler: der Zaehler war schon hochgezaehlt, waehrend die Anzeige
- * noch alt war — genau daran ist der Fehler unbemerkt geblieben.
+ * What is measured is always the visible result with a wait (up to 12 s), not
+ * the revision counter: the counter was already incremented while the display
+ * was still old — that is exactly why the bug went unnoticed.
  *
- * Voraussetzungen (macht tools/check-all.sh automatisch):
- *   - Chrome mit --remote-debugging-port=9333
- *   - Konfigurations-Server auf 127.0.0.1:8484
+ * Prerequisites (tools/check-all.sh does this automatically):
+ *   - Chrome with --remote-debugging-port=9333
+ *   - config server on 127.0.0.1:8484
  *
- * Aufruf: node tools/test-live-apply.js [--port 9333] [--server http://127.0.0.1:8484] [--wait 12000]
+ * Usage: node tools/test-live-apply.js [--port 9333] [--server http://127.0.0.1:8484] [--wait 12000]
  */
 'use strict';
 
@@ -47,8 +47,8 @@ function appPath() {
 }
 var APP = 'file://' + appPath();
 
-/* Feste Ausgangskonfiguration — der Test haengt nicht davon ab, was vorher im
- * Testserver stand. Drei Kacheln, Listenansicht, 100 % Schrift. */
+/* Fixed initial configuration — the test does not depend on what was in the
+ * test server before. Three tiles, list view, 100% text size. */
 var FIXTURE = {
   schemaVersion: 1, rev: 0, lang: 'de',
   look: { bg: 'photo', layout: 'list', apps: 'both', controls: 'both', focus: 'glass', material: 'soft', wall: 'forest', font: 'manrope', clock: true, clock24: true },
@@ -63,7 +63,7 @@ var FIXTURE = {
   integrations: { ha: { url: '', token: '', entities: [] }, mqtt: { url: '', user: '', password: '', prefix: 'lgtv' } }
 };
 
-/* ---------- HTTP ohne Abhaengigkeiten ---------- */
+/* ---------- HTTP without dependencies ---------- */
 function req(method, url, body, cb) {
   var u = new URL(url);
   var data = body ? Buffer.from(JSON.stringify(body)) : null;
@@ -84,7 +84,7 @@ function req(method, url, body, cb) {
   r.end();
 }
 
-/* ---------- minimaler WebSocket-Client (nur Textframes) ---------- */
+/* ---------- minimal WebSocket client (text frames only) ---------- */
 function wsConnect(wsUrl, onMessage, onOpen) {
   var m = /^ws:\/\/([^/:]+):(\d+)(\/.*)$/.exec(wsUrl);
   var sock = net.connect({ host: m[1], port: parseInt(m[2], 10) });
@@ -141,15 +141,15 @@ function check(name, ok, detail) {
 function main() {
   req('PUT', SERVER + '/api/config', { config: FIXTURE }, function (err, code) {
     if (code !== 200) {
-      console.log('FAIL: Testserver nimmt die Ausgangskonfiguration nicht an (HTTP ' + code + ')');
+      console.log('FAIL: test server does not accept the initial configuration (HTTP ' + code + ')');
       process.exit(1);
     }
     req('GET', 'http://127.0.0.1:' + PORT + '/json/list', null, function (err2, c2, j2, raw) {
-      if (err2) { console.log('FAIL: kein Chrome auf Port ' + PORT); process.exit(1); }
+      if (err2) { console.log('FAIL: no Chrome on port ' + PORT); process.exit(1); }
       var list = [];
       try { list = JSON.parse(raw); } catch (e) {}
       var page = list.filter(function (t) { return t.type === 'page'; })[0];
-      if (!page) { console.log('FAIL: kein Page-Target'); process.exit(1); }
+      if (!page) { console.log('FAIL: no page target'); process.exit(1); }
       run(page.webSocketDebuggerUrl);
     });
   });
@@ -166,7 +166,7 @@ function run(wsUrl) {
   function evalJs(expr, cb) {
     send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }, function (r) {
       if (DEBUG && r.result && r.result.exceptionDetails) {
-        console.log('    js-fehler: ' + JSON.stringify(r.result.exceptionDetails.text));
+        console.log('    js-error: ' + JSON.stringify(r.result.exceptionDetails.text));
       }
       var v = r.result && r.result.result;
       cb(v ? v.value : undefined);
@@ -174,7 +174,7 @@ function run(wsUrl) {
   }
   function wait(ms, cb) { setTimeout(cb, ms); }
 
-  /* Auf das sichtbare Ergebnis warten — nicht auf den Revisionszaehler. */
+  /* Wait for the visible result — not for the revision counter. */
   function waitFor(expr, cb) {
     var start = Date.now();
     (function poll() {
@@ -191,10 +191,10 @@ function run(wsUrl) {
   }
   function patchCfg(fn, cb) {
     readCfg(function (cfg) {
-      if (!cfg) { console.log('FAIL: keine Konfiguration vom Server'); return finish(); }
+      if (!cfg) { console.log('FAIL: no configuration from the server'); return finish(); }
       fn(cfg);
       req('PUT', SERVER + '/api/config', { config: cfg }, function (e, code) {
-        if (code !== 200) console.log('    Hinweis: Server antwortete ' + code);
+        if (code !== 200) console.log('    note: server answered ' + code);
         cb(cfg);
       });
     });
@@ -211,7 +211,7 @@ function run(wsUrl) {
     'saveConfig: function (c, cb) { var x = new XMLHttpRequest(); x.open("PUT", ' + JSON.stringify(SERVER + '/api/config') + ', true); x.setRequestHeader("Content-Type", "application/json"); x.onreadystatechange = function () { if (x.readyState === 4) { if (cb) cb(null, c); } }; x.send(JSON.stringify({ config: c })); },' +
     'api: function () {} }; 1';
 
-  /* ---------------- Ablauf ---------------- */
+  /* ---------------- Sequence ---------------- */
 
   function boot() {
     send('Page.enable', {}, function () {
@@ -221,10 +221,10 @@ function run(wsUrl) {
             send('Page.reload', {}, function () {
               wait(2000, function () {
                 waitFor('(function(){var n=document.querySelector(".ph-name"); return !!(n && n.textContent === "' + FIXTURE.home[0].name + '");})()', function (ok) {
-                  if (!ok) { console.log('FAIL: App hat die Ausgangskonfiguration nicht angezeigt'); return finish(); }
+                  if (!ok) { console.log('FAIL: app did not show the initial configuration'); return finish(); }
                   readCfg(function (cfg) {
                     ORIG = JSON.parse(JSON.stringify(cfg));
-                    console.log('Startseite geladen: ' + cfg.home.length + ' Kacheln, Ansicht ' + cfg.look.layout + ', Wandbild ' + cfg.look.wall);
+                    console.log('Home screen loaded: ' + cfg.home.length + ' tiles, layout ' + cfg.look.layout + ', wallpaper ' + cfg.look.wall);
                     stepName();
                   });
                 });
@@ -236,101 +236,101 @@ function run(wsUrl) {
     });
   }
 
-  /* 1) Kachelname in der Listenansicht */
+  /* 1) tile name in the list view */
   function stepName() {
     patchCfg(function (c) { c.home[0].name = 'Pruefname'; }, function () {
       waitFor('Array.prototype.some.call(document.querySelectorAll(".ph-name"), function (e) { return e.textContent === "Pruefname"; })', function (ok) {
         evalJs('JSON.stringify(Array.prototype.map.call(document.querySelectorAll(".ph-name"), function (e) { return e.textContent; }))', function (v) {
-          check('Kachelname kommt live an (Liste)', ok, v);
+          check('tile name arrives live (list)', ok, v);
           stepIcon();
         });
       });
     });
   }
 
-  /* 2) Icon-Wechsel in der Listenansicht */
+  /* 2) icon change in the list view */
   function stepIcon() {
     patchCfg(function (c) { c.home[0].icon = 'ard'; }, function () {
       waitFor('(function(){var r=document.querySelector(".ph-row"); return !!(r && r.innerHTML.indexOf("ard") >= 0);})()', function (ok) {
         evalJs('(function(){var r=document.querySelector(".ph-row"); return r ? r.innerHTML.indexOf("ard") >= 0 : false;})()', function (v) {
-          check('Icon-Wechsel kommt live an (Liste)', ok, String(v));
+          check('icon change arrives live (list)', ok, String(v));
           stepWall();
         });
       });
     });
   }
 
-  /* 3) Wandbild — Wert UND Bilddatei */
+  /* 3) wallpaper — value AND image file */
   function stepWall() {
     patchCfg(function (c) { c.look.wall = 'night'; }, function () {
       waitFor('(function(){var p=document.getElementById("photo"); return !!(p && p.src.split("/").pop() === "night.jpg");})()', function (ok) {
-        evalJs('(function(){var p=document.getElementById("photo"); return p ? p.src.split("/").pop() : "kein-bild";})()', function (v) {
-          check('Wandbild wird getauscht (night.jpg)', ok, v);
+        evalJs('(function(){var p=document.getElementById("photo"); return p ? p.src.split("/").pop() : "no-image";})()', function (v) {
+          check('wallpaper is swapped (night.jpg)', ok, v);
           stepScale();
         });
       });
     });
   }
 
-  /* 4) Schriftgroesse 150 % */
+  /* 4) text size 150% */
   function stepScale() {
     patchCfg(function (c) { c.ui.textScale = 150; c.ui.senior = false; }, function () {
       waitFor('(function(){var n=document.querySelector(".ph-name"); return !!(n && Math.abs(parseFloat(getComputedStyle(n).fontSize) - 132) <= 3);})()', function (ok) {
         evalJs('(function(){var n=document.querySelector(".ph-name"); return n ? parseFloat(getComputedStyle(n).fontSize) : -1;})()', function (v) {
-          check('Schriftgroesse 150 % ergibt 132 px', ok, v + ' px');
+          check('text size 150% gives 132 px', ok, v + ' px');
           stepSenior();
         });
       });
     });
   }
 
-  /* 5) Senioren-Modus hebt 100 % auf mindestens 125 % */
+  /* 5) senior mode raises 100% to at least 125% */
   function stepSenior() {
     patchCfg(function (c) { c.ui.textScale = 100; c.ui.senior = true; }, function () {
       waitFor('(function(){var n=document.querySelector(".ph-name"); return !!(n && Math.abs(parseFloat(getComputedStyle(n).fontSize) - 110) <= 3);})()', function (ok) {
         evalJs('(function(){var n=document.querySelector(".ph-name"); return n ? parseFloat(getComputedStyle(n).fontSize) : -1;})()', function (v) {
-          check('Senioren-Modus hebt 100 % auf 110 px', ok, v + ' px');
+          check('senior mode raises 100% to 110 px', ok, v + ' px');
           stepSeniorOff();
         });
       });
     });
   }
 
-  /* 6) Senioren-Modus wieder aus -> zurueck auf 88 px */
+  /* 6) senior mode off again -> back to 88 px */
   function stepSeniorOff() {
     patchCfg(function (c) { c.ui.senior = false; }, function () {
       waitFor('(function(){var n=document.querySelector(".ph-name"); return !!(n && Math.abs(parseFloat(getComputedStyle(n).fontSize) - 88) <= 3);})()', function (ok) {
         evalJs('(function(){var n=document.querySelector(".ph-name"); return n ? parseFloat(getComputedStyle(n).fontSize) : -1;})()', function (v) {
-          check('Senioren-Modus aus ergibt wieder 88 px', ok, v + ' px');
+          check('senior mode off gives 88 px again', ok, v + ' px');
           stepDock();
         });
       });
     });
   }
 
-  /* 7) Ansicht "Leiste unten" zieht denselben Namenswechsel nach */
+  /* 7) the "Dock" layout follows the same name change */
   function stepDock() {
     patchCfg(function (c) { c.look.layout = 'dock'; }, function () {
       waitFor('Array.prototype.some.call(document.querySelectorAll("#track .tile"), function (t) { return (t.textContent || "").indexOf("Pruefname") >= 0; })', function (ok) {
         evalJs('JSON.stringify(Array.prototype.map.call(document.querySelectorAll("#track .tile"), function (t) { return (t.textContent || "").trim(); }).slice(0, 4))', function (v) {
-          check('Kachelname kommt live an (Leiste)', ok, v);
+          check('tile name arrives live (dock)', ok, v);
           stepSpinner();
         });
       });
     });
   }
 
-  /* 8) Lade-Rad in der Web-Oberflaeche: an waehrend der Aktion, danach aus */
+  /* 8) spinner in the web interface: on during the action, off afterwards */
   function stepSpinner() {
     send('Page.navigate', { url: SERVER + '/' }, function () {
       wait(3000, function () {
         evalJs('!!document.getElementById("tvSpin")', function (has) {
-          if (!has) { check('Lade-Rad in der Oberflaeche vorhanden', false, 'nicht gefunden'); return restore(); }
-          evalJs('(function(){var b=document.querySelector("[data-wall]"); if(b){b.click(); return "klick";} return "kein-knopf";})()', function () {
+          if (!has) { check('spinner present in the interface', false, 'not found'); return restore(); }
+          evalJs('(function(){var b=document.querySelector("[data-wall]"); if(b){b.click(); return "klick";} return "no-button";})()', function () {
             waitFor('(document.getElementById("tvSpin")||{}).className === "spin on"', function (an) {
-              check('Lade-Rad laeuft waehrend der Aktion', an, an ? 'an' : 'blieb aus');
+              check('spinner runs during the action', an, an ? 'on' : 'stayed off');
               waitFor('(function(){var e=document.getElementById("tvSpin"); return !!(e && e.className.indexOf("on") < 0);})()', function (aus) {
-                check('Lade-Rad hoert danach auf', aus, aus ? 'aus' : 'laeuft weiter');
+                check('spinner stops afterwards', aus, aus ? 'off' : 'keeps running');
                 restore();
               });
             });
@@ -340,12 +340,12 @@ function run(wsUrl) {
     });
   }
 
-  /* Ausgangskonfiguration zurueckschreiben, damit der Test wiederholbar ist. */
+  /* Write the initial configuration back so the test is repeatable. */
   function restore() {
     if (!ORIG) return finish();
     ORIG.rev = 0;
     req('PUT', SERVER + '/api/config', { config: ORIG }, function () {
-      console.log('  info  Ausgangskonfiguration wiederhergestellt');
+      console.log('  info  initial configuration restored');
       finish();
     });
   }
@@ -353,10 +353,11 @@ function run(wsUrl) {
   function finish() {
     var failed = results.filter(function (r) { return !r.ok; });
     if (!results.length) {
-      console.log('FAIL: keine Pruefung gelaufen');
+      console.log('FAIL: no check ran');
       failed = [1];
     }
-    console.log('\n' + (results.length - failed.length) + '/' + results.length + ' Pruefungen der Live-Uebernahme bestanden');
+    console.log('\n' + (results.length - failed.length) + '/' + results.length + ' live-apply checks passed');
+    console.log('RESULT ' + (results.length - failed.length) + '/' + results.length);
     try { ws.close(); } catch (e) {}
     process.exit(failed.length ? 1 : 0);
   }

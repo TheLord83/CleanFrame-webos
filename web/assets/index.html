@@ -73,8 +73,8 @@
   section { display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
   section[data-active="true"] { display: block; }
   h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-  /* „Am Fernseher zeigen“: rechts im Reiterkopf, setzt die passende Ansicht
-     am Geraet und holt danach ein frisches Bild. */
+  /* "Show on TV": on the right of the tab header, sets the matching view on the
+     device and then fetches a fresh image. */
   .showtv { margin-left: auto; font-size: 12px; padding: 4px 10px; border-radius: 6px;
             border: 1px solid var(--line); background: transparent; color: var(--muted);
             cursor: pointer; white-space: nowrap; }
@@ -373,7 +373,7 @@
       return p.then(function (data) {
         if (!r.ok) {
           var err = new Error((data && data.error) || ('HTTP ' + r.status));
-          err.status = r.status;   /* 409 = jemand war schneller */
+          err.status = r.status;   /* 409 = someone else was faster */
           err.data = data;
           throw err;
         }
@@ -391,7 +391,7 @@
     });
   }
 
-  /* ---------- Meldungen an den Server (Diagnose im Browser) ---------- */
+  /* ---------- Messages to the server (diagnosis in the browser) ---------- */
   function melde(text) {
     try {
       fetch('/api/log', {
@@ -401,7 +401,7 @@
     } catch (e) {}
   }
 
-  /* ---------- Fehler sichtbar machen ---------- */
+  /* ---------- Make errors visible ---------- */
   function fehlerBanner(text) {
     var b = document.getElementById('errBanner');
     if (!b) return;
@@ -418,7 +418,7 @@
     fehlerBanner('Zusage abgelehnt: ' + (r.message || String(r)) + (r.status ? ' · HTTP ' + r.status : ''));
   });
 
-  /* ---------- Darstellung: alle Achsen aus /api/schema ---------- */
+  /* ---------- Appearance: all axes from /api/schema ---------- */
   function optSelect(key, label, list, current) {
     var h = '<div><label for="lk-' + key + '">' + label + '</label><select id="lk-' + key + '" data-look="' + key + '">';
     (list || []).forEach(function (o) {
@@ -488,7 +488,7 @@
 
     $('lookCards').innerHTML = html;
 
-    /* Wandbild-Auswahl */
+    /* Wallpaper selection */
     Array.prototype.forEach.call($('lookCards').querySelectorAll('[data-wall]'), function (b) {
       b.onclick = function () {
         Array.prototype.forEach.call($('lookCards').querySelectorAll('[data-wall]'), function (x) { x.classList.remove('on'); });
@@ -502,7 +502,7 @@
     });
   }
 
-  /* Aktuelle Werte aus den Feldern in die Konfiguration schreiben. */
+  /* Write the current field values into the configuration. */
   function collectLook() {
     var c = state.cfg;
     c.look = c.look || {};
@@ -562,8 +562,8 @@
     });
   }
 
-  /* iconSrc: gespeicherter Wert ist entweder ein Katalog-Schluessel
-   * ("playstation") oder eine vollstaendige URL. */
+  /* iconSrc: the stored value is either a catalog key ("playstation") or a
+   * complete URL. */
   function iconSrc(t) {
     if (!t || !t.icon) return '';
     if (/^https?:\/\//.test(t.icon)) return t.icon;
@@ -641,18 +641,18 @@
     $('mqPass').placeholder = c.integrations.mqtt.hasPassword ? 'Passwort hinterlegt — leer lassen zum Behalten' : 'Passwort eintragen';
   }
 
-  /* Speichern laeuft immer der Reihe nach: waehrend ein Schreibvorgang laeuft,
-   * wird der naechste nur vorgemerkt und danach mit dem aktuellsten Stand
-   * gesendet. Sonst koennten Antworten aeltere Klicks ueberschreiben. */
+  /* Saving always runs in sequence: while one write is in flight, the next one
+   * is only noted and then sent with the most recent state. Otherwise responses
+   * could overwrite older clicks. */
   var saveBusy = false, saveDirty = false, saveNext = null;
 
-  /* Bau-Stempel dieser Seite — weicht er von der Serverversion ab, laeuft im
-   * Browser noch eine alte Fassung (häufigste Ursache für "geht nicht"). */
+  /* Build stamp of this page — if it differs from the server version, the
+   * browser is still running an old copy (the most common cause of "doesn't work"). */
   var UI_BUILD = '0.4.17';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
-  /* Lade-Rad: laeuft, solange gespeichert oder ein Bild geholt wird, und
-   * danach noch kurz, bis der Fernseher die neue Revision geholt hat. */
+  /* Spinner: runs while saving or fetching an image, and briefly afterwards
+   * until the TV has picked up the new revision. */
   var spinBis = 0;
   function spin(an) {
     if (an) spinBis = Math.max(spinBis, Date.now() + 400);
@@ -677,15 +677,15 @@
     saveBusy = true;
     spin(true);
     return api('PUT', '/api/config', payload).then(function (r) {
-      /* Nur die Revision uebernehmen — die Antwort darf die Felder nicht
-       * ueberschreiben, sonst gehen Klicks waehrend des Speicherns verloren. */
+      /* Only take the revision over — the response must not overwrite the
+       * fields, otherwise clicks made while saving are lost. */
       if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
       var zeit = r && r.updatedAt ? new Date(r.updatedAt).toLocaleTimeString() : '';
       note(statusEl, okMsg + ' · Stand ' + (state.cfg.rev || '?') + (zeit ? ' · ' + zeit : ''), true);
       melde('gespeichert ' + okMsg + ' rev ' + (state.cfg.rev || '?'));
     }).catch(function (e) {
-      /* 409: jemand (z.B. die App) hat zwischenzeitlich geschrieben. Nicht die
-       * Aenderung wegwerfen, sondern mit der neuen Revisionsnummer erneut senden. */
+      /* 409: someone (e.g. the app) wrote in the meantime. Do not throw the
+       * change away, resend it with the new revision number instead. */
       if (e && e.status === 409 && !retried) {
         return api('GET', '/api/config').then(function (r2) {
           state.cfg.rev = r2.config.rev;
@@ -706,7 +706,7 @@
     });
   }
 
-  /* Nach einem Konflikt (jemand anders hat gespeichert) den neuesten Stand holen. */
+  /* After a conflict (someone else saved) fetch the newest revision. */
   function reloadConfig() {
     api('GET', '/api/config').then(function (r) {
       state.cfg = r.config;
@@ -715,9 +715,9 @@
     });
   }
 
-  /* Automatisch speichern: jede Aenderung geht nach 350 ms an den Server, danach
-   * wird ein frisches Bild vom Fernseher geholt (der Launcher zieht Aenderungen
-   * im laufenden Betrieb nach, deshalb ein zweites Bild nach ~2,5 s). */
+  /* Auto save: every change goes to the server after 350 ms, then a fresh image
+   * is fetched from the TV (the launcher follows changes while running, hence a
+   * second image after ~2.5 s). */
   var autoTimer = null;
   function autoSave(statusEl, okMsg) {
     clearTimeout(autoTimer);
@@ -747,7 +747,7 @@
   }
 
 
-  /* ---------- Fernseher: Bild und Tasten (dauerhaft sichtbar) ---------- */
+  /* ---------- TV: image and keys (always visible) ---------- */
   var shotTimer = null, shotBusy = false;
 
   function setDot(state) {
@@ -791,8 +791,8 @@
         note($('tvStatus'), 'Taste nicht gesendet: ' + (j.error || 'unbekannt'), false);
         return;
       }
-      /* Nach jedem Tastendruck kurz warten, dann ein frisches Bild holen —
-       * so sieht man die Wirkung sofort, ohne dauernd zu pollen. */
+      /* After each key press wait briefly, then fetch a fresh image — that way
+       * you see the effect right away without polling constantly. */
       setTimeout(loadShot, 400);
     }).catch(function (e) {
       note($('tvStatus'), 'Taste nicht gesendet: ' + e.message, false);
@@ -808,7 +808,7 @@
     b.onclick = function () { sendKey(b.dataset.key); };
   });
 
-  /* Langdruck: OK 0,9 s halten (Launcher-Schwelle am Geraet: 650 ms). */
+  /* Long press: hold OK for 0.9 s (launcher threshold on the device: 650 ms). */
   document.querySelectorAll('[data-hold]').forEach(function (b) {
     b.onclick = function () {
       note($('tvStatus'), 'Halte ' + b.dataset.hold.toUpperCase() + ' …', true);
@@ -816,8 +816,8 @@
     };
   });
 
-  /* „Am Fernseher zeigen“: der Server setzt die Ansicht ueber CDP (keine
-   * geratenen Tastenfolgen), danach kommt ein frisches Bild. */
+  /* "Show on TV": the server sets the view over CDP (no guessed key sequences),
+   * then a fresh image arrives. */
   document.querySelectorAll('[data-view]').forEach(function (b) {
     b.onclick = function () {
       note($('tvStatus'), 'Ansicht wird am Fernseher geöffnet …', true);
@@ -840,9 +840,9 @@
     };
   });
 
-  /* Jeder Klick in der Oberflaeche holt ein frisches Bild — das ist die
-   * Live-Vorschau der Änderungen, ohne dauernd zu pollen. Klicks auf die
-   * Fernbedienung sind ausgenommen, die holen ihr Bild selbst. */
+  /* Every click in the interface fetches a fresh image — that is the live preview
+   * of the changes, without polling constantly. Clicks on the remote control are
+   * excluded, they fetch their image themselves. */
   var shotSoonTimer = null;
   document.addEventListener('click', function (ev) {
     if (ev.target && ev.target.closest && ev.target.closest('aside')) return;
@@ -857,7 +857,7 @@
     else if (shotTimer) { clearInterval(shotTimer); shotTimer = null; }
   };
 
-  /* Einklappen merken (Standard: sichtbar). */
+  /* Remember the collapsed state (default: visible). */
   $('btnToggle').onclick = function () {
     var panel = $('tvPanel');
     var zu = panel.classList.toggle('collapsed');
@@ -875,7 +875,7 @@
     b.onclick = function () { tab(b.dataset.tab); location.hash = b.dataset.tab; loadShot(); };
   });
 
-  /* Direktlink: /#look oder /#system oeffnet den passenden Tab. */
+  /* Direct link: /#look or /#system opens the matching tab. */
   (function () {
     var want = (location.hash || '').replace('#', '');
     if (!want) return;
@@ -883,7 +883,7 @@
     if (btn) tab(want);
   }());
 
-  /* Fernseher-Bild ab Start laden und dauerhaft aktuell halten. */
+  /* Load the TV image from the start and keep it up to date permanently. */
   setTimeout(function () {
     if ($('autoShot') && $('autoShot').checked) { loadShot(); startLive(); }
     else loadShot();
@@ -901,7 +901,7 @@
     autoSave($('homeStatus'), 'Startseite gespeichert');
   };
 
-  /* Feld geaendert -> sofort uebernehmen (kein Speichern-Knopf noetig). */
+  /* Field changed -> apply immediately (no save button needed). */
   ['change', 'input'].forEach(function (evt) {
     $('lookCards').addEventListener(evt, function (e) {
       var el = e.target;
@@ -946,7 +946,7 @@
     setTimeout(loadShot, 2200);
   };
 
-  /* Ausdrueckliches Speichern: sofort schreiben und Bild holen. */
+  /* Explicit save: write right away and fetch the image. */
   $('btnSaveHome').onclick = function () {
     clearTimeout(autoTimer);
     save(state.cfg, $('homeStatus'), 'Startseite gespeichert');
@@ -1113,10 +1113,10 @@
     }).catch(function (e) { note($('sysStatus'), 'Fehler: ' + e.message, false); });
   };
 
-  /* Automatischer Oberflaechen-Selbsttest: ?selftest=ui fuehrt die wichtigsten
-   * Bedienschritte aus und schreibt das Ergebnis in #uiSelfTest. Damit laesst
-   * sich die Oberflaeche ohne Screenshot pruefen (headless --dump-dom), und auf
-   * dem Fernseher genauso. */
+  /* Automatic interface self-test: ?selftest=ui runs the most important
+   * interaction steps and writes the result into #uiSelfTest. That way the
+   * interface can be checked without a screenshot (headless --dump-dom), and on
+   * the TV just the same. */
   function selfTest() {
     var out = document.getElementById('uiSelfTest');
     var steps = [];
@@ -1170,7 +1170,7 @@
   }
 
 
-  /* ---------- Sprache der Oberflaeche (de/en) ---------- */
+  /* ---------- Interface language (de/en) ---------- */
   var UI = { lang: localStorage.getItem('cf.ui.lang') || 'de' };
   var T = {
     de: {
@@ -1216,7 +1216,7 @@
     if (!document.getElementById('wizard').hidden) renderWizard(WIZ.step);
   };
 
-  /* ---------- Erster-Start-Assistent ---------- */
+  /* ---------- First-start wizard ---------- */
   var WIZ = { step: 0, total: 5 };
   var WIZ_PICKS = [
     { key: 'netflix', label: 'Netflix' },

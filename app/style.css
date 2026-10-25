@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------
- * webOS-Portierung: Kompatibilitat mit Chromium 79 (webOS 6.5)
- *   - `inset:` gibt es erst ab Chromium 87  -> explizite Offsets
- *   - `gap` in Flexbox erst ab Chromium 84  -> Geschwisterabstaende
+ * webOS port: compatibility with Chromium 79 (webOS 6.5)
+ *   - `inset:` only exists from Chromium 87  -> explicit offsets
+ *   - `gap` in flexbox only from Chromium 84 -> sibling margins
  * ------------------------------------------------------------------ */
 /* CleanFrame Home. All photographic materials are generated before packaging. */
 :root{
@@ -605,9 +605,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 
 
 /* ------------------------------------------------------------------
- * webOS-Portierung: Kompatibilitat mit Chromium 79 (webOS 6.5)
- *   - `inset:` gibt es erst ab Chromium 87  -> explizite Offsets
- *   - `gap` in Flexbox erst ab Chromium 84  -> Geschwisterabstaende
+ * webOS port: compatibility with Chromium 79 (webOS 6.5)
+ *   - `inset:` only exists from Chromium 87  -> explicit offsets
+ *   - `gap` in flexbox only from Chromium 84 -> sibling margins
  * ------------------------------------------------------------------ */
 /* Caption: the clock, or the name of the mode Home is in */
 .caption > * + *{margin-top:4px}
@@ -633,21 +633,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .appearance-desc > * + *{margin-left:16px}
 .wallpaper-preview-name > * + *{margin-left:24px}
 
-/* webOS-Portierung: groessere Marken-Logos in der Leiste (Betreiber-Feedback)
-   und der beabsichtigte Abstand der Kopfzeile, den Chromium 79 ohne Flex-gap verliert. */
+/* webOS port: larger brand logos in the bar (operator feedback) and the intended
+   header spacing that Chromium 79 loses without flex gap. */
 .a-both .tile .mark{left:44px;top:14px}
 .a-icons .tile .mark{left:12px;top:12px}
 .quiet-utils > * + *{margin-left:20px}
 .quiet-utils.is-icons > * + *{margin-left:16px}
 .dock > * + *{margin-left:0}
 
-/* webOS-Portierung: echte App-Icons vom Fernseher (Jellyfin, Browser …) kommen
-   farbig; sie werden auf dieselbe weisse Silhouette gebracht wie die Marken-SVGs. */
+/* webOS port: real app icons from the TV (Jellyfin, browser …) arrive in colour;
+   they are brought to the same white silhouette as the brand SVGs. */
 .mark.native-icon img{filter:grayscale(1) brightness(1.25) contrast(1.05);opacity:.9}
 .tile.is-focus .mark.native-icon img,.tile.is-lifted .mark.native-icon img{opacity:1}
 
-/* webOS-Portierung: Senioren-Modus (groessere Beschriftung, ruhigeres Raster)
-   und freie Schriftgroesse aus der Konfiguration (--cf-scale, 0.5 bis 2.0). */
+/* webOS port: senior mode (larger labels, calmer grid) and free text size from
+   the configuration (--cf-scale, 0.5 to 2.0). */
 #stage.senior .tile .label,
 #stage.senior .row .label,
 #stage.senior .quiet-utils .util-label,
@@ -663,7 +663,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 #stage.senior .tile .mark{transform:scale(1.04)}
 #stage [style*="--cf-scale"] .label{font-size:calc(1em * var(--cf-scale, 1))}
 
-/* webOS-Portierung: Umbenennen-Dialog (Textfeld mit Cursor, Bestaetigung) */
+/* webOS port: rename dialog (text field with cursor, confirmation) */
 .rename-box{display:flex;align-items:center;gap:2px;min-height:64px;padding:12px 20px;margin:8px 0 20px;
   border-radius:14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
   font-size:34px;letter-spacing:-.5px}
@@ -671,9 +671,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 @keyframes cf-caret{to{visibility:hidden}}
 .s-sub{margin:-6px 0 4px;opacity:.62;font-size:20px}
 
-/* webOS-Portierung: Einstellungsliste dichter, damit auch acht Eintraege klar
-   ueber der Bedienhinweis-Zeile enden (Hinweis sitzt bei y=968):
-   8 x 88 + 7 x 4 = 732 px, Liste beginnt bei 196 -> Ende 928. */
+/* webOS port: settings list tighter, so that eight entries too clearly end above
+   the control hint line (the hint sits at y=968):
+   8 x 88 + 7 x 4 = 732 px, the list starts at 196 -> ends at 928. */
 .settings-group{height:88px;padding:6px 28px 6px 26px;border-radius:16px}
 .settings-group+.settings-group{margin-top:4px}
 .settings-group-name{font-size:33px;line-height:39px;letter-spacing:-.4px}

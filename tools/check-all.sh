@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Alle Pruefungen in einem Lauf — lokal und in der CI.
+# All checks in one run — locally and in CI.
 #
-# Reihenfolge: erst die schnellen, abhaengigkeitsfreien Pruefungen (Syntax,
-# node-8-Vertraeglichkeit, Icons), dann die API-Tests, zuletzt die Pruefungen,
-# die einen Browser brauchen (Tasten und Live-Uebernahme).
+# Order: first the fast, dependency-free checks (syntax, node 8 compatibility,
+# icons), then the API tests, and last the checks that need a browser (keys and
+# live adoption).
 #
-# Was das Skript selbst startet, raeumt es am Ende auch wieder ab.
+# Whatever the script starts itself is cleaned up again at the end.
 #
-# Aufruf:  tools/check-all.sh [--keep]   (--keep laesst Server und Chrome laufen)
+# Usage:   tools/check-all.sh [--keep]   (--keep leaves server and Chrome running)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,7 +24,7 @@ TMPDIR_RUN="$(mktemp -d)"
 
 cleanup() {
   if [ "$KEEP" = "1" ]; then
-    echo "  info  Server (Port $PORT_SERVER) und Chrome (Port $PORT_DEBUG) laufen weiter"
+    echo "  info  server (port $PORT_SERVER) and Chrome (port $PORT_DEBUG) keep running"
     return
   fi
   for p in "${PIDS[@]:-}"; do
@@ -36,45 +36,57 @@ trap cleanup EXIT
 
 step() { printf '\n=== %s\n' "$1"; }
 
-# Eine Pruefung gilt nur als bestanden, wenn sie mit 0 endet UND ihre
-# Zusammenfassung ausgibt. Sonst waere ein Test, der still nichts tut, gruen —
-# genau das ist am 25.10.2026 passiert (fehlender Aufruf der Hauptfunktion).
+# A check only counts as passed when it ends with 0 AND prints its summary.
+# Otherwise a test that silently does nothing would be green — exactly that
+# happened on 2026-10-25 (missing call to the main function).
 run() {
   local name="$1"; shift
-  local out rc
+  local out rc line pass total
   out="$("$@" 2>&1)"; rc=$?
   printf '%s\n' "$out"
-  if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | grep -qE "bestanden|in Ordnung"; then
-    echo "  --> $name: FEHLGESCHLAGEN"
+  # A check only counts as passed with exit code 0 AND a machine-readable
+  # "RESULT <passed>/<total>" line where both numbers match. A human summary
+  # alone is not enough: a run that printed "0/9 passed" used to count as green,
+  # and once a test ended with 0 without running anything at all.
+  line="$(printf '%s\n' "$out" | grep -E '^RESULT [0-9]+/[0-9]+$' | tail -1)"
+  if [ "$rc" -ne 0 ] || [ -z "$line" ]; then
+    echo "  --> $name: FAILED (exit $rc, no RESULT line)"
     FAILED=1
-  else
-    echo "  --> $name: bestanden"
+    return
   fi
+  pass="${line#RESULT }"; pass="${pass%%/*}"
+  total="${line##*/}"
+  if [ "$pass" -ne "$total" ]; then
+    echo "  --> $name: FAILED ($pass of $total)"
+    FAILED=1
+    return
+  fi
+  echo "  --> $name: passed ($pass/$total)"
 }
 
 # ---------------------------------------------------------------- Syntax
-step "1/5 Syntax der Quellen"
+step "1/5 source syntax"
 for f in app/*.js web/*.js web/lib/*.js tools/*.js; do
-  node --check "$f" || { echo "  Syntaxfehler: $f"; FAILED=1; }
+  node --check "$f" || { echo "  syntax error: $f"; FAILED=1; }
 done
-[ "$FAILED" = "0" ] && echo "  --> alle JavaScript-Dateien lesbar"
+[ "$FAILED" = "0" ] && echo "  --> all JavaScript files parse"
 
 # ------------------------------------------------- node 8 (Fernseher)
-step "2/5 Vertraeglichkeit mit node 8.12 (Fernseher)"
-run "node-8-Pruefung" python3 tools/check-node8.py
+step "2/5 compatibility with node 8.12 (TV)"
+run "node-8 check" python3 tools/check-node8.py
 
 # --------------------------------------------------------------- Icons
-step "3/5 Icon-Bibliothek"
-run "Icon-Pruefung" python3 tools/check-icons.py
+step "3/5 icon library"
+run "icon check" python3 tools/check-icons.py
 
 # ------------------------------------------------------------ API-Tests
-step "4/5 Konfigurations-Server (API)"
-run "API-Pruefungen" python3 tools/test-web-api.py
+step "4/5 config server (API)"
+run "API checks" python3 tools/test-web-api.py
 
 # --------------------------------------- Server + Chrome fuer die UI-Tests
-step "5/5 Oberflaeche (Tasten und Live-Uebernahme)"
+step "5/5 interface (keys and live adoption)"
 if ! curl -sf -m 3 "http://127.0.0.1:$PORT_SERVER/api/health" >/dev/null 2>&1; then
-  echo "  starte Konfigurations-Server auf Port $PORT_SERVER"
+  echo "  starting config server on port $PORT_SERVER"
   CF_PORT="$PORT_SERVER" \
   CF_CONFIG="$TMPDIR_RUN/config.json" \
   CF_CLIENT_LOG="$TMPDIR_RUN/client.log" \
@@ -98,10 +110,10 @@ if ! curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; the
     done
   fi
   if [ -z "$CHROME" ]; then
-    echo "  --> Oberflaechen-Pruefungen: uebersprungen (kein Chrome gefunden)"
+    echo "  --> interface checks: skipped (no Chrome found)"
     FAILED=1
   else
-    echo "  starte Chrome auf Port $PORT_DEBUG ($CHROME)"
+    echo "  starting Chrome on port $PORT_DEBUG ($CHROME)"
     "$CHROME" --headless=new --no-sandbox --disable-gpu --allow-file-access-from-files \
       --remote-debugging-port="$PORT_DEBUG" about:blank >"$TMPDIR_RUN/chrome.log" 2>&1 &
     PIDS+=($!)
@@ -111,20 +123,20 @@ if ! curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; the
     done
   fi
 elif [ -z "${CHROME:-}" ]; then
-  # bereits laufender Chrome: Pfad fuer die Meldung ermitteln
-  CHROME="$(command -v google-chrome || echo 'laufender Chrome')"
+  # Chrome already running: determine the path for the message
+  CHROME="$(command -v google-chrome || echo 'running Chrome')"
 fi
 
 if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
-  run "Tastenpruefungen" node tools/test-ui-keys.js --port "$PORT_DEBUG" --config "http://127.0.0.1:$PORT_SERVER/api/config"
-  run "Live-Uebernahme" node tools/test-live-apply.js --port "$PORT_DEBUG" --server "http://127.0.0.1:$PORT_SERVER"
+  run "key tests" node tools/test-ui-keys.js --port "$PORT_DEBUG" --config "http://127.0.0.1:$PORT_SERVER/api/config"
+  run "live adoption" node tools/test-live-apply.js --port "$PORT_DEBUG" --server "http://127.0.0.1:$PORT_SERVER"
 fi
 
 # ------------------------------------------------------------- Ergebnis
 printf '\n'
 if [ "$FAILED" = "0" ]; then
-  echo "Alle Pruefungen bestanden."
+  echo "All checks passed."
 else
-  echo "Mindestens eine Pruefung ist fehlgeschlagen."
+  echo "At least one check failed."
 fi
 exit "$FAILED"

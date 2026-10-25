@@ -1,9 +1,9 @@
 /*
- * Home-Assistant-Anbindung fuer Kacheln und Statuswerte.
+ * Home Assistant integration for tiles and status values.
  *
- * Nur lesend: die Entitaeten, die der Nutzer im Web-Interface auswaehlt, werden
- * ueber die REST-API von Home Assistant geholt und fuer die Kachel aufbereitet.
- * Das Token bleibt auf dem Fernseher; hier wird es nur zum Anfragen benutzt.
+ * Read-only: the entities the user picks in the web interface are fetched over
+ * the Home Assistant REST API and prepared for the tile. The token stays on the
+ * TV; here it is only used for requests.
  */
 'use strict';
 
@@ -11,8 +11,8 @@ var http = require('http');
 var https = require('https');
 var urlmod = require('url');
 
-/* Domains, die auf einer Kachel Sinn ergeben. Alles andere (Automatisierungen,
- * Zonen, Personen) wird nicht angeboten: es hat keinen Anzeigewert. */
+/* Domains that make sense on a tile. Everything else (automations, zones,
+ * persons) is not offered: it has no display value. */
 var USEFUL = {
   sensor: 'Sensor', binary_sensor: 'Binärsensor', light: 'Licht', switch: 'Schalter',
   climate: 'Klima', media_player: 'Medien', cover: 'Rollladen', weather: 'Wetter',
@@ -74,8 +74,8 @@ function friendly(state) {
   return { id: state.entity_id, name: name, state: value, unit: unit, domain: state.entity_id.split('.')[0] };
 }
 
-/* Liste fuer die Auswahl im Web-Interface: nur Domains mit Anzeigewert,
- * alphabetisch, nach Domain gruppiert. */
+/* List for the selection in the web interface: only domains with a display
+ * value, alphabetically, grouped by domain. */
 function entities(cfg, cb) {
   request(cfg, 'GET', '/api/states', null, 6000, function (r) {
     if (!r.ok) return cb({ ok: false, error: r.error || ('HTTP ' + r.status), entities: [] });
@@ -94,7 +94,7 @@ function entities(cfg, cb) {
   });
 }
 
-/* Werte fuer die ausgewaehlten Entitaeten — das ist das, was die Kachel zeigt. */
+/* Values for the selected entities — that is what the tile shows. */
 function values(cfg, ids, cb) {
   var list = (ids || []).slice(0, 12);
   if (!list.length) return cb({ ok: true, values: [] });

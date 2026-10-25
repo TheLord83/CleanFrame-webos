@@ -1,25 +1,25 @@
-/* CleanFrame webOS — Zweisprachigkeit (Deutsch/Englisch).
+/* CleanFrame webOS — bilingual support (German/English).
  *
- * Aufruf im Code:  T('Settings')            -> Text in der aktuellen Sprache
- *                  T('Add app')             -> Fallback auf den englischen Schluessel
- *                  T('Remove', {name: 'x'}) -> Platzhalter {name} ersetzen
+ * Call in code:    T('Settings')            -> text in the current language
+ *                  T('Add app')             -> fallback to the English key
+ *                  T('Remove', {name: 'x'}) -> replace the {name} placeholder
  *
- * Sprache: localStorage 'cleanframe.lang' ('de' oder 'en'), sonst die Systemsprache
- * (navigator.language), sonst Englisch. Die englischen Texte sind die Schluessel,
- * damit fehlende Uebersetzungen nie als leerer Text erscheinen.
+ * Language: localStorage 'cleanframe.lang' ('de' or 'en'), otherwise the system
+ * language (navigator.language), otherwise English. The English texts are the
+ * keys, so missing translations never show up as empty text.
  */
 (function () {
   'use strict';
 
   var DICT = {
     de: {
-      /* Kopfzeile */
+      /* Header */
       'Screensaver': 'Bildschirmschoner',
       'All apps': 'Alle Apps',
       'Settings': 'Einstellungen',
       'Home controls': 'Startseiten-Bedienung',
 
-      /* Einstellungen: Uebersicht */
+      /* Settings: overview */
       'Background': 'Hintergrund',
       'Layout': 'Anordnung',
       'Typography': 'Schrift',
@@ -33,7 +33,7 @@
       'Open the LG Home screen': 'Die Startseite von LG öffnen',
       'Picture, sound and network settings': 'Bild-, Ton- und Netzwerkeinstellungen',
 
-      /* Hintergrund */
+      /* Background */
       'Background type': 'Hintergrundart',
       'Wallpaper': 'Hintergrundbild',
       'Rotation': 'Wechsel',
@@ -48,7 +48,7 @@
       'Choose Photo to use wallpaper and rotation.': 'Für Hintergrundbild und Wechsel zuerst „Foto" wählen.',
       'Choose Photo in Background to use rotation.': 'Für den Wechsel zuerst „Foto" als Hintergrundart wählen.',
 
-      /* Anordnung */
+      /* Layout */
       'Dock': 'Leiste',
       'List': 'Liste',
       'Icons': 'Nur Symbole',
@@ -56,7 +56,7 @@
       'Icons and text': 'Symbole und Text',
       'Both': 'Beides',
 
-      /* Schrift und Fokus */
+      /* Type and focus */
       'Font': 'Schriftart',
       'Choose Glass focus or the Dock layout to use materials.': 'Materialien gibt es mit Fokus „Glas" oder der Leiste.',
       'Glass': 'Glas',
@@ -65,7 +65,7 @@
       'Material': 'Material',
       'Focus style': 'Fokus-Stil',
 
-      /* Apps-Browser und Editor */
+      /* App browser and editor */
       'Loading installed apps…': 'Installierte Apps werden geladen …',
       'No installed apps found.': 'Keine installierten Apps gefunden.',
       'Other installed apps': 'Weitere installierte Apps',
@@ -93,7 +93,7 @@
       'Couldn’t save this change.': 'Änderung ließ sich nicht speichern.',
       'Couldn’t save. Nothing changed.': 'Nicht gespeichert, nichts geändert.',
 
-      /* Dialoge */
+      /* Dialogs */
       'Leave Home?': 'Startseite verlassen?',
       'Open LG Home?': 'LG Startseite öffnen?',
       'Stay': 'Bleiben',
@@ -168,7 +168,7 @@
 
   window.CleanFrameI18n = {
     lang: lang,
-    /* Pruefhilfe: Anzahl der Eintraege je Sprache und ein Beispieltext. */
+    /* Test helper: number of entries per language and a sample text. */
     probe: function (key) {
       var de = DICT.de || {}, en = DICT.en || {};
       return { de: Object.keys(de).length, en: Object.keys(en).length, sample: (table && table[key]) || null, hasRename: Object.prototype.hasOwnProperty.call(de, 'Rename') };

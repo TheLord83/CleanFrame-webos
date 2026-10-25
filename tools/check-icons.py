@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Prueft den Icon-Katalog und laedt jedes SVG im Browser.
+"""Checks the icon catalog and loads every SVG in the browser.
 
-Ohne Fernseher und ohne Screenshot: die Datei wird auf Existenz, XML-Gueltigkeit
-und sichtbare Form geprueft, danach rendert headless Chrome alle Icons und meldet
-im Seitentitel, ob jedes geladen wurde.
+Without a TV and without a screenshot: the file is checked for existence, XML
+validity and a visible shape, then headless Chrome renders all icons and reports
+in the page title whether every one of them loaded.
 
-Aufruf: python3 tools/check-icons.py
+Usage: python3 tools/check-icons.py
 """
 import json
 import os
@@ -17,7 +17,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Zwei Layouts: App-Ordner direkt (Arbeitsstand) oder Repo mit app/ davor.
+# Two layouts: app folder directly (working copy) or repo with app/ in front.
 ASSETS = os.path.join(ROOT, "app", "assets")
 if not os.path.isdir(ASSETS):
     ASSETS = os.path.join(ROOT, "assets")
@@ -37,23 +37,23 @@ def check_files(catalog):
         for icon in group["icons"]:
             key = icon["key"]
             if key in seen:
-                errors.append(f"{key}: doppelt im Katalog")
+                errors.append(f"{key}: duplicate in the catalog")
             seen.add(key)
             f = os.path.join(ICONS, icon["file"])
             if not os.path.exists(f):
-                errors.append(f"{key}: Datei fehlt ({icon['file']})")
+                errors.append(f"{key}: file missing ({icon['file']})")
                 continue
             try:
                 root = ET.parse(f).getroot()
             except ET.ParseError as e:
-                errors.append(f"{key}: kein gueltiges XML ({e})")
+                errors.append(f"{key}: not valid XML ({e})")
                 continue
             if local_name(root.tag) != "svg":
-                errors.append(f"{key}: Wurzel ist nicht <svg>")
+                errors.append(f"{key}: root is not <svg>")
             if not any(local_name(el.tag) in SHAPES for el in root.iter()):
-                errors.append(f"{key}: enthaelt keine Form")
+                errors.append(f"{key}: contains no shape")
             if not root.get("viewBox"):
-                errors.append(f"{key}: kein viewBox")
+                errors.append(f"{key}: no viewBox")
     return errors, seen
 
 
@@ -79,14 +79,14 @@ def chrome_binary():
 def browser_check(keys):
     chrome = chrome_binary()
     if not chrome:
-        return None, "kein Chrome/Chromium gefunden (CHROME_BIN setzen)"
+        return None, "no Chrome/Chromium found (set CHROME_BIN)"
     tmp = tempfile.mkdtemp(prefix="cf-icons-")
     page = os.path.join(tmp, "sheet.html")
     cells = "".join(
         f'<figure><img src="file://{os.path.join(ICONS, k + ".svg")}" alt="{k}"><figcaption>{k}</figcaption></figure>'
         for k in sorted(keys)
     )
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>laeuft</title>
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>running</title>
 <style>body{{background:#14161a;color:#e9edf2;font:13px system-ui;margin:0;padding:16px;
 display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px}}
 figure{{margin:0;background:#1c1f25;border:1px solid #2a2f38;border-radius:8px;padding:10px;text-align:center}}
@@ -112,7 +112,7 @@ img{{width:48px;height:48px;filter:invert(0)}}figcaption{{margin-top:6px;font-si
         capture_output=True, text=True, timeout=90,
     ).stdout
     m = re.search(r"<title>([^<]*)</title>", out)
-    title = m.group(1) if m else "(kein Titel)"
+    title = m.group(1) if m else "(no title)"
     keep = os.path.join(ASSETS, "icons-preview.html")
     shutil.copy(page, keep)
     return title, keep
@@ -122,24 +122,30 @@ def main():
     with open(CATALOG, encoding="utf-8") as f:
         catalog = json.load(f)
     errors, keys = check_files(catalog)
-    print(f"Katalog: {len(catalog['groups'])} Gruppen, {len(keys)} Icons")
+    print(f"Catalog: {len(catalog['groups'])} groups, {len(keys)} icons")
     if errors:
-        print("Fehler in den Dateien:")
+        print("Errors in the files:")
         for e in errors:
             print("  -", e)
+        print(f"RESULT 0/{len(keys)}")
         return 1
-    print("Dateien: alle vorhanden, gueltiges SVG, mindestens eine Form, viewBox gesetzt")
+    print("Files: all present, valid SVG, at least one shape, viewBox set")
 
     title, detail = browser_check(keys)
     if title is None:
-        print("Browser-Pruefung uebersprungen:", detail)
-        print(f"{len(keys)}/{len(keys)} Icons in Ordnung (Browser uebersprungen)")
+        print("Browser check skipped:", detail)
+        print(f"{len(keys)}/{len(keys)} icons in order (browser skipped)")
+        print(f"RESULT {len(keys)}/{len(keys)}")
         return 0
     print("Browser:", title)
     if title.startswith("OK"):
-        print(f"Vorschau: {detail}")
-        print(f"{len(keys)}/{len(keys)} Icons in Ordnung")
+        print(f"Preview: {detail}")
+        print(f"{len(keys)}/{len(keys)} icons in order")
+        print(f"RESULT {len(keys)}/{len(keys)}")
         return 0
+    bad = [b for b in title.replace("FAIL", "", 1).split(",") if b.strip()]
+    print(f"{max(0, len(keys) - len(bad))}/{len(keys)} icons in order ({len(bad)} failed)")
+    print(f"RESULT {max(0, len(keys) - len(bad))}/{len(keys)}")
     return 1
 
 

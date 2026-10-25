@@ -1,9 +1,9 @@
 /* CleanFrame Home. Static materials, local preferences and public Tizen app controls. */
 (function () {
   'use strict';
-  /* webOS-Portierung: zweisprachige Oberflaeche (de/en), Woerterbuch in i18n.js */
-  /* Sprache darf spaeter wechseln (Konfiguration vom Server), deshalb wird die
-   * Uebersetzung bei jedem Aufruf geholt und nicht beim Start kopiert. */
+  /* webOS port: bilingual interface (de/en), dictionary in i18n.js */
+  /* The language may change later (configuration from the server), so the
+   * translation is fetched on every call and not copied at startup. */
   function T(key, vars) {
     if (window.CleanFrameI18n && window.CleanFrameI18n.t) return window.CleanFrameI18n.t(key, vars);
     return key;
@@ -20,8 +20,8 @@
   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
   var FULL = T('Home holds nine apps. Remove one first.'), LAST = T('Home needs one app');
 
-  // webOS-Portierung: Marken-Kacheln mit den App-IDs des Fernsehers.
-  // Die Icons kommen weiter aus assets/icons/<id>.svg (Marken-Marks).
+  // webOS port: brand tiles with the TV's app ids.
+  // The icons still come from assets/icons/<id>.svg (brand marks).
   var PRIMARY_APPS = [
     { id: 'netflix', name: 'Netflix', mark: true, appId: 'netflix' },
     { id: 'youtube', name: 'YouTube', mark: true, appId: 'youtube.leanback.v4' },
@@ -39,8 +39,8 @@
     { id: '5', name: 'Every 5 minutes', min: 5 }, { id: '15', name: 'Every 15 minutes', min: 15 },
     { id: '60', name: T('Every hour'), min: 60 }
   ];
-  var uiScale = 1;   /* Schriftfaktor aus der Konfiguration (Senioren-Modus) */
-  var booted = false; /* erst nach dem Start darf die Darstellung live getauscht werden */
+  var uiScale = 1;   /* text factor from the configuration (senior mode) */
+  var booted = false; /* only after startup may the appearance be swapped live */
   var KEY = 'cleanframe.home.v1', storageOk = true, catalog = { loading: false, loaded: false, error: null, request: 0, revision: 0 };
   var QA = window.ShoreQA = { minuteMs: window.ShoreQA && window.ShoreQA.minuteMs || 60000 };
   var FONTS = {
@@ -321,7 +321,7 @@
 
   /* ---------- Saved preferences ---------- */
   function safeId(id) { return typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,160}$/.test(id) && ['constructor', 'prototype', '__proto__'].indexOf(id) < 0; }
-  /* webOS-Portierung: Icons duerfen zusaetzlich von Glasshouse (Port 8080) kommen. */
+  /* webOS port: icons may additionally come from Glasshouse (port 8080). */
   function safeIcon(path) { return typeof path === 'string' && path.length < 2048 && /^(?:\/[^\/]|file:\/\/\/|wgt-package:\/\/\/|http:\/\/127\.0\.0\.1:8080\/)/.test(path) ? path : ''; }
   function load() {
     var keys = [KEY, 'cleanframe.shore.v1'], raw, saved, i;
@@ -384,12 +384,12 @@
   function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; return c; }
   function snap() { return { home: S.c.home.slice(), recent: S.c.recent.slice() }; }
   function pushRecent(list, id) { return [id].concat(without(list, id)).slice(0, 5); }
-  /* Was der Server wissen muss: Darstellung und Startseite. Namen und Icons der
-   * Kacheln bleiben erhalten, weil sie nur in der Server-Konfiguration stehen. */
+  /* What the server needs to know: appearance and home screen. Names and icons
+   * of the tiles are preserved because they only live in the server config. */
   function serverPayload(c) {
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
     cfg.schemaVersion = cfg.schemaVersion || 1;
-    /* Stand, auf dem diese Aenderung beruht — der Server weist aeltere Staende ab. */
+    /* Revision this change is based on — the server rejects older revisions. */
     cfg.rev = S.appliedRev || undefined;
     cfg.look = { bg: c.bg, layout: c.layout, apps: c.apps, controls: c.controls, focus: c.focus,
                  material: c.material, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
@@ -401,20 +401,20 @@
     return cfg;
   }
 
-  /* Aenderungen an der Darstellung sofort an den Server geben. Sonst gilt beim
-   * naechsten Start wieder die alte Server-Konfiguration — genau das liess die
-   * Einstellungen "nach Neustart auf default" zurueckspringen. */
-  /* Sperrt ein offener Dialog die Uebernahme? Nur Menue, Umbenennen, Meldung. */
+  /* Push appearance changes to the server right away. Otherwise the old server
+   * configuration applies again on the next start — exactly that made the
+   * settings jump "back to default after restart". */
+  /* Does an open dialog block applying? Only menu, rename, message. */
   function istDialog() {
     var t = top();
     if (!t) return false;
     return t.id === 'ctx' || t.id === 'rename' || t.id === 'message';
   }
 
-  /* Aenderungen aus der Web-Oberflaeche im laufenden Betrieb uebernehmen:
-   * der Server zaehlt bei jeder Speicherung `rev` hoch. Aendert sich die Nummer,
-   * ohne dass wir selbst geschrieben haben, laden wir die Konfiguration neu.
-   * Nur auf der Startseite und ohne offenen Dialog — sonst warten. */
+  /* Pick up changes from the web interface while running: the server increments
+   * `rev` on every save. If the number changes without us having written, we
+   * reload the configuration. Only on the home screen and without an open
+   * dialog — otherwise wait. */
   function startConfigWatch() {
     if (S.watchTimer) clearInterval(S.watchTimer);
     S.watchTimer = setInterval(function () {
@@ -424,46 +424,46 @@
         if (err || !cfg) return;
         var rev = parseInt(cfg.rev, 10) || 0;
         if (!rev || rev === S.appliedRev) return;
-        /* Nur bei echten Dialogen warten (Kachel-Menue, Umbenennen, Meldung).
-       * Auf der Startseite, in den Einstellungen und auf den Detailseiten wird
-       * sofort uebernommen — dort will man die Aenderung ja sehen. */
+        /* Wait only for real dialogs (tile menu, rename, message).
+       * On the home screen, in settings and on the detail pages the change is
+       * applied immediately — that is where you want to see it. */
       if (istDialog()) { S.pendingCfg = cfg; return; }
         applyConfigInto(cfg);
       });
     }, 2000);
   }
 
-  /* Konfiguration anwenden, ohne die Revision zu verlieren. */
+  /* Apply the configuration without losing the revision. */
   function applyConfigInto(cfg) {
     S.pendingCfg = null;
     applyServerConfig(cfg);
     render();
     updateClock();
-    if (S.syncLog) S.syncLog.push('uebernommen aus Web (rev ' + (cfg.rev || 0) + ')');
+    if (S.syncLog) S.syncLog.push('adopted from web (rev ' + (cfg.rev || 0) + ')');
   }
 
   function syncServer(c) {
     S.syncLog = S.syncLog || [];
-    /* Vor der Bereitschaft nur vormerken: die Server-Konfiguration steht dann noch
-     * nicht, ein sofortiges Schreiben wuerde sie ueberschreiben. */
-    if (!S.ready) { S.syncPending = c; S.syncLog.push('vorgemerkt'); return; }
-    if (!window.FrameDevice || !FrameDevice.saveConfig) { S.syncLog.push('keine Anbindung'); return; }
-    S.syncLog.push('gesendet');
+    /* Before readiness only note it: the server configuration is not in place
+     * yet, an immediate write would overwrite it. */
+    if (!S.ready) { S.syncPending = c; S.syncLog.push('queued'); return; }
+    if (!window.FrameDevice || !FrameDevice.saveConfig) { S.syncLog.push('no binding'); return; }
+    S.syncLog.push('sent');
     try {
       var payload = serverPayload(c);
       S.serverCfg = payload;
       FrameDevice.saveConfig(payload, function (err, saved, conflict) {
         if (conflict && saved) {
-          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
-           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
-          S.syncLog.push('Konflikt: neueren Stand uebernommen');
+          /* The server has a newer revision: it wins (e.g. just changed in the
+           * web interface), otherwise the app would overwrite it. */
+          S.syncLog.push('conflict: adopted newer revision');
           applyConfigInto(saved);
           return;
         }
-        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
-         * nicht gleich wieder als fremde Aenderung anwendet. */
+        /* Own change: take over the new revision, so the watcher does not apply
+         * it again right away as a foreign change. */
         if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
-        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
+        S.syncLog.push(err ? ('error: ' + err) : 'ok');
       });
     } catch (e) {}
   }
@@ -506,10 +506,10 @@
     return true;
   }
 
-  /* Umbenennen einer Startseiten-Kachel.
-   * Der neue Name geht an den Server (Quelle fuer App und Web-Oberflaeche) und
-   * zusaetzlich in den localStorage-Stand, damit die Aenderung auch ohne Server
-   * erhalten bleibt. Der Katalog in "Alle Apps" bleibt unveraendert. */
+  /* Rename a home screen tile.
+   * The new name goes to the server (source for app and web interface) and
+   * additionally into the localStorage state, so the change survives even
+   * without a server. The catalog under "All apps" stays unchanged. */
   function homeRename(id, newName) {
     var a = app(id), name = String(newName || '').trim().slice(0, 120);
     if (!a || !name) return false;
@@ -529,16 +529,16 @@
       payload.home = list;
       FrameDevice.saveConfig(payload, function (err, saved, conflict) {
         if (conflict && saved) {
-          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
-           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
-          S.syncLog.push('Konflikt: neueren Stand uebernommen');
+          /* The server has a newer revision: it wins (e.g. just changed in the
+           * web interface), otherwise the app would overwrite it. */
+          S.syncLog.push('conflict: adopted newer revision');
           applyConfigInto(saved);
           return;
         }
-        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
-         * nicht gleich wieder als fremde Aenderung anwendet. */
+        /* Own change: take over the new revision, so the watcher does not apply
+         * it again right away as a foreign change. */
         if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
-        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
+        S.syncLog.push(err ? ('error: ' + err) : 'ok');
       });
       S.serverCfg = payload;
     }
@@ -980,9 +980,9 @@
     else openAppearance(id);
   }
 
-  /* Erststart-Assistent erneut starten: die Einrichtung wird wieder auf "offen"
-   * gesetzt und die Oberflaeche neu geladen — der Assistent laeuft dann wie beim
-   * ersten Start durch (Sprache, Startseite, Darstellung, Abschluss). */
+  /* Restart the first-start wizard: onboarding is set back to "open" and the
+   * interface is reloaded — the wizard then runs through as on the first start
+   * (language, home screen, appearance, finish). */
   function runSetupAgain() {
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
     cfg.onboarding = { done: false, version: 1 };
@@ -991,16 +991,16 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { setTimeout(function () { location.reload(); }, 200); });
     else setTimeout(function () { location.reload(); }, 200);
   }
-  /* Sprache: 'system' folgt dem Fernseher, Deutsch und Englisch sind fest
-   * waehlbar. Die Auswahl landet in der Server-Konfiguration; danach wird die
-   * Oberflaeche neu geladen, damit auch die beim Start gebauten Texte passen. */
+  /* Language: 'system' follows the TV, German and English can be chosen
+   * explicitly. The choice lands in the server configuration; afterwards the
+   * interface is reloaded so the texts built at startup match too. */
   var LANGS = [{ id: 'system', name: T('Like the TV') }, { id: 'de', name: 'Deutsch' }, { id: 'en', name: 'English' }];
   function clockLabel() { return S.c.clock24 !== false ? '24 h' : '12 h'; }
   function setClock24(on) {
     var c = next(S.c.home.slice(), S.c.recent.slice());
     c.clock24 = !!on;
     if (!write(c, 'Uhrzeit')) return;
-    /* lookOf traegt clock24 mit, deshalb hier direkt in den Server-Stand spiegeln. */
+    /* lookOf carries clock24 along, so mirror it straight into the server state. */
     if (S.serverCfg) { S.serverCfg.look = serverPayload(c).look; syncServer(c); }
     render(); updateClock();
   }
@@ -1136,7 +1136,7 @@
   };
   function messageContent(t) { return t.content || MSG[t.msg]; }
 
-  /* ---------- webOS-Portierung: Kontextmenue per langem OK ---------- */
+  /* ---------- webOS port: context menu via long OK ---------- */
   function ctxActions(t) {
     var id = t.app, list = [];
     if (onHome(id)) {
@@ -1145,21 +1145,21 @@
     } else {
       list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
     }
-    /* Kein eigener "Abbrechen"-Eintrag: Zurueck schliesst das Menue. Damit bleibt
-     * die Liste kurz und verdeckt die Kacheln darunter nicht. */
+    /* No separate "Cancel" entry: back closes the menu. That keeps the list
+     * short and does not cover the tiles underneath. */
     return list;
   }
 
-  /* Umbenennen: alter Name als Startwert, Bestaetigung per OK.
-   * Geaendert wird nur der Eintrag auf der Startseite, nie der Katalog. */
+  /* Rename: old name as initial value, confirmation with OK.
+   * Only the home screen entry changes, never the catalog. */
   function openRename(id) {
     var a = app(id);
     resetSheet();
     push({ id: 'rename', app: id, text: a ? a.name : id, f: { i: (a ? a.name : id).length, zone: 'ok' } });
     render(); renderSheet(top(), true);
   }
-  /* Neues Menue = neues Markup. Ohne das Zuruecksetzen wird das HTML des vorigen
-   * Aufrufs wiederverwendet (sheetKey) und die geaenderten Aktionen erscheinen nie. */
+  /* New menu = new markup. Without the reset the HTML of the previous call is
+   * reused (sheetKey) and the changed actions never appear. */
   function resetSheet() { sheetKey = ''; slotEls = {}; }
 
   function openCtx(id) {
@@ -1168,9 +1168,9 @@
     push({ id: 'ctx', app: id, f: { i: 0 } });
     render(); renderSheet(top(), true);
   }
-  /* Lange OK: in "Alle Apps" der Katalogeintrag, auf der Startseite die Kachel.
-   * Ohne diesen Fall startet ein langer Druck sofort die App — das Menue war nur
-   * in der App-Liste erreichbar. */
+  /* Long OK: the catalog entry in "All apps", the tile on the home screen.
+   * Without this case a long press starts the app right away — the menu was
+   * only reachable from the app list. */
   function longPressTarget() {
     var t = top(), hs, it;
     if (!t) return null;
@@ -1295,9 +1295,9 @@
     if (!adaptive && shown.dockClockInk) stage.style.setProperty('--dock-clock-ink', shown.dockClockInk);
     else stage.style.removeProperty('--dock-clock-ink');
     applyHomeFont();
-    /* Auch bei offener Unterseite die Startseite mitzeichnen: Aenderungen aus
-     * der Web-Oberflaeche sollen dort sofort sichtbar sein (Schriftgroesse,
-     * Wandbild, Kacheln), und der Editor braucht die Liste ohnehin. */
+    /* Draw the home screen even with a subpage open: changes from the web
+     * interface should show up there immediately (text size, wallpaper, tiles),
+     * and the editor needs the list anyway. */
     renderHome(t);
     renderSheet(t, sheet);
     renderAppearance(t);
@@ -1329,8 +1329,8 @@
     renderAppFocusName(hs);
   }
 
-  /* 24-Stunden-Anzeige ist der Standard (Deutschland/Europa); 12 Stunden mit
-   * fuehrender Null wie im Original, wenn ausdruecklich gewaehlt. */
+  /* 24-hour display is the default (Germany/Europe); 12 hours with a leading
+   * zero as in the original, when explicitly chosen. */
   function clockText() {
     var d = new Date(), h = S.c.clock24 !== false ? d.getHours() : (d.getHours() % 12 || 12), m = d.getMinutes();
     return (S.c.clock24 !== false && h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
@@ -1341,7 +1341,7 @@
     return text.replace(/[0-9]/g, function (digit) { return '<span class="clock-digit">' + digit + '</span>'; });
   }
   function renderCaption(t, hs) {
-    /* Uhr laesst sich abschalten (Einstellung "Uhr anzeigen"); Vorgabe: an. */
+    /* The clock can be switched off (setting "Show clock"); default: on. */
     var html = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
@@ -1432,9 +1432,9 @@
     var broad = S.geom === 'broad' && n > 5;
     if (n < 0) { w = 912; shelfW = 880; }
     else if (broad) {
-      /* webOS-Portierung: die breite Leiste ist fuer fuenf Kacheln plus Nachbar-
-         Einblick gedacht. Passen alle Kacheln in voller Breite hinein, wird die
-         Leiste auf den Inhalt zugeschnitten, statt leer weiterzulaufen. */
+      /* webOS port: the broad bar is meant for five tiles plus a glimpse of the
+         neighbour. If all tiles fit in full width, the bar is cut to the content
+         instead of running on empty. */
       var needed = Math.round(n * m.pitch) - 8;
       if (needed <= 1696) { shelfW = needed; w = shelfW + 32; broad = false; vis = n; }
       else { w = 1728; shelfW = 1696; }
@@ -1507,8 +1507,8 @@
     keyed(track, empty ? [] : items, function (el, it, i) {
       var a = it.id ? app(it.id) : null, left = i * g.pitch, focus = tileFocus && i === anchor, sel = tileSel && i === anchor;
       var lifted = hs.lifted && i === anchor, partial = g.broad && (left - off < -1 || left + g.tw - off > g.shelf + 1);
-      /* Schluessel enthaelt Name und Icon: aendert sich nur das Icon (z.B. aus der
-       * Web-Oberflaeche), muss die Kachel neu aufgebaut werden. */
+      /* The key contains name and icon: if only the icon changes (e.g. from the
+       * web interface), the tile has to be rebuilt. */
       var markKey = a ? (a.name + '|' + (a.icon || '') + '|' + (a.mark ? 'mark' : 'text')) : '';
       setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + markKey + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
       el.className = 'tile k-' + it.kind + (focus ? ' is-focus' : '') + (sel ? ' is-sel' : '') + (lifted ? ' is-lifted' : '') + (partial ? ' is-partial' : '')
@@ -1614,7 +1614,7 @@
       var typography = photoLabel(it.id, compact), focus = rowFocus && i === anchor, lifted = hs.lifted && i === anchor, markImage, body = '';
       if (S.c.apps !== 'text') body += appMark(app(it.id), S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 60 : 84, S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 44 : 64, S.c.apps === 'icons' ? compact ? 52 : 72 : compact ? 42 : 54);
       if (S.c.apps !== 'icons') body += '<span class="ph-name" style="font-size:' + typography.size + 'px;top:' + typography.top + 'px">' + esc(app(it.id).name) + '</span>';
-      /* Schluessel mit Name und Icon: in der Listenansicht sonst veralteter Inhalt. */
+      /* Key with name and icon: otherwise stale content in the list view. */
       setContent(row, it.id + '|' + typography.size + '|' + S.c.bg + '|' + S.c.apps + '|' +
         (app(it.id).name || '') + '|' + (app(it.id).icon || '') + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="ph-group">' + body + '</span><span class="ph-move ph-move-up">' + icon('up') + '</span><span class="ph-move ph-move-down">' + icon('down') + '</span>');
       markImage = row.querySelector('.mark img');
@@ -1655,9 +1655,9 @@
     if (sheet) sheetView.setAttribute('aria-modal', 'true');
     else sheetView.removeAttribute('aria-modal');
     sceneEl.setAttribute('aria-hidden', sheet || isSettingsDetail(t) ? 'true' : 'false');
-    /* Der Schluessel wird IMMER gebildet (vorher stand hier ein frueher return,
-     * der sheetKey nach dem Schliessen nie neu setzte — das erste Menue danach
-     * blieb dann leer, weil das Markup als "schon gerendert" galt). */
+    /* The key is ALWAYS built (previously there was an early return here that
+     * never reset sheetKey after closing — the first menu afterwards then stayed
+     * empty because the markup was considered "already rendered"). */
     key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg
       + (t.id === 'ctx' ? '|' + t.app + '|' + ctxActions(t).map(function (a) { return a.label; }).join(',') : '');
     if (!sheet) {
@@ -1822,8 +1822,8 @@
         + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Cancel') + '</span></span></button>'
         + '</div>';
     },
-    /* Markup ohne Index und ohne Text: beides setzt FILLS.ctx bei jedem Render
-     * (das HTML wird zwischengespeichert, damit es keine veralteten Eintraege gibt). */
+    /* Markup without index and without text: both are set by FILLS.ctx on every
+     * render (the HTML is cached so there are no stale entries). */
     ctx: function (t) {
       var a = app(t.app), acts = ctxActions(t);
       return '<h2 class="s-title">' + esc(a ? a.name : t.app) + '</h2><div class="settings-overview" data-slot="list">'
@@ -1843,12 +1843,12 @@
     return '<span class="panel-content">' + appMark(a, 120, 72, 58) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
   }
   var FILLS = {
-    /* Der Fokus im Kontextmenue kommt aus t.f.i und wird bei jedem Render neu
-     * gesetzt. Das Markup wird zwischengespeichert (sheetKey), deshalb darf die
-     * Markierung nicht im HTML stehen — sonst bleibt der erste Eintrag markiert,
-     * waehrend die Tasten schon weiterzaehlen. */
-    /* Der Fokus kommt aus t.f.i und wird bei jedem Render ins DOM geschrieben —
-     * unabhaengig davon, ob das Markup neu erzeugt oder aus dem Puffer geholt wurde. */
+    /* The focus in the context menu comes from t.f.i and is set on every render.
+     * The markup is cached (sheetKey), so the highlight must not live in the
+     * HTML — otherwise the first entry stays highlighted while the keys already
+     * move on. */
+    /* The focus comes from t.f.i and is written into the DOM on every render —
+     * regardless of whether the markup was recreated or taken from the buffer. */
     ctx: function (t, el) {
       var acts = ctxActions(t);
       var i = Math.min(Math.max(0, parseInt(t.f.i, 10) || 0), acts.length - 1);
@@ -2164,9 +2164,9 @@
     pointAt(el);
   });
 
-  /* Tastatureingabe im Umbenennen-Dialog: Buchstaben, Ziffern, Leerzeichen,
-   * Umlaute, Loeschen. Eine Quelle (keydown) — ein zusaetzlicher keypress-Listener
-   * haette jedes Zeichen doppelt eingefuegt. */
+  /* Keyboard input in the rename dialog: letters, digits, spaces, umlauts,
+   * delete. One source (keydown) — an extra keypress listener would have
+   * inserted every character twice. */
   document.addEventListener('keydown', function (ev) {
     var t = top();
     if (!t || t.id !== 'rename') return;
@@ -2213,9 +2213,9 @@
       holdFired = false;
     }
   });
-  /* Kommt ein keyup nicht an (Fokuswechsel, App-Wechsel), bleibt die Taste sonst
-   * dauerhaft als "gehalten" markiert und OK/Zurueck waeren tot. Deshalb wird die
-   * Sperre nach kurzer Zeit selbst geloest. */
+  /* If a keyup never arrives (focus change, app switch), the key would otherwise
+   * stay marked as "held" forever and OK/back would be dead. So the lock is
+   * released by itself after a short time. */
   function releaseKeySoon(code) {
     setTimeout(function () { delete heldKeys[code]; }, 1200);
   }
@@ -2231,9 +2231,9 @@
   /* Readable browser checks use the real state and actions, without fake outcomes. */
   var NAV = { left: 'left', right: 'right', up: 'up', down: 'down', ok: 'ok', enter: 'ok', back: 'back', escape: 'back' };
 
-  /* webOS-Portierung: schmale Pruefschnittstelle fuer Pruefungen ohne Fernbedienung
-   * (Screenshots und Messungen laufen ueber CDP). Nur lesende Werte plus das
-   * Kontextmenue, keine Zustandsaenderung an Einstellungen. */
+  /* webOS port: narrow test interface for checks without a remote control
+   * (screenshots and measurements run over CDP). Read-only values plus the
+   * context menu, no state changes to settings. */
   window.CleanFrameDebug = {
     state: function () {
       var t = top();
@@ -2263,7 +2263,7 @@
     clock24: function () { return S.c.clock24 !== false; },
     setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
     setupAgain: function () { runSetupAgain(); return true; },
-    /* Kachel-Datensaetze mit Icon und Marken-Flag (Diagnose: kommt ein Icon an?) */
+    /* Tile records with icon and brand flag (diagnosis: does an icon arrive?) */
     icons: function () {
       return (S.c.home || []).map(function (id) {
         var a = app(id) || {};
@@ -2348,10 +2348,10 @@
   QA.actions = function () { var view = isSettingsDetail(top()) ? appearanceEl : sheetEl.hidden ? homeEl : sheetEl; return Array.prototype.filter.call(view.querySelectorAll('[data-action]'), renderedAction).map(function (el) { return el.getAttribute('data-action'); }); };
 
 
-  /* ---------- Konfiguration vom Web-Server uebernehmen ----------
-   * Der Server (Port 8484) ist die gemeinsame Quelle: Name, Icon, Anordnung,
-   * Sprache, Senioren-Modus und Schoner-Zeit kommen von dort. Fehlt er, bleibt
-   * der localStorage-Stand unveraendert in Kraft. */
+  /* ---------- Applying the configuration from the web server ----------
+   * The server (port 8484) is the shared source: name, icon, arrangement,
+   * language, senior mode and screensaver time come from there. If it is
+   * missing, the localStorage state stays in force unchanged. */
   function resolveIcon(v) {
     if (!v) return '';
     if (/^https?:\/\//.test(v) || v.indexOf('assets/') === 0) return v;
@@ -2361,26 +2361,26 @@
   function applyServerConfig(cfg) {
     if (!cfg) return;
     S.serverCfg = cfg;
-    /* Revision merken: der Waechter (startConfigWatch) laesst dieselbe Revision
-     * nicht erneut anwenden. */
+    /* Remember the revision: the watcher (startConfigWatch) does not apply the
+     * same revision again. */
     S.appliedRev = parseInt(cfg.rev, 10) || S.appliedRev || 0;
-    /* Neue Konfiguration: alle Bausteine neu aufbauen — Kacheln, App-Raster und die
-     * Zeilen der Darstellung haengen an setContent() und dessen Zwischenspeicher. */
+    /* New configuration: rebuild all parts — tiles, app grid and the appearance
+     * rows depend on setContent() and its cache. */
     S.renderEpoch = (S.renderEpoch || 0) + 1;
     catalog.revision++;
     var c = S.c;
 
     if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
-      /* 'system' bedeutet: der Fernseher entscheidet. Fehlt eine nutzbare
-       * Systemsprache (Web-App meldet en-US), bleibt Deutsch als Standard. */
+      /* 'system' means: the TV decides. If no usable system language exists
+       * (web app reports en-US), German stays the default. */
       var want = cfg.lang === 'system' ? 'de' : cfg.lang;
       window.CleanFrameI18n.set(want);
     }
 
     if (cfg.look) {
-      /* Darstellung ueber den normalen Weg setzen (setLook): nur so werden
-       * Wandbild-Dateien geladen und getauscht. Direktes Setzen von c.wall
-       * aendert bloss den Wert, nicht das Bild. */
+      /* Set the appearance the normal way (setLook): only that loads and swaps
+       * the wallpaper files. Setting c.wall directly only changes the value,
+       * not the image. */
       var patch = {}, lookKeys = ['bg', 'layout', 'apps', 'controls', 'focus', 'material', 'wall', 'font'];
       lookKeys.forEach(function (k) {
         var v = cfg.look[k];
@@ -2391,12 +2391,12 @@
       });
       if (Object.keys(patch).length) {
         if (booted) {
-          /* Im Betrieb: ueber setLook, damit Wandbild-Dateien wirklich getauscht werden. */
+          /* While running: via setLook, so the wallpaper files are really swapped. */
           try { setLook(patch, { transient: true }); }
           catch (e) { lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; }); }
         } else {
-          /* Beim Start ist die Oberflaeche noch nicht aufgebaut — setLook wuerde
-           * scheitern. Hier nur die Werte setzen; der Start laedt das Bild selbst. */
+          /* At startup the interface is not built yet — setLook would fail.
+           * Only set the values here; startup loads the image itself. */
           lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; });
         }
       }
@@ -2417,7 +2417,7 @@
 
     if (cfg.ui) {
       var scale = parseInt(cfg.ui.textScale, 10);
-      /* Senioren-Modus hebt die Schrift mindestens auf 125 % an. */
+      /* Senior mode raises the text size to at least 125%. */
       if (cfg.ui.senior && (!isFinite(scale) || scale < 125)) scale = 125;
       uiScale = isFinite(scale) && scale > 0 ? scale / 100 : 1;
       if (uiScale !== 1) stage.style.setProperty('--cf-scale', String(uiScale));
@@ -2429,7 +2429,7 @@
     norm(); render(); fit();
   }
 
-  /* Nach X Minuten ohne Bedienung den Schoner starten (Kopplung aus der Konfiguration). */
+  /* Start the screensaver after X minutes without input (coupling from the config). */
   var idleSince = Date.now(), idleTimer = null;
   function markActive() { idleSince = Date.now(); }
   function startIdleWatch() {
@@ -2451,9 +2451,9 @@
   cueL.innerHTML = icon('left'); cueR.innerHTML = icon('right');
   initialise();
 
-  /* Die Konfiguration kommt vom Server (Port 8484) und bestimmt schon das erste
-   * Bild: Sprache, Startseite, Anordnung. Deshalb wird darauf gewartet — hoechstens
-   * 1200 ms, danach startet die App mit dem localStorage-Stand (Server fehlt). */
+  /* The configuration comes from the server (port 8484) and already shapes the
+   * first frame: language, home screen, arrangement. So we wait for it — at most
+   * 1200 ms, after that the app starts with the localStorage state (no server). */
   var started = false, startTimer = null;
 
   function startApp() {
@@ -2464,8 +2464,8 @@
     setLook({}, { transient: true, startup: true });
     norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
     startIdleWatch();
-    /* Erst ab hier darf die App schreiben: vorher wuerden die Standardwerte die
-     * Server-Konfiguration ueberschreiben. */
+    /* Only from here on may the app write: before that the defaults would
+     * overwrite the server configuration. */
     S.ready = true;
     startConfigWatch();
     if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }

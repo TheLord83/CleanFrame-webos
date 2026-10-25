@@ -1,77 +1,83 @@
-# Pruefungen
+# Checks
 
-Alles, was ohne Fernseher pruefbar ist, laeuft mit einem Befehl:
+Everything that can be checked without the TV runs with one command:
 
 ```bash
 tools/check-all.sh
 ```
 
-Das Skript startet selbst einen Konfigurations-Server (Port 8484) und ein
-kopfloses Chrome (Port 9333) und raeumt beides am Ende wieder ab. `--keep` laesst
-beide laufen, wenn man von Hand nachmessen will.
+The script starts its own configuration server (port 8484) and a headless Chrome
+(port 9333), and cleans both up at the end. `--keep` leaves them running so you can
+look for yourself.
 
-## Die vier Ebenen
+## The four layers
 
-**1. Syntax** — `node --check` ueber alle Quelldateien in `app/`, `web/` und `tools/`.
+**1. Syntax** — `node --check` over every source file in `app/`, `web/` and `tools/`.
 
-**2. node 8** — `tools/check-node8.py`. Der Fernseher laeuft mit node **8.12**.
-Alles, was erst in spaeteren Fassungen existiert (`new URL`, `mkdirSync({recursive})`,
-`readBigUInt64BE`, die neue `http.get()`-Signatur), faellt hier auf, bevor es auf dem
-Geraet einen Absturz ausloest.
+**2. node 8** — `tools/check-node8.py`. The TV runs node **8.12**. Anything that only
+exists in later versions (`new URL`, `mkdirSync({recursive})`, `readBigUInt64BE`, the
+new `http.get()` signature) is caught here instead of crashing on the device.
 
-**3. Icons** — `tools/check-icons.py` prueft, dass jede Icon-Kennung in der
-Konfiguration eine Datei hat und umgekehrt.
+**3. Icons** — `tools/check-icons.py` checks that every icon key in the configuration
+has a file and vice versa.
 
-**4. Konfigurations-Server** — `tools/test-web-api.py` startet den Server mit einem
-Stub-Katalog und einer temporaeren Konfiguration und prueft jeden Endpunkt:
-`/api/health`, `/api/config` (GET/PUT/POST mit 403/409/415), `/api/schema`,
-`/api/wall/<id>`, `/api/apps`, `/api/diag`, Home-Assistant-Bruecke, Backup,
-`/api/tv/key` mit Langdruck. Erwartung: 33/33.
+**4. Configuration server** — `tools/test-web-api.py` starts the server with a stub
+catalogue and a temporary configuration and checks every endpoint: `/api/health`,
+`/api/config` (GET/PUT/POST with 403/409/415), `/api/schema`, `/api/wall/<id>`,
+`/api/apps`, `/api/diag`, the Home Assistant bridge, backup, `/api/tv/key` with a long
+press. Expectation: 33/33.
 
-## Oberflaeche
+## Interface
 
-**Tasten** — `tools/test-ui-keys.js` laedt die Startseite in Chrome, ersetzt die
-Geraeteanbindung durch eine Attrappe und schickt echte Tastendruecke ueber
-`Input.dispatchKeyEvent`. Deckt Navigation, Kontextmenue, Umbenennen, Sprachwahl,
-Uhrformat, Einstellungsseiten und die Geometrie ab. Erwartung: 26/26.
+**Keys** — `tools/test-ui-keys.js` loads the home screen in Chrome, replaces the device
+layer with a stub and sends real key presses through `Input.dispatchKeyEvent`. Covers
+navigation, context menu, rename, language, clock format, settings pages and geometry.
+Expectation: 26/26.
 
-**Live-Uebernahme** — `tools/test-live-apply.js` ist die Antwort auf die Fehler vom
-25.10.2026: Kachelname und Icon blieben alt, weil der Aufbau-Schluessel sie nicht
-enthielt; das Wandbild wurde nur als Wert gesetzt, die Bilddatei blieb; die
-Schriftgroesse stand fest in Pixel. Der Test setzt eine feste Ausgangskonfiguration,
-aendert sie ueber die HTTP-Schnittstelle und misst das **sichtbare Ergebnis** im DOM:
+**Live apply** — `tools/test-live-apply.js` is the answer to the failures of
+2026-10-25: a tile name and icon stayed old because the rebuild key did not contain
+them; the wallpaper was set as a value only, the image file stayed; the text size was
+fixed in pixels. The test writes a fixed starting configuration, changes it over HTTP
+and measures the **visible result** in the DOM:
 
-- Kachelname in der Listenansicht
-- Icon-Wechsel in der Listenansicht
-- Wandbild: Dateiname des geladenen Bildes
-- Schriftgroesse 150 % → 132 px
-- Senioren-Modus bei 100 % → 110 px, aus → 88 px
-- Kachelname in der Leiste unten
-- Lade-Rad in der Web-Oberflaeche: laeuft und hoert wieder auf
+- tile name in the list view
+- icon change in the list view
+- wallpaper: file name of the loaded image
+- text size 150 % → 132 px
+- senior mode at 100 % → 110 px, off → 88 px
+- tile name in the bottom dock
+- spinner in the web interface: runs, then stops
 
-Erwartung: 9/9.
+Expectation: 9/9.
 
-## Zwei Regeln, die aus Fehlern entstanden sind
+## Two rules, both learned from failures
 
-**Gemessen wird das sichtbare Ergebnis, nicht der Zustand.** Der Revisionszaehler
-war schon hochgezaehlt, waehrend die Anzeige noch alt war — der Fehler blieb
-deshalb unbemerkt. Jede Pruefung wartet auf das DOM (bis 12 s).
+**Measure the visible result, not the state.** The revision counter was already
+incremented while the screen still showed the old content — that is why the bug went
+unnoticed. Every check waits for the DOM (up to 12 s).
 
-**Ein Test ohne Ausgabe ist kein bestandener Test.** `check-all.sh` wertet eine
-Pruefung nur als bestanden, wenn sie mit 0 endet **und** ihre Zusammenfassung
-ausgibt. Am 25.10.2026 fehlte im neuen Test der Aufruf der Hauptfunktion: das
-Skript endete mit 0 und ohne eine einzige Pruefung — der Lauf war gruen und
-wertlos.
+**A check without output is not a passed check.** `check-all.sh` counts a check as
+passed only when it exits 0 **and** prints a machine-readable line:
 
-## Was hier nicht geprueft wird
+```
+RESULT <passed>/<total>
+```
 
-- **Das Geraet.** Installation, Start, echter Bildschirm, Langdruck-Schwelle,
-  Kontextmenue per Fernbedienung, Bildschirmschoner: dafuer gibt es
-  `tools/install-launcher.sh` und die Sichtpruefung am Fernseher.
-- **Glasshouse.** Wird im Test durch eine Attrappe ersetzt; die echte App-Liste
-  kommt nur auf dem Geraet.
+Both numbers must match. A human summary alone is not enough: a run that printed
+`0/9 passed` would have counted as green, and on 2026-10-25 the new test was missing the
+call to its main function — the script exited 0 without a single check, and the run was
+green and worthless. The guard is proven: `RESULT 8/9`, a missing `RESULT` line and
+exit code 1 each turn the layer red.
 
-## Continuous Integration
+## What is not checked here
 
-`.github/workflows/checks.yml` faehrt `tools/check-all.sh` bei jedem Push und
-jedem Pull Request auf `ubuntu-24.04` mit node 20 und einem aktuellen Chrome.
+- **The device.** Installation, start, the real screen, the long-press threshold, the
+  context menu from the remote, the screensaver: that is `tools/install.sh` plus looking
+  at the TV.
+- **Glasshouse.** Replaced by a stub in the tests; the real app list only exists on the
+  device.
+
+## Continuous integration
+
+`.github/workflows/checks.yml` runs `tools/check-all.sh` on every push and every pull
+request on `ubuntu-24.04` with node 20 and a current Chrome.

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Baut ein weitergebbares Quellpaket der webOS-Portierung.
+# Builds a shareable source package of the webOS port.
 #
-#   ./release/build-public.sh            -> dist/cleanframe-webos-<version>/
+#   ./tools/build-public.sh              -> dist/cleanframe-webos-<version>/
 #                                          dist/cleanframe-webos-<version>.tar.gz
 #
-# Enthalten: App-Quellen (index.html, style.css, main.js, device.js, assets/),
-# appinfo.json, LICENSE, THIRD_PARTY_NOTICES.md, README.md und die Quellenlisten
-# der Fotos und Icons. Nicht enthalten: gebaute IPKs, Prüfsummen-Zwischendateien.
+# Included: app sources (index.html, style.css, main.js, device.js, assets/),
+# appinfo.json, LICENSE, THIRD_PARTY_NOTICES.md, README.md and the source lists
+# of the photos and icons. Not included: built IPKs, checksum scratch files.
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,26 +20,26 @@ STAGE="$OUT/$NAME"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
-# App-Quellen
+# App sources
 cp -a "$APP"/. "$STAGE"/
 rm -f "$STAGE"/.packageinfo.json
 
-# Lizenz- und Herkunftsunterlagen
+# License and provenance documents
 cp "$REL/LICENSE" "$STAGE/LICENSE"
 cp "$REL/README.md" "$STAGE/README.md"
 cp "$REL/THIRD_PARTY_NOTICES.md" "$STAGE/THIRD_PARTY_NOTICES.md"
 cp "$REL/wallpaper-SOURCES.json" "$STAGE/wallpaper-SOURCES.json"
 cp "$REL/icon-SOURCES.json" "$STAGE/icon-SOURCES.json" 2>/dev/null || true
 
-# Kurzcheck: Lizenzdateien der Assets müssen mit
+# Quick check: the license files of the assets must be included
 for f in assets/manrope-OFL.txt assets/icons/SIMPLE-ICONS-LICENSE.txt \
          assets/icons/CUSTOM-BRAND-ICONS-LICENSE.txt; do
-  [ -e "$STAGE/$f" ] || { echo "FEHLT: $f" >&2; exit 1; }
+  [ -e "$STAGE/$f" ] || { echo "MISSING: $f" >&2; exit 1; }
 done
 
 tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "$NAME"
 
-echo "Quellpaket: $OUT/$NAME.tar.gz"
-echo "Dateien:    $(find "$STAGE" -type f | wc -l)"
-echo "Groesse:    $(du -sh "$STAGE" | cut -f1) entpackt, $(du -h "$OUT/$NAME.tar.gz" | cut -f1) gepackt"
+echo "Source package: $OUT/$NAME.tar.gz"
+echo "Files:      $(find "$STAGE" -type f | wc -l)"
+echo "Size:       $(du -sh "$STAGE" | cut -f1) unpacked, $(du -h "$OUT/$NAME.tar.gz" | cut -f1) packed"
 echo "SHA256:     $(sha256sum "$OUT/$NAME.tar.gz" | cut -d' ' -f1)"

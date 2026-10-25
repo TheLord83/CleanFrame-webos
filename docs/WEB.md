@@ -12,7 +12,8 @@ from `assets/`, optional token, and local requests always allowed.
 ## Install
 
 ```sh
-./tools/install-web.sh 192.168.1.50
+./tools/install.sh 192.168.1.50          # launcher and hub, with verification
+./tools/install-web.sh 192.168.1.50      # hub only
 ```
 
 That copies the server to `/var/lib/cleanframe/`, installs the boot hook
@@ -138,28 +139,32 @@ assert the interface without screenshots:
 chrome --headless=new --virtual-time-budget=8000 --dump-dom "http://127.0.0.1:8484/?selftest=ui"
 ```
 
-## Fernseher aus der Oberflaeche bedienen
+## Driving the TV from the interface
 
-Die Seitenleiste rechts zeigt dauerhaft das Bild des laufenden Launchers und eine
-Fernbedienung. Beides laeuft ueber zwei Endpunkte des Servers:
+The sidebar on the right always shows a picture of the running launcher and a remote
+control. Both use two endpoints of the server:
 
-- `GET /api/tv/snapshot?format=jpeg&quality=65` — Bild als JPEG/PNG (`format=png`),
-  direkt als Bilddaten, nicht als JSON.
-- `GET /api/tv/keys` — erlaubte Tastennamen.
-- `POST /api/tv/key` mit `{"keys": ["down", "ok"]}` — bis zu 12 Tasten.
+- `GET /api/tv/snapshot?format=jpeg&quality=65` — picture as JPEG (or PNG with
+  `format=png`), returned as image data, not JSON.
+- `GET /api/tv/keys` — allowed key names.
+- `POST /api/tv/key` with `{"keys": ["down", "ok"]}` — up to 12 keys, optionally
+  `holdMs` for a long press.
 
-Technischer Weg: Der Launcher ist eine Chromium-Web-App, deren DevTools-Konsole
-auf `127.0.0.1:9998` lauscht. Nach aussen ist der Port per iptables gesperrt
-(`INPUT ! -i lo --dport 9998 -j DROP`), ueber die Loopback-Schnittstelle bleibt er
-erreichbar — dort laeuft der Server. Er spricht CDP direkt (eigener kleiner
-WebSocket-Client, kein Paket noetig):
+How it works: the launcher is a Chromium web app whose DevTools console listens on
+`127.0.0.1:9998`. To the outside the port is blocked with iptables
+(`INPUT ! -i lo --dport 9998 -j DROP`); on loopback it stays reachable, and that is
+where the server runs. The server speaks CDP directly (its own small WebSocket client,
+no package needed):
 
-- Bild: `Page.captureScreenshot`
-- Tasten: `Input.dispatchKeyEvent` (rawKeyDown + keyUp)
+- picture: `Page.captureScreenshot`
+- keys: `Input.dispatchKeyEvent` (rawKeyDown + keyUp)
 
-Wichtig fuer node 8 auf dem Fernseher: kein `readBigUInt64BE` (64-Bit-Längen von
-Hand), und die DevTools-Konsole haelt HTTP-Verbindungen offen — die Antwort muss
-ueber `Content-Length` ausgewertet werden, nicht ueber das Verbindungsende.
+Two things to keep in mind for node 8 on the TV: no `readBigUInt64BE` (the 64-bit
+lengths are assembled by hand), and the DevTools console keeps HTTP connections open —
+so the answer has to be read via `Content-Length`, not via the connection ending.
 
-Ist die App am Fernseher zu, antwortet der Endpunkt mit 503 und einer Klartext-
-Meldung; die Oberflaeche zeigt dann "Kein Bild".
+If the app is closed on the TV, the endpoint answers 503 with a plain-text message and
+the interface shows "no picture". Starting it again:
+`curl -X POST http://<tv-ip>:8080/api/control -d '{"action":"launchApp","value":"com.blackpearl.cleanframe"}'`
+— or simply run `tools/install.sh <tv-ip>`, which starts the app and waits for the
+picture as part of its verification.

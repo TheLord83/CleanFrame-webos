@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""build-ipk.py — baut aus einem webOS-App-Verzeichnis ein installierbares IPK.
+"""build-ipk.py — builds an installable IPK from a webOS app directory.
 
-Struktur wie bei den Homebrew-Paketen (am Lumen-Release verifiziert):
-  ar-Archiv: debian-binary, control.tar.gz, data.tar.gz
-  data:      usr/palm/applications/<id>/**  +  usr/palm/packages/<id>/packageinfo.json
-  control:   Package, Version, Architecture, Description, webOS-Package-Format-Version 2
+Structure as with the Homebrew packages (verified on the Lumen release):
+  ar archive: debian-binary, control.tar.gz, data.tar.gz
+  data:       usr/palm/applications/<id>/**  +  usr/palm/packages/<id>/packageinfo.json
+  control:    Package, Version, Architecture, Description, webOS-Package-Format-Version 2
 
-Aufruf: python3 build-ipk.py <app-verzeichnis> [ziel.ipk]
+Usage: python3 build-ipk.py <app-directory> [target.ipk]
 """
 import gzip
 import hashlib
@@ -41,7 +41,7 @@ def add_dir(tar, arcname, mtime):
 
 
 def tar_gz(entries, mtime):
-    """entries: Liste von (arcname, localpath-or-None)."""
+    """entries: list of (arcname, localpath-or-None)."""
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w", format=tarfile.GNU_FORMAT) as tar:
         added_dirs = set()
@@ -66,7 +66,7 @@ def tar_gz(entries, mtime):
 
 def ar_member(name, payload, mtime):
     if len(name) > 16:
-        raise ValueError("ar-Membername zu lang: " + name)
+        raise ValueError("ar member name too long: " + name)
     header = "%-16s%-12d%-6d%-6d%-8s%-10d`\n" % (name, mtime, 0, 0, "100644", len(payload))
     body = payload + (b"\n" if len(payload) % 2 else b"")
     return header.encode() + body
@@ -134,7 +134,7 @@ def main():
 
     print("IPK:    %s" % target)
     print("App-ID: %s  Version: %s" % (appid, version))
-    print("Groesse: %d Byte" % len(blob))
+    print("Size:   %d bytes" % len(blob))
     print("SHA256: %s" % hashlib.sha256(blob).hexdigest())
 
 

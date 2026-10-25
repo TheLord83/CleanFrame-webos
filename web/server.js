@@ -1,30 +1,30 @@
 /*
- * CleanFrame Config-Server.
+ * CleanFrame config server.
  *
- * Laeuft auf dem Fernseher (webOS, node) und liefert die Web-Oberflaeche zur
- * Konfiguration des Launchers. Aufbau bewusst wie Glasshouse (tvweb.js):
- * ein Prozess, keine Abhaengigkeiten ausser node-Bordmitteln, Routen unter
- * /api/*, statische Dateien aus assets/, Token optional.
+ * Runs on the TV (webOS, node) and serves the web interface for configuring the
+ * launcher. Structure deliberately like Glasshouse (tvweb.js): one process, no
+ * dependencies beyond node's standard library, routes under /api/*, static
+ * files from assets/, token optional.
  *
- * API (alles JSON, alles ohne Anmeldung von 127.0.0.1 aus):
- *   GET  /api/health              Version, Laufzeit, Konfigurationspfad
- *   GET  /api/config              aktuelle Konfiguration (Token redigiert)
- *   PUT  /api/config              Konfiguration speichern (vollstaendig)
- *   GET  /api/apps                App-Katalog (Glasshouse + System-Apps)
- *   GET  /api/diag                Voraussetzungen pruefen
- *   POST /api/ha/check            Home-Assistant-URL und Token pruefen
- *   GET  /api/backup              Konfiguration als Download
- *   POST /api/backup              Konfiguration importieren
- *   GET  /api/selftest            interne Pruefungen (fuer Tests ohne Fernseher)
- *   POST /api/system/restart      Dienst neu starten (nur mit root)
- *   GET  /api/schema              alle Auswahlmoeglichkeiten (Wandbilder, Schriften, ...)
- *   GET  /api/wall/<id>           Vorschaubild eines Wandbildes
- *   GET  /api/tv/snapshot         Bildschirmfoto des Launchers (PNG, base64)
- *   GET  /api/tv/keys             erlaubte Tastennamen
- *   POST /api/tv/key              Tastendruecke senden {keys: ["down","ok"]}
+ * API (all JSON, all without login from 127.0.0.1):
+ *   GET  /api/health              version, uptime, config path
+ *   GET  /api/config              current configuration (token redacted)
+ *   PUT  /api/config              save configuration (complete)
+ *   GET  /api/apps                app catalog (Glasshouse + system apps)
+ *   GET  /api/diag                check the prerequisites
+ *   POST /api/ha/check            check Home Assistant URL and token
+ *   GET  /api/backup              configuration as download
+ *   POST /api/backup              import configuration
+ *   GET  /api/selftest            internal checks (for tests without a TV)
+ *   POST /api/system/restart      restart the service (root only)
+ *   GET  /api/schema              all selectable options (wallpapers, fonts, ...)
+ *   GET  /api/wall/<id>           preview image of a wallpaper
+ *   GET  /api/tv/snapshot         screenshot of the launcher (PNG, base64)
+ *   GET  /api/tv/keys             allowed key names
+ *   POST /api/tv/key              send key presses {keys: ["down","ok"]}
  *
- * Auth wie bei Glasshouse: ohne konfiguriertes Token ist alles erlaubt,
- * Anfragen von 127.0.0.1 sind immer erlaubt (dort laeuft der Launcher).
+ * Auth as with Glasshouse: without a configured token everything is allowed,
+ * requests from 127.0.0.1 are always allowed (the launcher runs there).
  */
 'use strict';
 
@@ -45,9 +45,9 @@ var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
 var TV_BASE = process.env.CF_GLASSHOUSE || 'http://127.0.0.1:8080';
-/* Icons liegen beim Launcher (eine Quelle fuer Fernseher und Web-Oberflaeche).
- * Der Pfad zeigt auf das installierte App-Verzeichnis; fehlt es (Testbetrieb),
- * wird der mitgelieferte Katalog benutzt. */
+/* The icons live with the launcher (one source for TV and web interface).
+ * The path points at the installed app directory; if it is missing (test
+ * operation), the bundled catalog is used. */
 var ICON_JSON = process.env.CF_ICONS_JSON ||
   '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons.json';
 var ICON_DIR = process.env.CF_ICONS_DIR ||
@@ -82,9 +82,9 @@ function json(res, code, obj) {
   send(res, code, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
 }
 
-/* Die Datei-App meldet je nach Plattform `Origin: null` (Chromium am Rechner)
- * oder `Origin: file://<app-id>` (webOS am Fernseher). Beides ist dieselbe
- * Herkunft: eine lokale Datei, kein fremder Server. */
+/* Depending on the platform the file app reports `Origin: null` (Chromium on a
+ * desktop machine) or `Origin: file://<app-id>` (webOS on the TV). Both are the
+ * same origin: a local file, not some foreign server. */
 function isFileOrigin(origin) {
   return origin === 'null' || /^file:\/\//i.test(String(origin || ''));
 }
@@ -94,8 +94,8 @@ function fromTV(req) {
   return ra === '127.0.0.1' || ra === '::1' || ra === '::ffff:127.0.0.1';
 }
 
-/* Vergleich ohne Rueckschluss auf die Tokenlaenge (kein timingSafeEqual in
- * alten node-Versionen auf dem Fernseher). */
+/* Comparison that does not leak the token length (no timingSafeEqual in old
+ * node versions on the TV). */
 function tokenMatches(given) {
   if (!token) return false;
   if (typeof given !== 'string') return false;
@@ -112,40 +112,40 @@ function authed(q, req) {
   return !!(q && q.k && tokenMatches(q.k));
 }
 
-/* CSRF: eine POST mit "einfachem" Content-Type wird vom Browser ohne Preflight
- * zugestellt. Deshalb nur application/json erlauben und fremde Origins
- * ablehnen — dieselbe Ueberlegung wie Glasshouses postGuard. */
+/* CSRF: a POST with a "simple" content type is delivered by the browser without
+ * a preflight. Hence only application/json is allowed and foreign origins are
+ * rejected — the same reasoning as Glasshouse's postGuard. */
 function postGuard(req, res) {
   var origin = req.headers.origin;
   var ctype = String(req.headers['content-type'] || '').toLowerCase();
-  /* Schreibversuche protokollieren (ohne Geheimnisse): hilft, wenn am Fernseher
-   * ein Schreibvorgang scheitert und man die Herkunft sehen muss. */
+  /* Log write attempts (without secrets): helps when a write fails on the TV
+   * and you need to see where it came from. */
   console.log('[write] ' + req.method + ' ' + req.url + ' origin=' + String(origin) +
-              ' ctype=' + ctype.split(';')[0] + ' von=' + ((req.connection && req.connection.remoteAddress) || '?'));
-  /* Reihenfolge: erst die Herkunft, dann der Inhaltstyp. So bekommt eine fremde
-   * Seite immer 403 (auch mit falschem Content-Type) und der Fall bleibt klar.
+              ' ctype=' + ctype.split(';')[0] + ' from=' + ((req.connection && req.connection.remoteAddress) || '?'));
+  /* Order: origin first, then content type. That way a foreign page always gets
+   * 403 (even with a wrong content type) and the case stays clear.
    *
-   * `Origin: null` ist die Datei-App auf dem Fernseher selbst; dort herrscht
-   * ohnehin root. Jede andere Origin wird auch dann geprueft, wenn die Anfrage
-   * von 127.0.0.1 kommt — sonst koennte eine Seite im LAN-Browser den Schutz
-   * umgehen, indem sie ueber einen lokalen Umweg sendet. */
+   * `Origin: null` is the file app on the TV itself; root rules there anyway.
+   * Every other origin is checked even when the request comes from 127.0.0.1 —
+   * otherwise a page in a LAN browser could bypass the protection by sending
+   * via a local detour. */
   if (isFileOrigin(origin)) {
     if (!fromTV(req)) {
-      console.log('[write-result] 403 Datei-Origin ohne TV');
+      console.log('[write-result] 403 file origin without TV');
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }
   } else if (origin) {
     var o = url.parse(origin);
     if (!o || !o.host || o.host !== req.headers.host) {
-      console.log('[write-result] 403 Herkunft ' + o.host + ' != Host ' + req.headers.host);
+      console.log('[write-result] 403 origin ' + o.host + ' != host ' + req.headers.host);
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }
   }
-  /* JSON ist der Normalfall. `text/plain` nur fuer die Fernseher-App: ein POST
-   * mit application/json loest unter Chromium 79 einen CORS-Preflight aus, den
-   * `Origin: null` dort nicht besteht — die Anfrage kaeme nie an. */
+  /* JSON is the normal case. `text/plain` only for the TV app: a POST with
+   * application/json triggers a CORS preflight under Chromium 79 that
+   * `Origin: null` does not pass there — the request would never arrive. */
   var isJson = ctype.indexOf('application/json') === 0;
   var appPlain = ctype.indexOf('text/plain') === 0 && fromTV(req) && isFileOrigin(origin);
   if (!isJson && !appPlain) {
@@ -155,21 +155,14 @@ function postGuard(req, res) {
   return true;
 }
 
-/* Der Launcher laeuft aus file:// unter Chromium 79. Ein PUT oder ein
- * application/json-POST loest dort einen CORS-Preflight aus, den die alte
- * Chromium-Version fuer `Origin: null` nicht zuverlaessig besteht — die Anfrage
- * kommt dann nie beim Server an (xhr.status 0). Deshalb darf die Fernseher-App
- * einen POST mit `text/plain` schicken (einfache Anfrage, kein Preflight); der
- * Server nimmt das nur von 127.0.0.1 mit `Origin: null` an. Alles andere muss
- * weiterhin application/json sein. */
-/* Der Launcher laeuft aus file:// unter Chromium 79. Ein PUT oder ein POST mit
- * application/json loest dort einen CORS-Preflight aus, den diese Chromium-Version
- * fuer `Origin: null` nicht besteht — die Anfrage kommt dann nie an (xhr.status 0).
- * Deshalb darf die Fernseher-App einen POST mit `text/plain` schicken (einfache
- * Anfrage, kein Preflight). Der Server nimmt das nur von 127.0.0.1 mit
- * `Origin: null` an; alles andere muss application/json sein.
+/* The launcher runs from file:// under Chromium 79. A PUT or a POST with
+ * application/json triggers a CORS preflight there that this Chromium version
+ * does not pass for `Origin: null` — the request then never arrives
+ * (xhr.status 0). That is why the TV app may send a POST with `text/plain`
+ * (simple request, no preflight). The server accepts that only from 127.0.0.1
+ * with `Origin: null`; everything else must be application/json.
  *
- * Rueckgabe wie bisher: cb(body, fehlertext) — fehlertext ist '' bei Erfolg. */
+ * Return value as before: cb(body, errText) — errText is '' on success. */
 function readBody(req, cb) {
   var type = String(req.headers['content-type'] || '').toLowerCase();
   var isJson = type.indexOf('application/json') === 0;
@@ -208,12 +201,12 @@ function stubApps() {
 function handle(req, res) {
   var u = url.parse(req.url, true);
 
-  /* Die Launcher-App laeuft aus file:// und damit mit `Origin: null`; jede
-   * Anfrage von 127.0.0.1 kommt vom Fernseher selbst (dort herrscht ohnehin
-   * root). Fuer diesen Fall CORS erlauben, fuer alle anderen nicht. */
+  /* The launcher app runs from file:// and therefore with `Origin: null`; every
+   * request from 127.0.0.1 comes from the TV itself (root rules there anyway).
+   * Allow CORS for this case, not for any other. */
   if (fromTV(req) && isFileOrigin(req.headers.origin)) {
-    /* Die Herkunft muss zurueckgespiegelt werden, sonst darf der Browser die
-     * Antwort nicht lesen ("file://<app-id>" ist nicht "null"). */
+    /* The origin has to be echoed back, otherwise the browser may not read the
+     * response ("file://<app-id>" is not "null"). */
     res.setHeader('Access-Control-Allow-Origin', String(req.headers.origin));
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -248,8 +241,8 @@ function handle(req, res) {
     if (!postGuard(req, res)) return;
     return readBody(req, function (body, err) {
       if (err) return json(res, 400, { ok: false, error: err });
-      /* Ein leeres Token im Request bedeutet "unveraendert lassen", damit die
-       * Oberflaeche das Geheimnis nie im Klartext zurueckschicken muss. */
+      /* An empty token in the request means "leave unchanged", so the interface
+       * never has to send the secret back in plain text. */
       var current = store.read();
       var incoming = body && body.config ? body.config : body;
       if (incoming && incoming.integrations) {
@@ -262,13 +255,13 @@ function handle(req, res) {
       try { saved = store.write(incoming); } catch (e) {
         console.log('[write-result] 500 ' + e.message);
         if (e.code === 'CONFLICT') {
-          /* Aelterer Stand: nicht ueberschreiben, neuesten Stand zurueckgeben. */
-          console.log('[write-result] 409 veraltet (kam rev ' + (incoming && incoming.rev) + ', aktuell ' + (store.read().rev) + ')');
+          /* Older revision: do not overwrite, return the newest revision. */
+          console.log('[write-result] 409 stale (got rev ' + (incoming && incoming.rev) + ', current ' + (store.read().rev) + ')');
           return json(res, 409, { ok: false, error: 'Konfiguration wurde zwischenzeitlich geaendert', config: config.redact(store.read()) });
         }
         return json(res, 500, { ok: false, error: 'Speichern fehlgeschlagen: ' + e.message });
       }
-      console.log('[write-result] 200 rev=' + saved.rev + ' kacheln=' + (saved.home || []).length);
+      console.log('[write-result] 200 rev=' + saved.rev + ' tiles=' + (saved.home || []).length);
       json(res, 200, { ok: true, config: config.redact(saved), updatedAt: saved.updatedAt });
     });
   }
@@ -301,7 +294,7 @@ function handle(req, res) {
     var file = schema.wallFile(wallId);
     if (!file) return json(res, 404, { ok: false, error: 'unbekanntes Wandbild' });
     var wallPath = path.join(WALL_DIR, file);
-    /* Nur Dateien aus dem Katalog, kein Pfad-Bau aus der Anfrage. */
+    /* Only files from the catalog, no path built from the request. */
     if (wallPath.indexOf(WALL_DIR) !== 0) return json(res, 400, { ok: false, error: 'ungueltiger Pfad' });
     return fs.readFile(wallPath, function (err, buf) {
       if (err) return json(res, 404, { ok: false, error: 'Wandbild nicht gefunden' });
@@ -377,7 +370,7 @@ function handle(req, res) {
         return json(res, 400, { ok: false, error: 'keine CleanFrame-Sicherung' });
       }
       var saved;
-      /* Eine Sicherung wird bewusst immer eingespielt (kein Revisionsvergleich). */
+      /* A backup is deliberately always imported (no revision comparison). */
       delete payload.rev;
       try { saved = store.write(payload); } catch (e) {
         return json(res, 500, { ok: false, error: e.message });
@@ -422,9 +415,9 @@ function handle(req, res) {
     return json(res, 200, { ok: allOk, version: VERSION, checks: checks });
   }
 
-  /* Fernsteuerung: Bildschirmfoto und Tastendruecke. Nur vom Fernseher selbst
-   * und aus dem LAN mit Token — der Zugriff oeffnet einen SSH-Tunnel zum
-   * DevTools-Port (9998), der sonst gesperrt ist. */
+  /* Remote control: screenshot and key presses. Only from the TV itself and
+   * from the LAN with a token — the access opens an SSH tunnel to the DevTools
+   * port (9998), which is otherwise blocked. */
   if (req.method === 'GET' && p === '/api/tv/snapshot') {
     var qSnap = url.parse(req.url, true).query || {};
     return remote.snapshot({ format: qSnap.format || 'jpeg', quality: qSnap.quality || 65 }, function (err, b64, mime) {
@@ -442,8 +435,8 @@ function handle(req, res) {
       if (err) return json(res, 400, { ok: false, error: err });
       var keys = (body && body.keys) || (body && body.key ? [body.key] : []);
       if (!Array.isArray(keys) || keys.length > 12) return json(res, 400, { ok: false, error: 'keys muss eine Liste mit hoechstens 12 Tasten sein' });
-      /* Unbekannte Tastennamen sofort abweisen — sonst oeffnet der Server
-       * unnoetig eine Verbindung zum Geraet und meldet 503 statt 400. */
+      /* Reject unknown key names right away — otherwise the server needlessly
+       * opens a connection to the device and answers 503 instead of 400. */
       var known = keys.filter(function (k) { return remote.KEYS[k] !== undefined || /^[0-9]+$/.test(String(k)); });
       if (!known.length) return json(res, 400, { ok: false, error: 'unbekannte Tasten: ' + keys.join(', ') });
       remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
@@ -453,8 +446,8 @@ function handle(req, res) {
     });
   }
 
-  /* Ansicht am Fernseher setzen ("Am Fernseher zeigen" je Reiter). Nur eine
-   * feste Liste - kein freies Auswerten von Ausdruecken ueber die API. */
+  /* Set the view on the TV ("Show on TV" per tab). Only a fixed list — no free
+   * evaluation of expressions over the API. */
   if (req.method === 'GET' && p === '/api/tv/views') {
     return json(res, 200, { ok: true, views: Object.keys(remote.VIEWS) });
   }
@@ -483,8 +476,8 @@ function handle(req, res) {
   json(res, 405, { ok: false, error: 'Methode nicht erlaubt' });
 }
 
-/* Ein Fehler in einer Route darf den Dienst auf dem Fernseher nicht beenden:
- * der Server hat keinen Aufsichtspfad wie ein Supervisor, er muss weiterlaufen. */
+/* An error in a route must not take down the service on the TV: the server has
+ * no supervision path like a supervisor, it has to keep running. */
 var server = http.createServer(function (req, res) {
   try {
     handle(req, res);
@@ -498,7 +491,7 @@ var server = http.createServer(function (req, res) {
 });
 
 server.listen(PORT, '0.0.0.0', function () {
-  console.log('cleanframe-web ' + VERSION + ' auf Port ' + PORT + ', Konfiguration: ' + CONFIG_PATH);
+  console.log('cleanframe-web ' + VERSION + ' on port ' + PORT + ', configuration: ' + CONFIG_PATH);
 });
 
 process.on('SIGTERM', function () { server.close(function () { process.exit(0); }); });

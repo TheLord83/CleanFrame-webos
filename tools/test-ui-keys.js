@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 /*
- * Treibt die Launcher-Oberflaeche ohne Fernseher und ohne Screenshot.
+ * Drives the launcher interface without a TV and without a screenshot.
  *
- * Laedt index.html in einem kopflosen Chrome (Debug-Port per --port), ersetzt die
- * Geraeteanbindung durch eine Attrappe, setzt den Fokus auf die Buehne und schickt
- * echte Tastendruecke ueber Input.dispatchKeyEvent — denselben Weg wie die
- * Fernbedienung.
+ * Loads index.html in a headless Chrome (debug port via --port), replaces the
+ * device binding with a stub, puts focus on the stage and sends real key presses
+ * via Input.dispatchKeyEvent — the same path as the remote control.
  *
- * Der Fokus ist der entscheidende Punkt: die App hoert auf document, aber nur
- * wenn der Fokus nicht in einem Eingabefeld steht. Ohne window.focus() bleibt
- * das headless-Fenster unfokussiert und der keydown erreicht die Buehne nicht —
- * genau das war die Ursache fuer "Pfeil runter tut im Kontextmenue nichts".
+ * Focus is the decisive point: the app listens on document, but only while focus
+ * is not inside an input field. Without window.focus() the headless window stays
+ * unfocused and the keydown never reaches the stage — that was exactly the cause
+ * of "arrow down does nothing in the context menu".
  *
- * Start des Browsers (einmal):
+ * Starting the browser (once):
  *   chrome --headless=new --no-sandbox --remote-debugging-port=9333 \
  *          --allow-file-access-from-files about:blank
  *
- * Aufruf: node tools/test-ui-keys.js [--port 9333] [--debug]
+ * Usage: node tools/test-ui-keys.js [--port 9333] [--debug]
  */
 'use strict';
 
@@ -33,7 +32,7 @@ function arg(name, fallback) {
 
 var PORT = parseInt(arg('port', '9333'), 10);
 var DEBUG = process.argv.indexOf('--debug') > 0;
-/* Die Startseite liegt je nach Arbeitsverzeichnis im Wurzelordner oder unter app/. */
+/* Depending on the working directory the home screen sits in the root folder or under app/. */
 function appPath() {
   var root = path.resolve(__dirname, '..', 'index.html');
   var alt = path.resolve(__dirname, '..', 'app', 'index.html');
@@ -42,9 +41,9 @@ function appPath() {
   return root;
 }
 var APP = 'file://' + appPath();
-/* Mit --config <url> wird eine echte Konfiguration geladen (z. B. ein lokal
- * laufender Server). Ohne die Option laeuft die Pruefung mit Attrappe und ohne
- * Konfiguration; dann sind Meldungen englisch (Schluessel = Text). */
+/* With --config <url> a real configuration is loaded (e.g. a locally running
+ * server). Without the option the check runs with a stub and without a
+ * configuration; then messages are English (key = text). */
 var CONFIG_URL = arg('config', '');
 var STUB_SERVER = CONFIG_URL ? CONFIG_URL.replace(/\/api\/config$/, '') : '';
 
@@ -56,7 +55,7 @@ function get(url, cb) {
   }).on('error', function (e) { cb(e); });
 }
 
-/* Minimaler WebSocket-Client (nur Textframes) ohne Abhaengigkeiten. */
+/* Minimal WebSocket client (text frames only) without dependencies. */
 function wsConnect(wsUrl, onMessage, onOpen) {
   var m = /^ws:\/\/([^/:]+):(\d+)(\/.*)$/.exec(wsUrl);
   var sock = net.connect({ host: m[1], port: parseInt(m[2], 10) });
@@ -106,7 +105,7 @@ function wsConnect(wsUrl, onMessage, onOpen) {
 
 function main() {
   get('http://127.0.0.1:' + PORT + '/json/list', function (err, body) {
-    if (err) { console.log('FAIL: kein Chrome auf Port ' + PORT); process.exit(1); }
+    if (err) { console.log('FAIL: no Chrome on port ' + PORT); process.exit(1); }
     var page = JSON.parse(body).filter(function (t) { return t.type === 'page'; })[0];
     if (!page) { console.log('FAIL: kein Page-Target'); process.exit(1); }
     run(page.webSocketDebuggerUrl);
@@ -156,9 +155,8 @@ function run(wsUrl) {
       }, function () { setTimeout(cb, 300); });
     });
   }
-  /* Der Fokus liegt entweder auf einem Listeneintrag oder auf einem Knopf im
-   * Sheet; beides wird getrennt gezaehlt, damit die Pruefung nicht von der
-   * DOM-Reihenfolge abhaengt. */
+  /* The focus is either on a list entry or on a button in the sheet; both are
+   * counted separately so the check does not depend on DOM order. */
   function focusInfo(cb) {
     evalJs('JSON.stringify({sheetFocus: Array.prototype.findIndex.call(document.querySelectorAll("#sheetView .is-focus"), function (e) { return e.getAttribute("data-z") === "ctx"; }), item: Array.prototype.findIndex.call(document.querySelectorAll("#sheetView .settings-group"), function (e) { return e.className.indexOf("is-focus") >= 0; }), buttons: Array.prototype.map.call(document.querySelectorAll("#sheetView .settings-group"), function (e) { return e.querySelector(".settings-group-name").textContent + (e.className.indexOf("is-focus") >= 0 ? " *" : ""); })})', function (raw) {
       var o = {};
@@ -169,7 +167,8 @@ function run(wsUrl) {
   function focusIndex(cb) { focusInfo(function (i) { cb(i); }); }
   function finish() {
     var failed = results.filter(function (r) { return !r.ok; });
-    console.log('\n' + (results.length - failed.length) + '/' + results.length + ' Tastenpruefungen bestanden');
+    console.log('\n' + (results.length - failed.length) + '/' + results.length + ' key tests passed');
+    console.log('RESULT ' + (results.length - failed.length) + '/' + results.length);
     try { ws.close(); } catch (e) {}
     process.exit(failed.length ? 1 : 0);
   }
@@ -200,14 +199,14 @@ function run(wsUrl) {
                 evalJs('(window.__kd = [], document.addEventListener("keydown", function (e) { window.__kd.push(e.keyCode); }, true), window.focus(), 1)', function () {
                   setTimeout(function () {
                     evalJs('typeof window.CleanFrameDebug', function (t) {
-                      check('App geladen (Debug-Schnittstelle vorhanden)', t === 'object', String(t));
+                      check('app loaded (debug interface present)', t === 'object', String(t));
                       dbg('nach Start');
                       evalJs('JSON.stringify(window.CleanFrameDebug.state().home)', function (homeJson) {
                         var home = [];
                         try { home = JSON.parse(homeJson); } catch (e) {}
-                        check('Startseite hat Apps', home.length > 0, home.length + ' Apps');
+                        check('home screen has apps', home.length > 0, home.length + ' Apps');
                         evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, probe: (window.CleanFrameI18n ? window.CleanFrameI18n.probe("Rename") : null), T: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Rename") : "-"), gespeichert: (function () { try { return JSON.parse(localStorage.getItem("cleanframe.home.v1") || "null") !== null; } catch (e) { return false; } })()})', function (info) {
-                          if (DEBUG) console.log('    sprache: ' + info);
+                          if (DEBUG) console.log('    language: ' + info);
                           ctxTests(home[0]);
                         });
                       });
@@ -226,14 +225,14 @@ function run(wsUrl) {
     evalJs('(window.CleanFrameDebug.openCtx(' + JSON.stringify(appId) + '), 1)', function () {
       setTimeout(function () {
         evalJs('window.CleanFrameDebug.state().view', function (v) {
-          check('Kontextmenue offen', v === 'ctx', String(v));
+          check('context menu open', v === 'ctx', String(v));
           evalJs('JSON.stringify(window.CleanFrameDebug.ctxActions())', function (labelsJson) {
             var labels = [];
             try { labels = JSON.parse(labelsJson); } catch (e) {}
-            check('Menue bietet Umbenennen an', labels.indexOf('Umbenennen') >= 0, labels.join(' / '));
-            check('Menue bleibt kurz (hoechstens 2 Eintraege)', labels.length <= 2, labels.length + ' Eintraege');
+            check('menu offers rename', labels.indexOf('Umbenennen') >= 0, labels.join(' / '));
+            check('menu stays short (at most 2 entries)', labels.length <= 2, labels.length + ' entries');
 
-            // Von oben nach unten durchgehen, dann zurueck
+            // Walk from top to bottom, then back
             var seen = [];
             key('up', function () {
               key('up', function () {
@@ -247,13 +246,13 @@ function run(wsUrl) {
             function afterDown() {
               var distinct = {};
               seen.forEach(function (x) { distinct[x] = 1; });
-              check('Pfeil unten erreicht alle Eintraege', Object.keys(distinct).length === labels.length,
+              check('arrow down reaches all entries', Object.keys(distinct).length === labels.length,
                     'Positionen: ' + seen.join(','));
-              check('letzter Eintrag erreichbar', Math.max.apply(null, seen) === labels.length - 1,
+              check('last entry reachable', Math.max.apply(null, seen) === labels.length - 1,
                     'hoechster Index ' + Math.max.apply(null, seen));
               key('up', function () {
                 focusInfo(function (i) {
-                  check('Pfeil oben bewegt zurueck', i === Math.max(0, labels.length - 2), 'index ' + i);
+                  check('arrow up moves back', i === Math.max(0, labels.length - 2), 'index ' + i);
                   (function up(n) {
                     if (n === 0) return afterUp();
                     key('up', function () { up(n - 1); });
@@ -263,11 +262,11 @@ function run(wsUrl) {
             }
             function afterUp() {
               focusInfo(function (i) {
-                check('Pfeil oben erreicht den ersten Eintrag', i === 0, 'index ' + i);
+                check('arrow up reaches the first entry', i === 0, 'index ' + i);
                 key('ok', function () {
                   setTimeout(function () {
                     evalJs('window.CleanFrameDebug.state().view', function (v2) {
-                      check('OK auf dem ersten Eintrag oeffnet den Dialog', v2 === 'rename', String(v2));
+                      check('OK on the first entry opens the dialog', v2 === 'rename', String(v2));
                       evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (before) {
                         send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
                           send('Input.dispatchKeyEvent', { type: 'char', key: 'X', code: 'KeyX', windowsVirtualKeyCode: 88, nativeVirtualKeyCode: 88, text: 'X', unmodifiedText: 'X' }, function () {
@@ -275,11 +274,11 @@ function run(wsUrl) {
                               evalJs('JSON.stringify(window.CleanFrameDebug.renameText())', function (after) {
                                 var a = {}, b = {};
                                 try { a = JSON.parse(before); b = JSON.parse(after); } catch (e) {}
-                                check('Tippen haengt ein Zeichen an', (b.text || '').length === (a.text || '').length + 1,
+                                check('typing appends one character', (b.text || '').length === (a.text || '').length + 1,
                                       a.text + ' -> ' + b.text);
                                 key('back', function () {
                                   evalJs('window.CleanFrameDebug.state().view', function (v3) {
-                                    check('Zurueck schliesst den Dialog', v3 === 'home', String(v3));
+                                    check('back closes the dialog', v3 === 'home', String(v3));
                                     backTest(appId);
                                   });
                                 });
@@ -299,7 +298,7 @@ function run(wsUrl) {
     });
   }
 
-  /* Lange OK auf einer Startseiten-Kachel (800 ms halten) -> Kontextmenue. */
+  /* Long OK on a home screen tile (hold 800 ms) -> context menu. */
   function longPressTest() {
     evalJs('(window.CleanFrameDebug.closeAll ? window.CleanFrameDebug.closeAll() : 1, 1)', function () {
       send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' }, function () {
@@ -307,7 +306,7 @@ function run(wsUrl) {
           send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 }, function () {
             setTimeout(function () {
               evalJs('window.CleanFrameDebug.state().view', function (v) {
-                check('Lange OK auf einer Kachel oeffnet das Menue', v === 'ctx', String(v));
+                check('long OK on a tile opens the menu', v === 'ctx', String(v));
                 key('back', function () { languageTest(); });
               });
             }, 400);
@@ -317,14 +316,14 @@ function run(wsUrl) {
     });
   }
 
-  /* Einstellungen -> "Uhr und Sprache": Seite da, Umschalten wirkt. */
+  /* Settings -> "Clock and language": page there, toggling has an effect. */
   function languageTest() {
     evalJs('JSON.stringify(window.CleanFrameDebug.settingsRows ? window.CleanFrameDebug.settingsRows() : null)', function (rowsRaw) {
       var rows = [];
       try { rows = JSON.parse(rowsRaw) || []; } catch (e) {}
       var ids = rows.map(function (r) { return r.id; });
-      check('Einstellungen bieten Uhr und Sprache', ids.indexOf('clocklang') >= 0, ids.join(','));
-      check('Einrichtung laesst sich erneut starten', ids.indexOf('setup') >= 0, ids.join(','));
+      check('settings offer clock and language', ids.indexOf('clocklang') >= 0, ids.join(','));
+      check('setup can be started again', ids.indexOf('setup') >= 0, ids.join(','));
       evalJs('(window.CleanFrameDebug.openSettings(), 1)', function () {
         (function measure(n) {
           setTimeout(function () {
@@ -335,8 +334,8 @@ function run(wsUrl) {
                 evalJs('(window.CleanFrameDebug.closeAll(), window.CleanFrameDebug.openSettings(), 1)', function () { measure(n - 1); });
                 return;
               }
-              check('Einstellungsliste ueberdeckt den Bedienhinweis nicht', o.ueberlappt === false,
-                    'letzte Zeile unten ' + o.letzteUnten + ', Hinweis oben ' + o.hinweisOben + ', Zeilen ' + o.zeilen);
+              check('settings list does not cover the control hint', o.ueberlappt === false,
+                    'last row bottom ' + o.letzteUnten + ', hint top ' + o.hinweisOben + ', rows ' + o.zeilen);
             });
           }, 600);
         }(3));
@@ -347,24 +346,24 @@ function run(wsUrl) {
           evalJs('JSON.stringify(window.CleanFrameDebug.state())', function (r) {
             var st = {};
             try { st = JSON.parse(r); } catch (e) {}
-            check('Seite fuer Uhr und Sprache oeffnet', st.view === 'appearance' && st.group === 'clocklang', String(r).slice(0, 90));
+            check('clock and language page opens', st.view === 'appearance' && st.group === 'clocklang', String(r).slice(0, 90));
             evalJs('JSON.stringify({detailSichtbar: !(document.getElementById("appearance")||{}).hidden, listenInhalt: (document.getElementById("sheetView")||{innerHTML:""}).innerHTML.trim().length, titel: (document.getElementById("appearanceTitle")||{}).textContent})', function (d) {
               var o = {};
               try { o = JSON.parse(d); } catch (e) {}
-              check('Detailseite ist sichtbar, Liste geleert', o.detailSichtbar === true && o.listenInhalt === 0, d);
+              check('detail page is visible, list cleared', o.detailSichtbar === true && o.listenInhalt === 0, d);
             });
             evalJs('JSON.stringify({langs: window.CleanFrameDebug.langOptions(), clock: window.CleanFrameDebug.clockText()})', function (opts) {
               var o = {};
               try { o = JSON.parse(opts); } catch (e) {}
-              check('Sprachoptionen vorhanden', (o.langs || []).indexOf('de') >= 0 && (o.langs || []).indexOf('en') >= 0, opts);
-              check('24-Stunden-Anzeige ist Standard', /^\d\d:[0-5]\d$/.test(o.clock || '') && /^([01]\d|2[0-3])$/.test(String(o.clock || '').slice(0, 2)), o.clock);
+              check('language options present', (o.langs || []).indexOf('de') >= 0 && (o.langs || []).indexOf('en') >= 0, opts);
+              check('24-hour display is the default', /^\d\d:[0-5]\d$/.test(o.clock || '') && /^([01]\d|2[0-3])$/.test(String(o.clock || '').slice(0, 2)), o.clock);
               evalJs('JSON.stringify({vorher: window.CleanFrameDebug.clockText(), h24: window.CleanFrameDebug.clock24()})', function (c0) {
                 evalJs('window.CleanFrameDebug.setClock24(false)', function () {
                   setTimeout(function () {
                     evalJs('JSON.stringify({text: window.CleanFrameDebug.clockText(), h24: window.CleanFrameDebug.clock24()})', function (c1) {
                       var o0 = {}, o1 = {};
                       try { o0 = JSON.parse(c0); o1 = JSON.parse(c1); } catch (e) {}
-                      check('12-Stunden-Anzeige wirkt', o1.h24 === false, c0 + ' -> ' + c1);
+                      check('12-hour display takes effect', o1.h24 === false, c0 + ' -> ' + c1);
                       evalJs('window.CleanFrameDebug.setClock24(true)', function () {
                         setTimeout(function () {
                           evalJs('window.CleanFrameDebug.language("en")', function () {
@@ -372,10 +371,10 @@ function run(wsUrl) {
                               evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, t: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Language") : "-")})', function (x) {
                                 var o2 = {};
                                 try { o2 = JSON.parse(x); } catch (e) {}
-                                check('Umschalten auf Englisch wirkt', o2.lang === 'en' && o2.t === 'Language', x);
+                                check('switching to English takes effect', o2.lang === 'en' && o2.t === 'Language', x);
                                 evalJs('window.CleanFrameDebug.language("de")', function () {
-                                  /* language() laedt die Oberflaeche neu — warten, bis die
-                                   * Konfiguration wieder da ist, sonst schreibt der Test zu frueh. */
+                                  /* language() reloads the interface — wait until the
+                                   * configuration is back, otherwise the test writes too early. */
                                   setTimeout(function () { configTests(); }, 2600);
                                 });
                               });
@@ -399,7 +398,7 @@ function run(wsUrl) {
       setTimeout(function () {
         key('back', function () {
           evalJs('window.CleanFrameDebug.state().view', function (v) {
-            check('Zurueck schliesst das Kontextmenue', v === 'home', String(v));
+            check('back closes the context menu', v === 'home', String(v));
             longPressTest();
           });
         });
@@ -407,7 +406,7 @@ function run(wsUrl) {
     });
   }
 
-  /* Darstellung aendern -> Server -> Neustart: bleibt die Einstellung? */
+  /* Change appearance -> server -> restart: does the setting survive? */
   function configTests() {
     if (!CONFIG_URL) { finish(); return; }
     evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (beforeRaw) {
@@ -419,23 +418,23 @@ function run(wsUrl) {
         evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (changedRaw) {
         var changed = {};
         try { changed = JSON.parse(changedRaw); } catch (e) {}
-        check('Darstellung laesst sich aendern', changed.apps === target, before.apps + ' -> ' + changed.apps);
+        check('appearance can be changed', changed.apps === target, before.apps + ' -> ' + changed.apps);
         if (DEBUG) evalJs('JSON.stringify({saved: !!window.__saved, hasSave: typeof (window.FrameDevice && window.FrameDevice.saveConfig), ready: window.CleanFrameDebug.ready(), sync: window.CleanFrameDebug.syncLog(), payloadLook: window.CleanFrameDebug.serverPayload().look})', function (x) { console.log('    sync: ' + x); });
-        // Bis zu 6 s auf den Server warten (das Geraet schreibt asynchron)
+        // Wait up to 6 s for the server (the device writes asynchronously)
         (function poll(n) {
           get(CONFIG_URL, function (err, body) {
             var cfg = {};
             try { cfg = (JSON.parse(body) || {}).config || {}; } catch (e) {}
             if ((cfg.look || {}).apps !== target && n === 6) {
-              /* Netzwerkschluckauf beim Schreiben: einmal nachfassen. */
+              /* Network hiccup while writing: retry once. */
               evalJs('(window.CleanFrameDebug.look({ apps: ' + JSON.stringify(target) + ' }), 1)', function () {});
             }
             if ((cfg.look || {}).apps !== target && n > 0) { setTimeout(function () { poll(n - 1); }, 600); return; }
-            check('Aenderung steht im Server', (cfg.look || {}).apps === target, 'Server: ' + (cfg.look || {}).apps);
+            check('change is in the server', (cfg.look || {}).apps === target, 'server: ' + (cfg.look || {}).apps);
             if ((cfg.look || {}).apps !== target) {
-              evalJs('JSON.stringify({ready: window.CleanFrameDebug.ready(), sync: window.CleanFrameDebug.syncLog()})', function (x) { console.log('    sync-verlauf: ' + x); });
+              evalJs('JSON.stringify({ready: window.CleanFrameDebug.ready(), sync: window.CleanFrameDebug.syncLog()})', function (x) { console.log('    sync history: ' + x); });
             }
-            // Neustart der App: frisch laden, Konfiguration erneut holen
+            // Restart the app: load fresh, fetch the configuration again
             send('Page.reload', {}, function () {
               setTimeout(function () {
                 evalJs('window.focus()', function () {
@@ -444,7 +443,7 @@ function run(wsUrl) {
                       evalJs('JSON.stringify(window.CleanFrameDebug.look({}))', function (afterRaw) {
                         var after = {};
                         try { after = JSON.parse(afterRaw); } catch (e) {}
-                        check('Einstellung ueberlebt den Neustart', after.apps === target, 'nach Neustart: ' + after.apps + ' (vorher ' + before.apps + ')');
+                        check('setting survives the restart', after.apps === target, 'after restart: ' + after.apps + ' (before ' + before.apps + ')');
                         finish();
                       });
                     }, 1500);

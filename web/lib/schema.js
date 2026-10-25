@@ -1,10 +1,10 @@
 /*
- * Optionsschema fuer die Web-Oberflaeche.
+ * Options schema for the web interface.
  *
- * Die Werte muessen zu den Konstanten im Launcher passen (main.js:
- * LOOK_VALUES, FONTS, WALLS, LANGS, SCREENSAVER-Varianten). Deshalb hier eine
- * einzige Beschreibung, die als /api/schema ausgeliefert wird — die Oberflaeche
- * baut ihre Auswahlfelder daraus, statt Listen doppelt zu pflegen.
+ * The values must match the constants in the launcher (main.js:
+ * LOOK_VALUES, FONTS, WALLS, LANGS, SCREENSAVER variants). Hence a single
+ * description here, served as /api/schema — the interface builds its select
+ * fields from it instead of maintaining the lists twice.
  */
 'use strict';
 
@@ -81,7 +81,7 @@ function walls() {
   }
 }
 
-/* Vollstaendiges Schema inklusive Wandbildern (aus dem Launcher-Katalog erzeugt). */
+/* Complete schema including wallpapers (generated from the launcher catalog). */
 function full() {
   var s = JSON.parse(JSON.stringify(SCHEMA));
   s.look.walls = walls().map(function (w) {
@@ -90,8 +90,8 @@ function full() {
   return s;
 }
 
-/* Wandbild-Datei zu einer ID (nur Dateinamen aus dem Katalog, kein Pfad-Bau
- * aus Nutzereingaben — verhindert Pfad-Ausbrueche). */
+/* Wallpaper file for an id (only file names from the catalog, no path built
+ * from user input — prevents path traversal). */
 function wallFile(id) {
   var hit = null;
   walls().forEach(function (w) { if (w.id === id) hit = w; });

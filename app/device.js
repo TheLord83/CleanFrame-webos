@@ -1,26 +1,26 @@
-/* CleanFrame auf LG webOS — Geraeteanbindung.
+/* CleanFrame on LG webOS — device binding.
  *
- * Zwei Wege, bewusst getrennt:
+ * Two paths, deliberately kept apart:
  *
- * 1. Aktionen (App starten, LG Home, TV-Einstellungen, Bildschirmschoner) laufen ueber
- *    die native Luna-Schnittstelle der Plattform (`PalmServiceBridge`). Das ist der
- *    einzige Weg, der aus einer file://-Web-App heraus funktioniert: HTTP-Aufrufe an
- *    Glasshouse tragen einen fremden Origin-Header und werden dort mit
- *    "cross-origin request refused" abgelehnt.
- * 2. Nur fuer die App-Liste und die Icons wird Glasshouse gelesen (GET /api/apps,
- *    /api/apps/icon). GET ist nicht betroffen, und Icons sind <img>-Ladungen ohne CORS.
+ * 1. Actions (start app, LG Home, TV settings, screensaver) go through the
+ *    platform's native Luna interface (`PalmServiceBridge`). That is the only
+ *    path that works from a file:// web app: HTTP calls to Glasshouse carry a
+ *    foreign Origin header and are rejected there with
+ *    "cross-origin request refused".
+ * 2. Glasshouse is only read for the app list and the icons (GET /api/apps,
+ *    /api/apps/icon). GET is not affected, and icons are <img> loads without CORS.
  *
- * Schnittstelle wie im Tizen-Original:
+ * Interface as in the Tizen original:
  *   FrameDevice.launchApp(appId, done) / launch(brand, done) / apps(done)
  *   FrameDevice.home(done) / settings(done) / art(done)
- * done bekommt (null) bei Erfolg oder ({message, detail}) bei einem Fehler.
+ * done receives (null) on success or ({message, detail}) on an error.
  */
 (function () {
   'use strict';
 
   var GW = 'http://127.0.0.1:8080';
 
-  // Marken-Kennung in der Oberflaeche -> App-ID auf webOS.
+  // Brand key in the interface -> app id on webOS.
   var IDS = {
     netflix: 'netflix',
     disneyplus: 'com.disney.disneyplus',
@@ -34,7 +34,7 @@
   var BRAND_OF = {};
   Object.keys(IDS).forEach(function (brand) { BRAND_OF[IDS[brand]] = brand; });
 
-  // Tizen-IDs, die in gespeicherten Einstellungen stecken koennen
+  // Tizen ids that may sit in saved settings
   var TIZEN_LEGACY = {
     'org.tizen.netflix-app': 'netflix',
     'MCmYXNxgcu.DisneyPlus': 'com.disney.disneyplus',
@@ -53,7 +53,7 @@
     return TIZEN_LEGACY[appId] || IDS[appId] || appId;
   }
 
-  /* Ein Luna-Aufruf mit Zeitlimit. cb(antwortObjekt) — nie eine Exception nach aussen. */
+  /* A Luna call with a timeout. cb(responseObject) — never an exception outward. */
   function luna(uri, params, cb) {
     var settled = false, bridge, timer;
 
@@ -111,7 +111,7 @@
 
   function art(done) { launchId(LG_SCREENSAVER, done); }
 
-  /* App-Liste: Glasshouse (GET, ohne CORS-Problem), sonst Luna. */
+  /* App list: Glasshouse (GET, no CORS problem), otherwise Luna. */
   function appsFromGlasshouse(done) {
     var request;
     try {
@@ -153,9 +153,9 @@
     };
   }
 
-  /* System-Apps, die Glasshouse nicht in `installed` fuehrt (nur entfernbare
-   * Apps und Kacheln von LG-Leiste) und die eine Startseite trotzdem braucht.
-   * IDs am Gerät verifiziert (Titel aus appinfo.json). */
+  /* System apps that Glasshouse does not list in `installed` (only removable
+   * apps and tiles of the LG bar) but which a home screen still needs.
+   * Ids verified on the device (titles from appinfo.json). */
   var BUILTIN = [
     { id: 'com.webos.app.enactbrowser', title: 'Webbrowser' },
     { id: 'org.webosbrew.hbchannel', title: 'Homebrew Channel' },
@@ -192,9 +192,9 @@
     appsFromGlasshouse(once);
   }
 
-  /* ---------- Konfiguration vom CleanFrame-Web-Server (Port 8484) ----------
-   * Der Server ist die gemeinsame Quelle fuer Fernseher und Web-Oberflaeche.
-   * Ist er nicht installiert, bleibt alles wie bisher (localStorage). */
+  /* ---------- Configuration from the CleanFrame web server (port 8484) ----------
+   * The server is the shared source for TV and web interface.
+   * If it is not installed, everything stays as before (localStorage). */
   var CF_API = 'http://127.0.0.1:8484';
 
   function apiCall(method, path, body, done, contentType) {
@@ -229,19 +229,19 @@
   }
 
   window.FrameDevice = {
-    /* Konfiguration lesen; cb(null, null) wenn der Server fehlt. */
+    /* Read the configuration; cb(null, null) if the server is missing. */
     loadConfig: function (cb) {
       apiCall('GET', '/api/config', null, function (err, data) {
         if (err || !data || !data.config) return cb(null, null);
         cb(null, data.config);
       });
     },
-    /* Schreiben bewusst als POST mit text/plain: alles andere loest unter
-     * Chromium 79 aus file:// einen CORS-Preflight aus, der scheitert (die
-     * Anfrage kaeme nie an). Der Server nimmt text/plain nur vom Fernseher an. */
-    /* Speichern mit Revisionsnummer: sitzt die App auf einem aelteren Stand,
-     * antwortet der Server mit 409 und dem neueren Stand — der wird dann
-     * uebernommen, statt ihn zu ueberschreiben. */
+    /* Writing deliberately as a POST with text/plain: anything else triggers a
+     * CORS preflight under Chromium 79 from file:// that fails (the request
+     * would never arrive). The server accepts text/plain only from the TV. */
+    /* Saving with a revision number: if the app sits on an older revision, the
+     * server answers 409 with the newer one — that is then taken over instead
+     * of overwriting it. */
     saveConfig: function (cfg, cb) {
       apiCall('POST', '/api/config', { config: cfg }, function (err, data) {
         if (err && err.status === 409 && err.data && err.data.config) return cb(null, err.data.config, true);

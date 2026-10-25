@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /*
- * Beliebigen JavaScript-Ausdruck in einer Chrome-Seite auswerten (CDP, ohne
- * Abhaengigkeiten). Praktisch fuer Pruefungen am laufenden Launcher.
+ * Evaluate an arbitrary JavaScript expression in a Chrome page (CDP, without
+ * dependencies). Handy for checks against the running launcher.
  *
- * Aufruf: node tools/cdp-eval.js "<ausdruck>" [--port 9333] [--url <teil>]
+ * Usage: node tools/cdp-eval.js "<expression>" [--port 9333] [--url <part>]
  */
 'use strict';
 
@@ -73,13 +73,13 @@ function wsConnect(wsUrl, onMessage, onOpen) {
   };
 }
 
-if (!EXPR) { console.log('Aufruf: node tools/cdp-eval.js "<ausdruck>" [--port 9333] [--url <teil>]'); process.exit(2); }
+if (!EXPR) { console.log('Usage: node tools/cdp-eval.js "<expression>" [--port 9333] [--url <part>]'); process.exit(2); }
 
 get('http://127.0.0.1:' + PORT + '/json/list', function (err, body) {
-  if (err) { console.log('kein Chrome auf Port ' + PORT); process.exit(1); }
+  if (err) { console.log('no Chrome on port ' + PORT); process.exit(1); }
   var pages = JSON.parse(body).filter(function (t) { return t.type === 'page'; });
   var page = pages.filter(function (t) { return !NEEDLE || t.url.indexOf(NEEDLE) >= 0; })[0];
-  if (!page) { console.log('kein passendes Ziel'); process.exit(1); }
+  if (!page) { console.log('no matching target'); process.exit(1); }
   var id = 0, pending = {};
   var ws = wsConnect(page.webSocketDebuggerUrl, function (raw) {
     var msg;
@@ -90,13 +90,13 @@ get('http://127.0.0.1:' + PORT + '/json/list', function (err, body) {
     pending[mid] = function (r) {
       var res = r.result || {};
       if (res.exceptionDetails) {
-        console.log('JS-Fehler: ' + (res.exceptionDetails.exception && res.exceptionDetails.exception.description || res.exceptionDetails.text));
+        console.log('JS error: ' + (res.exceptionDetails.exception && res.exceptionDetails.exception.description || res.exceptionDetails.text));
       } else {
         var v = res.result && res.result.value;
         console.log(typeof v === 'string' ? v : JSON.stringify(v));
       }
       if (!SHOT) { ws.close(); process.exit(0); return; }
-      /* Screenshot des aktuellen Stands (--shot /pfad.png) */
+      /* Screenshot of the current state (--shot /path.png) */
       var sid = ++id;
       pending[sid] = function (r2) {
         var data = (r2.result || {}).data || '';

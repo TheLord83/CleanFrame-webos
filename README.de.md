@@ -47,16 +47,20 @@ dem Bildschirm, ohne Neustart und ohne Neuinstallation.
 ## Installieren
 
 ```sh
-# Launcher (IPK) auf den Fernseher
-python3 tools/build-ipk.py app ipk/cleanframe_all.ipk
-tools/install-launcher.sh --ipk ipk/cleanframe_all.ipk
-
-# Hub (Konfigurations-Server) auf den Fernseher
-tools/install-web.sh <tv-ip>
+./tools/install.sh <tv-ip>          # Linux und macOS
+.\tools\install.ps1 -Tv <tv-ip>     # Windows (PowerShell)
 ```
 
-Danach antwortet der Hub auf `http://<tv-ip>:8484/`, und der Launcher steht in der App-Liste.
-Auf dem Fernseher wird der Dienst mit `/var/lib/cleanframe/cleanframectl status` bedient.
+Ein Befehl bringt beide Teile auf den Fernseher: baut das IPK, laedt es ueber den
+Installer von Glasshouse hoch, richtet den Hub mit Autostart ein und belegt danach das
+Ergebnis — der Hub antwortet auf Port 8484, die App steht im Katalog, und der Hub kann
+ein Bild vom Launcher holen. `--dry-run` (`-DryRun`) sucht und prueft nur und zeigt den Plan.
+
+Danach antwortet der Hub auf `http://<tv-ip>:8484/`. Auf dem Fernseher wird der Dienst
+mit `/var/lib/cleanframe/cleanframectl status` bedient.
+
+Das Rooten selbst laesst sich nicht automatisieren — dafuer braucht es die
+Fernbedienung. Schritt fuer Schritt in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Bauen und prüfen
 
@@ -72,6 +76,8 @@ Lauf. Einzelheiten in [docs/TESTS.md](docs/TESTS.md). Dasselbe Skript läuft in 
 
 ## Dokumentation
 
+- [docs/INSTALL.md](docs/INSTALL.md) — vom Seriengeraet zur laufenden Startseite (englisch)
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — Symptom, Ursache, Kommando (englisch)
 - [docs/WEB.md](docs/WEB.md) — Hub: API-Endpunkte, Konfigurationsschema, Betrieb des Dienstes
 - [docs/TESTS.md](docs/TESTS.md) — was geprüft wird und wie
 - [docs/ICONS.md](docs/ICONS.md) — Icon-Bibliothek und ihre Quellen

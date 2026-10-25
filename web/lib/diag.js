@@ -1,7 +1,7 @@
 /*
- * Diagnose: prueft in einem Durchgang, ob die Voraussetzungen stimmen.
- * Dieselben Pruefungen stehen als /api/diag bereit und werden im Installer
- * angezeigt — definiert an einer Stelle, nicht zweimal geschrieben.
+ * Diagnostics: checks in a single pass whether the prerequisites are met.
+ * The same checks are served as /api/diag and shown in the installer —
+ * defined in one place, not written twice.
  */
 'use strict';
 
@@ -58,8 +58,8 @@ function run(opts, cb) {
   add('Root-Rechte', typeof process.getuid === 'function' ? process.getuid() === 0 : true,
       typeof process.getuid === 'function' ? 'uid=' + process.getuid() : 'nicht ermittelbar');
 
-  /* Glasshouse ist die Icon- und App-Quelle; ohne sie laeuft der Launcher, aber
-   * ohne echte Icons. Deshalb eine Warnung, kein Fehler. */
+  /* Glasshouse is the icon and app source; without it the launcher runs, but
+   * without real icons. Hence a warning, not an error. */
   pending++;
   tcpOk('127.0.0.1', 8080, 1500, function (r) {
     add('Glasshouse erreichbar (127.0.0.1:8080)', r.ok, r.ok ? '' : r.error);
@@ -75,13 +75,13 @@ function run(opts, cb) {
   });
 }
 
-/* Prueft eine Home-Assistant-Instanz gegen /api/ und meldet die Version —
- * damit die Oberflaeche beim Eintragen sofort weiss, ob URL und Token passen. */
+/* Checks a Home Assistant instance against /api/ and reports the version —
+ * so the interface knows right away on entry whether URL and token fit. */
 function haCheck(url, token, cb, tiefe) {
-  /* Home Assistant laeuft oft hinter HTTPS. Zuerst wurde hier immer http.get
-   * benutzt — bei einer https-URL antwortete der Proxy deshalb mit 301, und die
-   * Pruefung meldete "keine Verbindung". Jetzt richtiges Protokoll und
-   * Weiterleitungen folgen (bis drei Stufen). */
+  /* Home Assistant often runs behind HTTPS. This used to always call http.get
+   * — with an https URL the proxy therefore answered 301 and the check
+   * reported "no connection". Now the correct protocol is used and redirects
+   * are followed (up to three hops). */
   if (!url) return cb({ ok: false, error: 'keine URL' });
   var u = urlmod.parse(url);
   if (!u.hostname) return cb({ ok: false, error: 'URL ungueltig' });

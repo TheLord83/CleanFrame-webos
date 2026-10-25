@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""API-Test fuer den CleanFrame-Config-Server.
+"""API test for the CleanFrame config server.
 
-Startet den Server mit einem Stub-Katalog und einer temporaeren Konfiguration,
-prueft jeden Endpunkt ueber HTTP und meldet Abweichungen. Damit ist die Arbeit
-ohne Fernseher und ohne Screenshot pruefbar: jeder Zustand hat einen Endpunkt.
+Starts the server with a stub catalog and a temporary configuration, checks every
+endpoint over HTTP and reports deviations. That makes the work verifiable
+without a TV and without a screenshot: every state has an endpoint.
 
-Aufruf:  python3 tools/test-web-api.py
+Usage:  python3 tools/test-web-api.py
 """
 import json
 import os
@@ -40,7 +40,7 @@ FAKE_STATES = [
 
 
 class FakeHA(BaseHTTPRequestHandler):
-    """Minimaler Home-Assistant-Ersatz: /api/ und /api/states."""
+    """Minimal Home Assistant stand-in: /api/ and /api/states."""
 
     def log_message(self, *args):
         pass
@@ -97,7 +97,7 @@ def wait_up(port, timeout=15.0):
                     return True
         except Exception:  # noqa: BLE001
             time.sleep(0.15)
-    raise AssertionError("Server wurde nicht erreichbar")
+    raise AssertionError("server could not be reached")
 
 
 def main():
@@ -109,12 +109,12 @@ def main():
         "CF_PORT": str(port),
         "CF_CONFIG": cfg_path,
         "CF_STUB_APPS": STUB,
-        "CF_GLASSHOUSE": "http://127.0.0.1:9",  # absichtlich tot: Stub gewinnt
+        "CF_GLASSHOUSE": "http://127.0.0.1:9",  # deliberately dead: the stub wins
         "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
         "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
         "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
-        # Port ohne Gegenstelle: der Bildschirmfoto-Test soll den Fehlerpfad pruefen,
-        # nicht eine zufaellig laufende Weiterleitung auf dem Rechner treffen.
+        # Port without a counterpart: the screenshot test should exercise the error
+        # path, not hit some forwarding that happens to run on the machine.
         "CF_DEVTOOLS_PORT": str(free_port()),
     })
     ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
@@ -147,7 +147,7 @@ def main():
 
     try:
         wait_up(port)
-        print(f"\nServer auf Port {port}, Konfiguration {cfg_path}\n")
+        print(f"\nServer on port {port}, configuration {cfg_path}\n")
 
         def t_schema():
             st, d, _ = req("GET", "/api/schema")
@@ -166,12 +166,12 @@ def main():
             assert st2 == 404, st2
 
         def t_hold_parameter():
-            """holdMs wird angenommen (ohne Geraet: 503), ungueltige Tasten bleiben 400."""
+            """holdMs is accepted (without a device: 503), invalid keys stay 400."""
             st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
             assert st in (200, 503), (st, d)
 
         def t_rev_conflict():
-            """Ein veralteter Stand darf den neueren nicht ueberschreiben (409)."""
+            """An older revision must not overwrite the newer one (409)."""
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
             current = cfg.get("rev", 0)
@@ -196,7 +196,7 @@ def main():
             assert st == 400, (st, d)
 
         def t_tv_snapshot_without_tv():
-            """Ohne DevTools am Testrechner: klare Fehlermeldung statt Absturz."""
+            """Without DevTools on the test machine: a clear error instead of a crash."""
             st, d, _ = req("GET", "/api/tv/snapshot")
             assert st in (503, 200), st
             if st == 503:
@@ -231,7 +231,7 @@ def main():
             ids = {a["appId"] for a in d["apps"]}
             for must in ("netflix", "org.jellyfin.webos", "com.webos.app.enactbrowser",
                          "org.webosbrew.hbchannel", "com.webos.app.hdmi2"):
-                assert must in ids, f"{must} fehlt im Katalog"
+                assert must in ids, f"{must} missing from the catalog"
 
         def t_put_config():
             body = {"config": {
@@ -248,63 +248,63 @@ def main():
             assert st == 200, (st, d)
             assert d["ok"] is True
             cfg = d["config"]
-            # Redaktion: Token darf nicht zurueckkommen
-            assert cfg["integrations"]["ha"]["token"] == "", "Token wurde zurueckgegeben"
+            # Redaction: the token must not come back
+            assert cfg["integrations"]["ha"]["token"] == "", "token was returned"
             assert cfg["integrations"]["ha"]["hasToken"] is True
-            assert len(cfg["home"]) == 2, f"Duplikat nicht entfernt: {cfg['home']}"
+            assert len(cfg["home"]) == 2, f"duplicate not removed: {cfg['home']}"
             assert cfg["home"][1]["name"] == "PlayStation"
             assert cfg["look"]["apps"] == "icons"
 
         def t_persisted_on_disk():
             with open(cfg_path, encoding="utf-8") as f:
                 raw = json.load(f)
-            assert raw["integrations"]["ha"]["token"] == "geheim-123", "Token nicht gespeichert"
+            assert raw["integrations"]["ha"]["token"] == "geheim-123", "token not stored"
             assert raw["home"][0]["name"] == "Filme"
 
         def t_token_kept_when_empty():
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
-            cfg["integrations"]["ha"]["token"] = ""          # Oberflaeche schickt leer
+            cfg["integrations"]["ha"]["token"] = ""          # interface sends empty
             cfg["integrations"]["ha"]["url"] = "http://neu:8123"
             st, d2, _ = req("PUT", "/api/config", {"config": cfg})
             assert st == 200, (st, d2)
             with open(cfg_path, encoding="utf-8") as f:
                 raw = json.load(f)
-            assert raw["integrations"]["ha"]["token"] == "geheim-123", "Token wurde geleert"
+            assert raw["integrations"]["ha"]["token"] == "geheim-123", "token was cleared"
             assert raw["integrations"]["ha"]["url"] == "http://neu:8123"
 
         def t_posts_need_json():
-            # Glasshouse-PostGuard-Prinzip: "einfacher" Content-Type wird vom
-            # Browser ohne Preflight zugestellt. Erlaubt ist er nur der
-            # Fernseher-App (127.0.0.1 + Origin: null), sonst abgelehnt.
+            # Glasshouse postGuard principle: a "simple" content type is delivered
+            # by the browser without a preflight. It is only allowed for the TV app
+            # (127.0.0.1 + Origin: null), rejected otherwise.
             st, d, _ = req("POST", "/api/backup", "lang=de", headers={"Content-Type": "text/plain"}, raw=True)
-            assert st == 415, f"text/plain haette abgelehnt werden muessen, war {st}"
-            # Die TV-App schreibt per POST + text/plain (kein Preflight unter Chromium 79).
-            # Geschrieben wird immer die vollstaendige Konfiguration — wie in der App.
+            assert st == 415, f"text/plain should have been rejected, was {st}"
+            # The TV app writes via POST + text/plain (no preflight under Chromium 79).
+            # What is written is always the complete configuration — as in the app.
             _, cur, _ = req("GET", "/api/config")
             full = cur["config"]
-            full.pop("rev", None)   # wie ein Client ohne Revisionsanspruch
+            full.pop("rev", None)   # like a client without a revision claim
             full["look"]["apps"] = "icons"
             st2, d2, _ = req("POST", "/api/config", {"config": full},
                              headers={"Content-Type": "text/plain;charset=UTF-8", "Origin": "null"})
-            assert st2 == 200, f"POST /api/config von der TV-App haette 200 sein muessen, war {st2}"
+            assert st2 == 200, f"POST /api/config from the TV app should have been 200, was {st2}"
             assert d2["config"]["look"]["apps"] == "icons"
             full.pop("rev", None)
             full["look"]["apps"] = "both"
             st3, d3, _ = req("POST", "/api/config", {"config": full})
-            assert st3 == 200, f"POST /api/config mit JSON haette 200 sein muessen, war {st3}"
+            assert st3 == 200, f"POST /api/config with JSON should have been 200, was {st3}"
             assert d3["config"]["look"]["apps"] == "both"
 
         def t_post_plain_from_foreign_origin():
-            # text/plain von einer fremden Seite (Origin gesetzt) darf nicht schreiben
+            # text/plain from a foreign page (Origin set) must not write
             st, d, _ = req("POST", "/api/config", {"config": {"look": {"apps": "text"}}},
                            headers={"Content-Type": "text/plain", "Origin": "http://evil.example"})
-            assert st == 403, f"fremde Origin haette 403 sein muessen, war {st}"
+            assert st == 403, f"foreign origin should have been 403, was {st}"
 
         def t_cross_origin_refused():
             st, d, _ = req("PUT", "/api/config", {"config": {}},
                            headers={"Origin": "http://evil.example"})
-            assert st == 403, f"fremde Origin haette 403 sein muessen, war {st}"
+            assert st == 403, f"foreign origin should have been 403, was {st}"
 
         def t_backup_download():
             st, d, hdrs = req("GET", "/api/backup")
@@ -341,9 +341,9 @@ def main():
             names = [c["name"] for c in d["checks"]]
             assert any("Konfigurationsordner" in n for n in names), names
             assert any("Glasshouse" in n for n in names), names
-            # Glasshouse laeuft hier absichtlich nicht -> Pruefung muss false sein
+            # Glasshouse deliberately does not run here -> the check must be false
             gh = [c for c in d["checks"] if "Glasshouse" in c["name"]][0]
-            assert gh["ok"] is False, "toter Port 9 haette fehlschlagen muessen"
+            assert gh["ok"] is False, "dead port 9 should have failed"
 
         def t_invalid_json():
             st, d, _ = req("PUT", "/api/config", "{kaputt", raw=True)
@@ -357,7 +357,7 @@ def main():
             assert d2["ok"] is True, d2
 
         def t_ha_entities():
-            # Zugangsdaten setzen, damit der Server sie benutzt
+            # Set credentials so the server uses them
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
             cfg["integrations"]["ha"] = {"url": f"http://127.0.0.1:{ha_port}", "token": "testtoken", "entities": []}
@@ -368,11 +368,11 @@ def main():
             assert d["ok"] is True, d
             ids = [e["id"] for e in d["entities"]]
             assert "sensor.wohnzimmer_temperatur" in ids, ids
-            assert "automation.nachtlicht" not in ids, "Automatisierungen gehoeren nicht in die Auswahl"
+            assert "automation.nachtlicht" not in ids, "automations do not belong in the selection"
             temp = [e for e in d["entities"] if e["id"].endswith("temperatur")][0]
             assert temp["unit"] == "°C" and temp["state"] == "21.4", temp
             kaputt = [e for e in d["entities"] if e["id"] == "sensor.kaputt"][0]
-            assert kaputt["state"] == "–", "unavailable muss als – erscheinen"
+            assert kaputt["state"] == "–", "unavailable must appear as –"
 
         def t_ha_values():
             st, d, _ = req("GET", "/api/ha/values?entities=sensor.wohnzimmer_temperatur,light.wohnzimmer_decke,unbekannt.x")
@@ -381,14 +381,14 @@ def main():
             by = {v["id"]: v for v in d["values"]}
             assert by["sensor.wohnzimmer_temperatur"]["state"] == "21.4"
             assert by["light.wohnzimmer_decke"]["state"] == "on"
-            assert by["unbekannt.x"]["state"] == "–", "unbekannte Entitaet darf nicht fehlen"
+            assert by["unbekannt.x"]["state"] == "–", "an unknown entity must not be missing"
 
         def t_ha_wrong_token():
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
             cfg["integrations"]["ha"]["token"] = ""
             req("PUT", "/api/config", {"config": cfg})
-            # Token bleibt erhalten (leer = unveraendert) -> falsches Token explizit setzen
+            # Token is kept (empty = unchanged) -> set a wrong token explicitly
             st, d, _ = req("PUT", "/api/config", {"config": {
                 "integrations": {"ha": {"url": f"http://127.0.0.1:{ha_port}", "token": "falsch"}}}})
             st, d, _ = req("GET", "/api/ha/entities")
@@ -424,7 +424,7 @@ def main():
             st, d, _ = req("PUT", "/api/config", {"config": {"ui": {"textScale": 10}}})
             assert d["config"]["ui"]["textScale"] == 50, d["config"]["ui"]
 
-            # Standard ist: Assistent offen
+            # Default is: wizard open
             st, d, _ = req("PUT", "/api/config", {"config": {}})
             assert d["config"]["onboarding"]["done"] is False, d["config"]["onboarding"]
             assert d["config"]["ui"]["senior"] is False
@@ -440,27 +440,27 @@ def main():
             assert st2 == 200, st2
             assert "svg" in hdrs.get("Content-Type", ""), hdrs.get("Content-Type")
             st3, _, _ = req("GET", "/icons/../../etc/passwd.svg")
-            assert st3 in (400, 404), f"Pfadausbruch nicht abgelehnt: {st3}"
+            assert st3 in (400, 404), f"path traversal not rejected: {st3}"
 
         def t_tv_cors():
-            # Die Launcher-App laeuft aus file:// und schickt Origin: null.
-            # Anfragen von 127.0.0.1 (also vom Fernseher) muessen durchgehen.
+            # The launcher app runs from file:// and sends Origin: null.
+            # Requests from 127.0.0.1 (that is, from the TV) must pass.
             st, d, hdrs = req("PUT", "/api/config", {"config": {"lang": "en"}},
                               headers={"Origin": "null"})
-            assert st == 200, f"Origin null haette erlaubt sein muessen, war {st}"
+            assert st == 200, f"Origin null should have been allowed, was {st}"
             assert hdrs.get("Access-Control-Allow-Origin") == "null", hdrs.get("Access-Control-Allow-Origin")
             st2, _, _ = req("OPTIONS", "/api/config", headers={"Origin": "null"})
             assert st2 == 204, st2
 
         def t_tv_views():
-            # Ohne Fernseher gibt es kein Bild, aber die Ansichten-Liste und die
-            # Ablehnung unbekannter Namen muessen auch hier stimmen: die
-            # Oberflaeche baut ihre Knoepfe daraus.
+            # Without a TV there is no image, but the view list and the rejection
+            # of unknown names must be correct here too: the interface builds its
+            # buttons from them.
             st, d, _ = req("GET", "/api/tv/views")
             assert st == 200, st
             assert d["views"] == ["home", "settings", "appearance"], d
             st2, d2, _ = req("POST", "/api/tv/view", {"view": "hack"})
-            assert st2 == 400, f"unbekannte Ansicht haette 400 sein muessen, war {st2}"
+            assert st2 == 400, f"unknown view should have been 400, was {st2}"
             assert "unbekannte Ansicht" in d2.get("error", ""), d2
 
         def t_restart():
@@ -469,39 +469,39 @@ def main():
             assert d["restarting"] is True
 
         for name, fn in [
-            ("/ liefert die Oberflaeche", t_static),
-            ("/api/health meldet Pfad und Version", t_health),
-            ("Schema liefert alle Darstellungs-Achsen", t_schema),
-            ("Wandbild-Vorschau wird ausgeliefert", t_wall_thumb),
-            ("Langdruck-Parameter wird angenommen", t_hold_parameter),
-            ("Fernbedienung kennt die Tastennamen", t_tv_keys),
-            ("ungueltige Tasten werden abgelehnt", t_tv_key_invalid),
-            ("Bildschirmfoto ohne Geraet meldet einen Fehler", t_tv_snapshot_without_tv),
-            ("Standardkonfiguration ist leer und gueltig", t_config_default),
-            ("Katalog kommt aus dem Stub und enthaelt System-Apps", t_catalog),
-            ("PUT /api/config speichert, redigiert Token, entdoppelt", t_put_config),
-            ("Konfiguration liegt vollstaendig auf der Platte", t_persisted_on_disk),
-            ("leeres Token in der Oberflaeche leert das Geheimnis nicht", t_token_kept_when_empty),
-            ("POST ohne application/json wird abgelehnt (415), TV-App darf text/plain", t_posts_need_json),
-            ("text/plain von fremder Origin wird abgelehnt (403)", t_post_plain_from_foreign_origin),
-            ("fremde Origin wird abgelehnt (403)", t_cross_origin_refused),
-            ("kaputtes JSON wird abgelehnt (400)", t_invalid_json),
-            ("Backup wird als Download ausgeliefert", t_backup_download),
-            ("Backup laesst sich importieren", t_backup_import),
-            ("fremde Sicherungsdatei wird abgelehnt", t_backup_wrong_kind),
-            ("Selbsttest im Server ist gruen", t_selftest),
-            ("Diagnose prueft Ordner und Glasshouse", t_diag),
-            ("Home-Assistant-Verbindung wird geprueft", t_ha_check),
-            ("HA-Entitaeten werden gefiltert und uebersetzt", t_ha_entities),
-            ("HA-Werte fuer die Kachel", t_ha_values),
-            ("falsches HA-Token wird gemeldet", t_ha_wrong_token),
-            ("Bildschirmschoner-Grenzen und Entitaets-Auswahl", t_config_screensaver_and_entities),
-            ("Senioren-Modus, Schriftgroesse und Assistent-Zustand", t_config_ui_and_onboarding),
-            ("Icon-Katalog und SVG-Auslieferung", t_icons),
-            ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
-            ("Ansichten am Fernseher: Liste und Ablehnung", t_tv_views),
-            ("Neustart wird angenommen (202)", t_restart),
-            ("Veralteter Stand wird abgewiesen (409)", t_rev_conflict),
+            ("/ serves the interface", t_static),
+            ("/api/health reports path and version", t_health),
+            ("schema delivers all display axes", t_schema),
+            ("wallpaper preview is served", t_wall_thumb),
+            ("long-press parameter is accepted", t_hold_parameter),
+            ("remote control knows the key names", t_tv_keys),
+            ("invalid keys are rejected", t_tv_key_invalid),
+            ("screenshot without a device reports an error", t_tv_snapshot_without_tv),
+            ("default configuration is empty and valid", t_config_default),
+            ("catalog comes from the stub and contains system apps", t_catalog),
+            ("PUT /api/config saves, redacts token, removes duplicates", t_put_config),
+            ("configuration is fully on disk", t_persisted_on_disk),
+            ("empty token in the interface does not clear the secret", t_token_kept_when_empty),
+            ("POST without application/json is rejected (415), TV app may use text/plain", t_posts_need_json),
+            ("text/plain from a foreign origin is rejected (403)", t_post_plain_from_foreign_origin),
+            ("foreign origin is rejected (403)", t_cross_origin_refused),
+            ("broken JSON is rejected (400)", t_invalid_json),
+            ("backup is served as a download", t_backup_download),
+            ("backup can be imported", t_backup_import),
+            ("foreign backup file is rejected", t_backup_wrong_kind),
+            ("self-test in the server is green", t_selftest),
+            ("diagnostics check folder and Glasshouse", t_diag),
+            ("Home Assistant connection is checked", t_ha_check),
+            ("HA entities are filtered and translated", t_ha_entities),
+            ("HA values for the tile", t_ha_values),
+            ("wrong HA token is reported", t_ha_wrong_token),
+            ("screensaver limits and entity selection", t_config_screensaver_and_entities),
+            ("senior mode, text size and wizard state", t_config_ui_and_onboarding),
+            ("icon catalog and SVG delivery", t_icons),
+            ("CORS for the TV app (Origin: null)", t_tv_cors),
+            ("views on the TV: list and rejection", t_tv_views),
+            ("restart is accepted (202)", t_restart),
+            ("stale revision is rejected (409)", t_rev_conflict),
         ]:
             check(name, fn)
 
@@ -514,7 +514,8 @@ def main():
             proc.kill()
 
     failed = [r for r in results if not r[1]]
-    print(f"\n{len(results) - len(failed)}/{len(results)} Pruefungen bestanden")
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    print(f"RESULT {len(results) - len(failed)}/{len(results)}")
     if failed:
         for name, _, err in failed:
             print(f"  - {name}: {err}")
