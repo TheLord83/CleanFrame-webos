@@ -1492,7 +1492,10 @@
     keyed(track, empty ? [] : items, function (el, it, i) {
       var a = it.id ? app(it.id) : null, left = i * g.pitch, focus = tileFocus && i === anchor, sel = tileSel && i === anchor;
       var lifted = hs.lifted && i === anchor, partial = g.broad && (left - off < -1 || left + g.tw - off > g.shelf + 1);
-      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
+      /* Schluessel enthaelt Name und Icon: aendert sich nur das Icon (z.B. aus der
+       * Web-Oberflaeche), muss die Kachel neu aufgebaut werden. */
+      var markKey = a ? (a.name + '|' + (a.icon || '') + '|' + (a.mark ? 'mark' : 'text')) : '';
+      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + markKey + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
       el.className = 'tile k-' + it.kind + (focus ? ' is-focus' : '') + (sel ? ' is-sel' : '') + (lifted ? ' is-lifted' : '') + (partial ? ' is-partial' : '')
         + (a && !a.mark ? ' is-text' : '') + (it.kind === 'add' && full ? ' is-full' : '') + (it.kind === 'app' && S.press === it.id ? ' is-press' : '')
         + (lifted && i === 0 ? ' no-l' : '') + (lifted && i >= ns - 1 ? ' no-r' : '');
@@ -1849,7 +1852,7 @@
       t.top = clamp(t.top, 0, Math.max(0, rows - vis));
       keyed(el.grid, items.map(function (id) { return { key: id, id: id }; }), function (tile, it, i) {
         var focus = f.zone === 'grid' && i === f.i;
-        setContent(tile, [it.id, app(it.id).name, onHome(it.id)].join('|'), gridTileHtml(it.id));
+        setContent(tile, [it.id, app(it.id).name, app(it.id).icon || '', onHome(it.id)].join('|'), gridTileHtml(it.id));
         tile.className = 'gt' + (focus ? ' is-focus' : '');
         tile.style.transform = 'translate3d(' + ((i % COLS) * GRID_COL) + 'px,' + (Math.floor(i / COLS) * GRID_ROW) + 'px,0)';
         tile.setAttribute('role', 'button'); tile.setAttribute('aria-label', app(it.id).name);
@@ -2243,6 +2246,13 @@
     clock24: function () { return S.c.clock24 !== false; },
     setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
     setupAgain: function () { runSetupAgain(); return true; },
+    /* Kachel-Datensaetze mit Icon und Marken-Flag (Diagnose: kommt ein Icon an?) */
+    icons: function () {
+      return (S.c.home || []).map(function (id) {
+        var a = app(id) || {};
+        return { id: id, name: a.name || '', icon: a.icon || '', mark: !!a.mark, brand: a.brand || '' };
+      });
+    },
     rev: function () { return { angewendet: S.appliedRev, server: S.serverCfg ? parseInt(S.serverCfg.rev, 10) || 0 : null, wartend: !!S.pendingCfg }; },
     poll: function () {
       if (!window.FrameDevice || !FrameDevice.loadConfig) return false;
