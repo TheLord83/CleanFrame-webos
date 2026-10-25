@@ -331,6 +331,26 @@ def main():
             assert ents == ["sensor.a", "light.b"], ents
             assert cfg["integrations"]["ha"]["entities"][1]["label"] == "Decke"
 
+        def t_config_ui_and_onboarding():
+            st, d, _ = req("PUT", "/api/config", {"config": {
+                "ui": {"senior": True, "textScale": 999, "cursor": "quatsch"},
+                "onboarding": {"done": True},
+            }})
+            assert st == 200, (st, d)
+            cfg = d["config"]
+            assert cfg["ui"]["senior"] is True
+            assert cfg["ui"]["textScale"] == 200, cfg["ui"]
+            assert cfg["ui"]["cursor"] == "focus", cfg["ui"]
+            assert cfg["onboarding"]["done"] is True
+
+            st, d, _ = req("PUT", "/api/config", {"config": {"ui": {"textScale": 10}}})
+            assert d["config"]["ui"]["textScale"] == 50, d["config"]["ui"]
+
+            # Standard ist: Assistent offen
+            st, d, _ = req("PUT", "/api/config", {"config": {}})
+            assert d["config"]["onboarding"]["done"] is False, d["config"]["onboarding"]
+            assert d["config"]["ui"]["senior"] is False
+
         def t_icons():
             st, d, _ = req("GET", "/api/icons")
             assert st == 200, st
@@ -380,6 +400,7 @@ def main():
             ("HA-Werte fuer die Kachel", t_ha_values),
             ("falsches HA-Token wird gemeldet", t_ha_wrong_token),
             ("Bildschirmschoner-Grenzen und Entitaets-Auswahl", t_config_screensaver_and_entities),
+            ("Senioren-Modus, Schriftgroesse und Assistent-Zustand", t_config_ui_and_onboarding),
             ("Icon-Katalog und SVG-Auslieferung", t_icons),
             ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
             ("Neustart wird angenommen (202)", t_restart),

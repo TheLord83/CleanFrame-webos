@@ -94,6 +94,25 @@ is what the tile renders. Only display-worthy domains are offered —
 `minutes` is clamped to 1…120. The launcher starts the screensaver after that
 idle time; `variant` empty means the Glasshouse default.
 
+## First-run wizard, senior mode and interface language
+
+On a fresh configuration (`onboarding.done: false`) the interface opens a
+five-step wizard: language (app and interface), a few quick tiles, layout and
+type size, summary, done. Skipping or finishing sets `onboarding.done: true`;
+the wizard is never shown again but stays reachable from the settings.
+
+```json
+"ui": { "senior": false, "textScale": 100, "cursor": "focus" },
+"onboarding": { "done": false, "version": 1 }
+```
+
+`textScale` is clamped to 50…200 %, `cursor` accepts `focus` or `off`. Senior
+mode is what the launcher uses for larger labels and fewer tiles per screen.
+
+The interface itself switches between German and English (`DE`/`EN` in the
+header) independently of the app language; the choice is kept in the browser
+(`localStorage["cf.ui.lang"]`).
+
 ## Security model
 
 - Without a token everything is allowed; with a token (`CF_TOKEN`) requests must

@@ -33,6 +33,11 @@ function defaults() {
     /* Bildschirmschoner-Kopplung: der Launcher startet nach N Minuten Ruhe den
      * TV-Schoner selbst. `variant` leer = Glasshouse-Standard. */
     screensaver: { enabled: false, minutes: 10, variant: '' },
+    /* Bedienbarkeit: Senioren-Modus (grosse Schrift, weniger Kacheln) und
+     * skalentierte Schrift. Der Launcher wertet beides aus. */
+    ui: { senior: false, textScale: 100, cursor: 'focus' },
+    /* Erster Start: der Assistent laeuft im Web-Interface, bis er quittiert ist. */
+    onboarding: { done: false, version: 1 },
     integrations: {
       ha: { url: '', token: '' },
       mqtt: { url: '', user: '', password: '', prefix: 'cleanframe' }
@@ -90,6 +95,17 @@ function validate(input) {
   var mins = parseInt(scr.minutes, 10);
   cfg.screensaver.minutes = isFinite(mins) ? Math.min(120, Math.max(1, mins)) : 10;
   if (isStr(scr.variant, 40)) cfg.screensaver.variant = scr.variant;
+
+  var ui = src.ui && typeof src.ui === 'object' ? src.ui : {};
+  cfg.ui.senior = !!ui.senior;
+  var scale = parseInt(ui.textScale, 10);
+  cfg.ui.textScale = isFinite(scale) ? Math.min(200, Math.max(50, scale)) : 100;
+  cfg.ui.cursor = oneOf(ui.cursor, ['focus', 'off'], 'focus');
+
+  var onb = src.onboarding && typeof src.onboarding === 'object' ? src.onboarding : {};
+  cfg.onboarding.done = !!onb.done;
+  var ov = parseInt(onb.version, 10);
+  cfg.onboarding.version = isFinite(ov) ? ov : 1;
 
   var integ = src.integrations && typeof src.integrations === 'object' ? src.integrations : {};
   var ha = integ.ha && typeof integ.ha === 'object' ? integ.ha : {};

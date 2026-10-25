@@ -70,6 +70,19 @@
   }
   .ok { color: var(--ok); } .bad { color: var(--bad); }
   ul.tiles .thumb { width: 28px; height: 28px; flex: 0 0 28px; object-fit: contain; opacity: .9; }
+  .wiz { position: fixed; inset: 0; background: rgba(6,8,12,.9); display: flex;
+    align-items: center; justify-content: center; padding: 24px; z-index: 30; }
+  .wiz[hidden] { display: none; }
+  .wiz .box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px; width: 100%; max-width: 720px; }
+  .wiz h2 { font-size: 18px; margin: 0 0 6px; }
+  .wiz .steps { display: flex; gap: 6px; margin: 0 0 18px; }
+  .wiz .dot { width: 100%; height: 4px; border-radius: 2px; background: var(--line); }
+  .wiz .dot.on { background: var(--accent); }
+  .wiz .nav { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
+  .wiz .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .wiz .quick button { display: flex; align-items: center; gap: 8px; }
+  .wiz .quick img { width: 22px; height: 22px; }
   #picker {
     position: fixed; inset: 0; background: rgba(6,8,12,.78); display: flex;
     align-items: center; justify-content: center; padding: 24px; z-index: 20;
@@ -93,8 +106,11 @@
 </head>
 <body>
 <header>
-  <h1>CleanFrame — Einrichtung</h1>
+  <h1>CleanFrame — <span data-t="setup">Einrichtung</span></h1>
   <span class="ver" id="ver">…</span>
+  <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
+    <button class="ghost" id="uiLang" title="Sprache der Oberfläche">DE</button>
+  </span>
 </header>
 
 <nav role="tablist">
@@ -151,6 +167,17 @@
       <div>
         <label for="wall">Hintergrund</label>
         <input id="wall" placeholder="misty">
+      </div>
+      <div>
+        <label for="senior">Senioren-Modus</label>
+        <select id="senior">
+          <option value="0">Aus</option>
+          <option value="1">Ein (große Schrift, weniger Kacheln)</option>
+        </select>
+      </div>
+      <div>
+        <label for="textScale">Schriftgröße (%)</label>
+        <input id="textScale" type="number" min="50" max="200" step="10" value="100">
       </div>
     </div>
     <div class="row" style="margin-top:16px">
@@ -245,6 +272,22 @@
     <div class="status" id="sysStatus"></div>
   </section>
 </main>
+
+<div class="wiz" id="wizard" hidden>
+  <div class="box">
+    <div class="steps" id="wDots"></div>
+    <h2 id="wTitle">Willkommen</h2>
+    <p class="hint" id="wHint"></p>
+    <div id="wBody"></div>
+    <div class="nav">
+      <button class="ghost" id="wBack" data-t="back">Zurück</button>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" id="wSkip" data-t="skip">Überspringen</button>
+        <button class="action" id="wNext" data-t="next">Weiter</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="picker" hidden>
   <div class="panel">
@@ -408,6 +451,8 @@
     $('mqUser').value = c.integrations.mqtt.user || '';
     $('mqPass').value = '';
     $('mqPrefix').value = c.integrations.mqtt.prefix || 'cleanframe';
+    $('senior').value = c.ui && c.ui.senior ? '1' : '0';
+    $('textScale').value = (c.ui && c.ui.textScale) || 100;
     $('scrEnabled').value = c.screensaver && c.screensaver.enabled ? '1' : '0';
     $('scrMinutes').value = (c.screensaver && c.screensaver.minutes) || 10;
     $('scrVariant').value = (c.screensaver && c.screensaver.variant) || '';
@@ -459,6 +504,9 @@
     state.cfg.look.apps = $('appsMode').value;
     state.cfg.look.wall = $('wall').value.trim() || state.cfg.look.wall;
     state.cfg.lang = $('lang').value;
+    state.cfg.ui = state.cfg.ui || {};
+    state.cfg.ui.senior = $('senior').value === '1';
+    state.cfg.ui.textScale = parseInt($('textScale').value, 10) || 100;
     save(state.cfg, $('lookStatus'), 'Übernommen');
   };
 
@@ -665,7 +713,24 @@
         step('Speichern landet im Server', saved);
             var withIcon = (d.config.home || []).filter(function (t) { return t.icon; });
         step('Icon bleibt gespeichert', d.config.home.length === 0 || withIcon.length >= 0);
-        var ok = steps.every(function (s) { return s.ok; });
+
+        // Assistent: Schritte durchlaufen und Abschluss pruefen
+        step('Assistent vorhanden', !!document.getElementById('wizard'));
+        renderWizard(2);
+        step('Schritt Startseite rendert Schnellauswahl', document.querySelectorAll('#wBody .quick button').length >= 4,
+             document.querySelectorAll('#wBody .quick button').length + ' Vorschläge');
+        renderWizard(3);
+        step('Schritt Darstellung rendert Regler', !!document.getElementById('wLayout') && !!document.getElementById('wSenior'));
+        renderWizard(4);
+        step('Schritt Fertig zeigt Zusammenfassung', document.getElementById('wBody').children.length >= 1);
+
+        // Sprache der Oberflaeche umschalten
+        var before = document.querySelector('[data-t="setup"]').textContent;
+        document.getElementById('uiLang').click();
+        var after = document.querySelector('[data-t="setup"]').textContent;
+        step('Sprachumschalter ändert die Oberfläche', before !== after, before + ' -> ' + after);
+        document.getElementById('uiLang').click();
+        var ok = steps.every(function (x) { return x.ok; });
         out.textContent = JSON.stringify({ ok: ok, steps: steps }, null, 1);
         out.hidden = false;
         document.title = ok ? 'SELFTEST-OK' : 'SELFTEST-FAIL';
@@ -678,8 +743,204 @@
     }, 700);
   }
 
+
+  /* ---------- Sprache der Oberflaeche (de/en) ---------- */
+  var UI = { lang: localStorage.getItem('cf.ui.lang') || 'de' };
+  var T = {
+    de: {
+      setup: 'Einrichtung', home: 'Startseite', look: 'Darstellung',
+      integrations: 'Integrationen', system: 'System',
+      back: 'Zurück', next: 'Weiter', skip: 'Überspringen', done: 'Fertig',
+      w1t: 'Willkommen', w1h: 'Vier Schritte, danach steht dein Startbildschirm. Alles lässt sich später hier ändern.',
+      w2t: 'Sprache', w2h: 'Sprache der App auf dem Fernseher und der Oberfläche hier.',
+      w3t: 'Startseite', w3h: 'Diese Apps zuerst auf die Leiste legen — alles Weitere danach in „Startseite“.',
+      w4t: 'Darstellung', w4h: 'Anordnung und Schrift.',
+      w5t: 'Fertig', w5h: 'Zusammenfassung. „Fertig“ schließt den Assistenten; die Einstellungen bleiben hier jederzeit erreichbar.',
+      langApp: 'Sprache der App', langUi: 'Sprache der Oberfläche',
+      layout: 'Anordnung', appsMode: 'App-Darstellung', senior: 'Senioren-Modus', scale: 'Schriftgröße (%)'
+    },
+    en: {
+      setup: 'Setup', home: 'Home screen', look: 'Appearance',
+      integrations: 'Integrations', system: 'System',
+      back: 'Back', next: 'Next', skip: 'Skip', done: 'Done',
+      w1t: 'Welcome', w1h: 'Four steps and your home screen is ready. Everything stays editable here.',
+      w2t: 'Language', w2h: 'Language of the app on the television and of this interface.',
+      w3t: 'Home screen', w3h: 'These apps first — add the rest later under “Home screen”.',
+      w4t: 'Appearance', w4h: 'Layout and type size.',
+      w5t: 'Done', w5h: 'Summary. “Done” closes the wizard; the settings stay available at any time.',
+      langApp: 'App language', langUi: 'Interface language',
+      layout: 'Layout', appsMode: 'App display', senior: 'Senior mode', scale: 'Text size (%)'
+    }
+  };
+  function t(key) { return (T[UI.lang] && T[UI.lang][key]) || (T.de[key] || key); }
+
+  function applyUiLang() {
+    document.querySelectorAll('[data-t]').forEach(function (el) {
+      var key = el.getAttribute('data-t');
+      if (T[UI.lang][key]) el.textContent = t(key);
+    });
+    document.getElementById('uiLang').textContent = UI.lang.toUpperCase();
+    document.documentElement.lang = UI.lang;
+  }
+
+  document.getElementById('uiLang').onclick = function () {
+    UI.lang = UI.lang === 'de' ? 'en' : 'de';
+    localStorage.setItem('cf.ui.lang', UI.lang);
+    applyUiLang();
+    if (!document.getElementById('wizard').hidden) renderWizard(WIZ.step);
+  };
+
+  /* ---------- Erster-Start-Assistent ---------- */
+  var WIZ = { step: 0, total: 5 };
+  var WIZ_PICKS = [
+    { key: 'netflix', label: 'Netflix' },
+    { key: 'youtube', label: 'YouTube' },
+    { key: 'ard', label: 'ARD' },
+    { key: 'playstation', label: 'PlayStation' }
+  ];
+
+  function wizPickIds() {
+    // Katalog-IDs zu den Marken-Schluesseln, soweit vorhanden
+    var map = {
+      netflix: 'netflix', youtube: 'youtube.leanback.v4',
+      ard: 'com.webos.app.enactbrowser', playstation: 'com.webos.app.hdmi2'
+    };
+    return map;
+  }
+
+  function renderWizard(step) {
+    WIZ.step = step;
+    var dots = document.getElementById('wDots');
+    dots.innerHTML = '';
+    for (var i = 0; i < WIZ.total; i++) {
+      var d = document.createElement('span');
+      d.className = 'dot' + (i <= step ? ' on' : '');
+      dots.appendChild(d);
+    }
+    document.getElementById('wTitle').textContent = t('w' + (step + 1) + 't');
+    document.getElementById('wHint').textContent = t('w' + (step + 1) + 'h');
+    var body = document.getElementById('wBody');
+    body.innerHTML = '';
+
+    if (step === 1) {
+      body.innerHTML =
+        '<div class="grid">' +
+        '<div><label>' + t('langUi') + '</label>' +
+        '<select id="wUiLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>' +
+        '<div><label>' + t('langApp') + '</label>' +
+        '<select id="wAppLang"><option value="system">' + (UI.lang === 'de' ? 'Wie der Fernseher' : 'Like the TV') + '</option>' +
+        '<option value="de">Deutsch</option><option value="en">English</option></select></div></div>';
+      document.getElementById('wUiLang').value = UI.lang;
+      document.getElementById('wAppLang').value = state.cfg.lang || 'system';
+      document.getElementById('wUiLang').onchange = function () {
+        UI.lang = this.value; localStorage.setItem('cf.ui.lang', UI.lang); applyUiLang(); renderWizard(step);
+      };
+      document.getElementById('wAppLang').onchange = function () { state.cfg.lang = this.value; };
+    } else if (step === 2) {
+      var quick = document.createElement('div');
+      quick.className = 'quick';
+      WIZ_PICKS.forEach(function (p) {
+        var appId = wizPickIds()[p.key];
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ghost';
+        var img = document.createElement('img'); img.src = '/icons/' + p.key + '.svg'; img.alt = '';
+        var lab = document.createElement('span'); lab.textContent = p.label;
+        var has = (state.cfg.home || []).some(function (t2) { return t2.appId === appId; });
+        if (has) b.style.borderColor = 'var(--ok)';
+        b.appendChild(img); b.appendChild(lab);
+        b.onclick = function () {
+          state.cfg.home = state.cfg.home || [];
+          if (has) return;
+          state.cfg.home.push({ appId: appId, name: p.label, icon: p.key });
+          renderTiles(); b.style.borderColor = 'var(--ok)';
+          note(document.getElementById('homeStatus'), p.label + ' — ' + (UI.lang === 'de' ? 'hinzugefügt' : 'added'), true);
+        };
+        quick.appendChild(b);
+      });
+      body.appendChild(quick);
+      var hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.style.marginTop = '12px';
+      hint.textContent = (state.cfg.home || []).length + (UI.lang === 'de' ? ' Kacheln gewählt' : ' tiles chosen');
+      body.appendChild(hint);
+    } else if (step === 3) {
+      body.innerHTML =
+        '<div class="grid">' +
+        '<div><label>' + t('layout') + '</label><select id="wLayout">' +
+        '<option value="dock">' + (UI.lang === 'de' ? 'Leiste unten' : 'Bottom bar') + '</option>' +
+        '<option value="list">' + (UI.lang === 'de' ? 'Liste' : 'List') + '</option></select></div>' +
+        '<div><label>' + t('appsMode') + '</label><select id="wApps">' +
+        '<option value="both">' + (UI.lang === 'de' ? 'Symbol und Text' : 'Icon and text') + '</option>' +
+        '<option value="icons">' + (UI.lang === 'de' ? 'Nur Symbole' : 'Icons only') + '</option>' +
+        '<option value="text">' + (UI.lang === 'de' ? 'Nur Text' : 'Text only') + '</option></select></div>' +
+        '<div><label>' + t('senior') + '</label><select id="wSenior"><option value="0">' +
+        (UI.lang === 'de' ? 'Aus' : 'Off') + '</option><option value="1">' +
+        (UI.lang === 'de' ? 'Ein' : 'On') + '</option></select></div>' +
+        '<div><label>' + t('scale') + '</label><input id="wScale" type="number" min="50" max="200" step="10"></div></div>';
+      document.getElementById('wLayout').value = state.cfg.look.layout;
+      document.getElementById('wApps').value = state.cfg.look.apps;
+      document.getElementById('wSenior').value = state.cfg.ui && state.cfg.ui.senior ? '1' : '0';
+      document.getElementById('wScale').value = (state.cfg.ui && state.cfg.ui.textScale) || 100;
+    } else if (step === 4) {
+      var list = document.createElement('ul');
+      list.className = 'tiles';
+      (state.cfg.home || []).forEach(function (e) {
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="id"></span><span class="nm"></span>';
+        li.querySelector('.id').textContent = e.icon ? 'icon: ' + e.icon : 'app: ' + e.appId;
+        li.querySelector('.nm').textContent = e.name || e.appId;
+        list.appendChild(li);
+      });
+      body.appendChild(list);
+      if (!(state.cfg.home || []).length) {
+        var p2 = document.createElement('p'); p2.className = 'hint';
+        p2.textContent = UI.lang === 'de' ? 'Noch keine Kachel — du kannst auch später welche hinzufügen.' : 'No tiles yet — you can add them later.';
+        body.appendChild(p2);
+      }
+    }
+
+    document.getElementById('wBack').style.visibility = step === 0 ? 'hidden' : 'visible';
+    document.getElementById('wNext').textContent = step === WIZ.total - 1 ? t('done') : t('next');
+  }
+
+  function wizardFinish() {
+    if (document.getElementById('wLayout')) {
+      state.cfg.look.layout = document.getElementById('wLayout').value;
+      state.cfg.look.apps = document.getElementById('wApps').value;
+      state.cfg.ui = state.cfg.ui || {};
+      state.cfg.ui.senior = document.getElementById('wSenior').value === '1';
+      state.cfg.ui.textScale = parseInt(document.getElementById('wScale').value, 10) || 100;
+    }
+    state.cfg.onboarding = { done: true, version: 1 };
+    save(state.cfg, document.getElementById('homeStatus'),
+         UI.lang === 'de' ? 'Einrichtung abgeschlossen' : 'Setup complete');
+    document.getElementById('wizard').hidden = true;
+  }
+
+  document.getElementById('wNext').onclick = function () {
+    if (WIZ.step === WIZ.total - 1) return wizardFinish();
+    renderWizard(WIZ.step + 1);
+  };
+  document.getElementById('wBack').onclick = function () {
+    if (WIZ.step > 0) renderWizard(WIZ.step - 1);
+  };
+  document.getElementById('wSkip').onclick = function () {
+    state.cfg.onboarding = { done: true, version: 1 };
+    save(state.cfg, document.getElementById('homeStatus'),
+         UI.lang === 'de' ? 'Assistent übersprungen' : 'Wizard skipped');
+    document.getElementById('wizard').hidden = true;
+  };
+
   load().then(function () {
-    if (location.search.indexOf('selftest=ui') >= 0) selfTest();
+    applyUiLang();
+    var testing = location.search.indexOf('selftest=ui') >= 0;
+    if (!testing && !(state.cfg.onboarding && state.cfg.onboarding.done)) {
+      document.getElementById('wizard').hidden = false;
+      renderWizard(0);
+    } else if (!testing) {
+      document.getElementById('wizard').hidden = true;
+    }
+    if (testing) selfTest();
   });
 })();
 </script>
