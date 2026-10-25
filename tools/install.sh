@@ -265,14 +265,16 @@ else
     n|N|no|nein) say "$(t root_declined)"; DO_HUB=0 ;;
     *) say "$(t root_no_tty)"; DO_HUB=0 ;;
   esac
-  if [ "$ROOT_IT" = "0" ]; then
-    # Without root the only way in is an already installed Glasshouse. If that does not
-    # answer either, there is nothing to install - say it now instead of after a 16 MB build.
-    if curl -sS -m 6 "http://$TV:8080/api/apps" 2>/dev/null | head -c 40 | grep -q installed; then
-      say "$(t glass_ok_install)"
-    else
-      fail "$(t nothing_without_root)"
-    fi
+
+fi
+
+# No root and no rooting: the only path that installs is an already installed Glasshouse.
+# If that does not answer either, stop here - before building anything.
+if [ "$ROOT_IT" = "0" ] && ! is_rooted; then
+  if curl -sS -m 6 "http://$TV:8080/api/apps" 2>/dev/null | head -c 80 | grep -q installed; then
+    say "$(t glass_ok_install)"
+  else
+    fail "$(t nothing_without_root)"
   fi
 fi
 
