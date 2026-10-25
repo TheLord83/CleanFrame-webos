@@ -66,8 +66,9 @@ t() {
       info_root)     echo "    root: %s" ;;
       root_stage)    echo "==> Rooten (SlopBro)" ;;
       root_skip)     echo "    schon gerootet, SSH funktioniert" ;;
-      root_need_tv)  echo "    Der Fernseher muss an sein und Developer Mode aktiviert (Settings > General > Developer Mode)." ;;
+      root_need_tv)  echo "    Der Fernseher muss an sein und im selben Netz. Developer Mode ist NICHT noetig." ;;
       root_pair)     echo "    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen." ;;
+      root_pair_hint) echo "    Erscheint er nicht: Einstellungen > Verbindung > LG Connect Apps / Mobile Verbindungsverwaltung einschalten." ;;
       root_wait)     echo "    warte auf die Root-Shell (Telnet 23) ..." ;;
       root_timeout)  echo "FEHLER: keine Root-Shell bekommen. SlopBro-Log oben pruefen (falsche webOS-Version?)." ;;
       root_setup)    echo "==> SSH-Schluessel setzen, Telnet schliessen, Updates sperren" ;;
@@ -109,8 +110,9 @@ t() {
       info_root)     echo "    root: %s" ;;
       root_stage)    echo "==> Rooting (SlopBro)" ;;
       root_skip)     echo "    already rooted, SSH works" ;;
-      root_need_tv)  echo "    The TV must be on and Developer Mode enabled (Settings > General > Developer Mode)." ;;
+      root_need_tv)  echo "    The TV must be on and on the same network. Developer Mode is NOT needed." ;;
       root_pair)     echo "    A pairing prompt will appear on the TV - accept it with the remote." ;;
+      root_pair_hint) echo "    If it does not: Settings > Connection > LG Connect Apps / Mobile Connection Management on." ;;
       root_wait)     echo "    waiting for the root shell (Telnet 23) ..." ;;
       root_timeout)  echo "ERROR: no root shell. Check the SlopBro output above (wrong webOS version?)." ;;
       root_setup)    echo "==> Installing the SSH key, closing Telnet, blocking updates" ;;

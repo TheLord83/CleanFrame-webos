@@ -37,13 +37,18 @@ What the script does in this step:
    (flag off, process killed), and blocks the LG update hosts in `/etc/hosts`.
 5. **Verifies**: SSH with the key works, node answers, Telnet is gone.
 
-Two things a script cannot do — you do them once, at the TV:
+One thing is left for you, and it is not Developer Mode:
 
-- **Enable Developer Mode**: Settings → General → Developer Mode, LG account, note
-  the passphrase shown on screen. Without it the SSAP app launch and the pairing are
-  refused.
-- **Accept the pairing prompt**: SlopBro asks the TV once; press *Yes* with the
-  remote. That is the one click in the whole flow.
+- **Accept the pairing prompt.** SlopBro asks the TV once (SSAP pairing); press *Yes*
+  with the remote. That is the only click in the whole flow. If no prompt appears,
+  enable *Settings → Connection → LG Connect Apps / Mobile Connection Management* —
+  without it the TV refuses SSAP pairing.
+
+**Developer Mode is not required** — and it actively gets in the way: the LG Developer
+Mode app must be removed before rooting, its own docs say so, and the webOS Homebrew
+project keeps a table of what root can do that Dev Mode cannot (wallpaper, screensaver,
+button remapping, PicCap). Dev Mode is the alternative for people who do not want to
+root; it is not a step towards rooting.
 
 If the firmware is above the exploit cutoff (check your model on
 <https://cani.rootmy.tv>), the run ends without a root shell — the script says so and
