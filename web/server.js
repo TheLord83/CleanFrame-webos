@@ -37,6 +37,13 @@ var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
 var TV_BASE = process.env.CF_GLASSHOUSE || 'http://127.0.0.1:8080';
+/* Icons liegen beim Launcher (eine Quelle fuer Fernseher und Web-Oberflaeche).
+ * Der Pfad zeigt auf das installierte App-Verzeichnis; fehlt es (Testbetrieb),
+ * wird der mitgelieferte Katalog benutzt. */
+var ICON_JSON = process.env.CF_ICONS_JSON ||
+  '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons.json';
+var ICON_DIR = process.env.CF_ICONS_DIR ||
+  '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons';
 var STUB = process.env.CF_STUB_APPS || '';
 
 var store = new config.Store(CONFIG_PATH);
@@ -97,6 +104,15 @@ function postGuard(req, res) {
     return false;
   }
   var origin = req.headers.origin;
+  /* `Origin: null` ist die Datei-App auf dem Fernseher selbst; dort herrscht
+   * ohnehin root. Jede andere Origin wird auch dann geprueft, wenn die Anfrage
+   * von 127.0.0.1 kommt — sonst koennte eine Seite im LAN-Browser den Schutz
+   * umgehen, indem sie ueber einen lokalen Umweg sendet. */
+  if (origin === 'null') {
+    if (fromTV(req)) return true;
+    json(res, 403, { ok: false, error: 'cross-origin request refused' });
+    return false;
+  }
   if (origin) {
     var host = req.headers.host;
     var o;
@@ -141,6 +157,17 @@ function stubApps() {
 
 function handle(req, res) {
   var u = url.parse(req.url, true);
+
+  /* Die Launcher-App laeuft aus file:// und damit mit `Origin: null`; jede
+   * Anfrage von 127.0.0.1 kommt vom Fernseher selbst (dort herrscht ohnehin
+   * root). Fuer diesen Fall CORS erlauben, fuer alle anderen nicht. */
+  if (fromTV(req) && req.headers.origin === 'null') {
+    res.setHeader('Access-Control-Allow-Origin', 'null');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   var q = u.query || {};
   var p = u.pathname;
 
@@ -190,6 +217,27 @@ function handle(req, res) {
   if (req.method === 'GET' && p === '/api/apps') {
     return appCatalog.catalog({ base: TV_BASE, stub: stubApps() }, function (err, out) {
       json(res, 200, out);
+    });
+  }
+
+  if (req.method === 'GET' && p === '/api/icons') {
+    var file = fs.existsSync(ICON_JSON) ? ICON_JSON : path.join(__dirname, 'assets', 'icons.json');
+    return fs.readFile(file, 'utf8', function (err, raw) {
+      if (err) return json(res, 200, { ok: false, error: 'Icon-Katalog fehlt', groups: [] });
+      var cat = null;
+      try { cat = JSON.parse(raw); } catch (e) { cat = null; }
+      if (!cat) return json(res, 200, { ok: false, error: 'Icon-Katalog ist kein JSON', groups: [] });
+      json(res, 200, { ok: true, source: file, groups: cat.groups || [] });
+    });
+  }
+
+  if (req.method === 'GET' && p.indexOf('/icons/') === 0) {
+    var name = p.slice('/icons/'.length);
+    if (!/^[A-Za-z0-9._-]+\.svg$/.test(name)) return send(res, 400, 'bad name');
+    var dir = fs.existsSync(ICON_DIR) ? ICON_DIR : path.join(__dirname, 'assets', 'icons');
+    return fs.readFile(path.join(dir, name), 'utf8', function (err, data) {
+      if (err) return send(res, 404, 'not found');
+      send(res, 200, data, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
     });
   }
 

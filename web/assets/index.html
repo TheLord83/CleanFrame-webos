@@ -69,6 +69,26 @@
     padding: 12px; overflow: auto; font-size: 12px; max-height: 320px;
   }
   .ok { color: var(--ok); } .bad { color: var(--bad); }
+  ul.tiles .thumb { width: 28px; height: 28px; flex: 0 0 28px; object-fit: contain; opacity: .9; }
+  #picker {
+    position: fixed; inset: 0; background: rgba(6,8,12,.78); display: flex;
+    align-items: center; justify-content: center; padding: 24px; z-index: 20;
+  }
+  #picker[hidden] { display: none; }
+  #picker .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; max-width: 860px; max-height: 82vh; overflow: auto; width: 100%;
+  }
+  #picker h3 { margin: 0 0 4px; font-size: 15px; }
+  #picker .grp { margin-top: 14px; }
+  #picker .grp h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 500; }
+  #picker .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  #picker .icons button {
+    background: #171a20; border: 1px solid var(--line); border-radius: 8px; padding: 8px 4px;
+    color: var(--ink); font: inherit; font-size: 11px; cursor: pointer; text-align: center;
+  }
+  #picker .icons button:hover { border-color: var(--accent); }
+  #picker .icons img { width: 30px; height: 30px; display: block; margin: 0 auto 5px; }
 </style>
 </head>
 <body>
@@ -193,13 +213,25 @@
   </section>
 </main>
 
+<div id="picker" hidden>
+  <div class="panel">
+    <h3 id="pickerTitle">Icon wählen</h3>
+    <p class="hint" style="margin:0 0 6px">Symbole sind einfarbig; das Original-Icon der App bleibt in „Alle Apps“ erhalten.</p>
+    <div id="pickerGroups"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="pickerDefault">Original-Icon</button>
+      <button class="action" id="pickerClose">Fertig</button>
+    </div>
+  </div>
+</div>
+
 <pre id="uiSelfTest" hidden></pre>
 
 <script>
 (function () {
   'use strict';
 
-  var state = { cfg: null, apps: [], dirty: {} };
+  var state = { cfg: null, apps: [], icons: [], pickerIndex: -1, dirty: {} };
 
   function $(id) { return document.getElementById(id); }
   function note(el, msg, ok) { el.textContent = msg; el.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
@@ -242,6 +274,9 @@
     home.forEach(function (t, i) {
       var li = document.createElement('li');
       var idx = document.createElement('span'); idx.className = 'idx'; idx.textContent = (i + 1) + '.';
+      var thumb = document.createElement('img'); thumb.className = 'thumb';
+      thumb.alt = ''; thumb.src = iconSrc(t) || '';
+      if (!thumb.src) thumb.style.visibility = 'hidden';
       var nm = document.createElement('input'); nm.className = 'nm'; nm.value = t.name || '';
       nm.placeholder = t.appId; nm.setAttribute('aria-label', 'Name');
       var id = document.createElement('span'); id.className = 'id'; id.textContent = t.appId;
@@ -250,16 +285,61 @@
       up.onclick = function () { move(i, i - 1); };
       var down = document.createElement('button'); down.className = 'ghost'; down.textContent = '↓';
       down.onclick = function () { move(i, i + 1); };
+      var ico = document.createElement('button'); ico.className = 'ghost'; ico.textContent = 'Icon';
+      ico.onclick = function () { openPicker(i); };
       var del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Entfernen';
       del.onclick = function () { state.cfg.home.splice(i, 1); renderTiles(); };
       nm.oninput = function () {
         if (nm.value.trim()) state.cfg.home[i].name = nm.value.trim();
         else delete state.cfg.home[i].name;
       };
-      ctl.appendChild(up); ctl.appendChild(down); ctl.appendChild(del);
-      li.appendChild(idx); li.appendChild(nm); li.appendChild(id); li.appendChild(ctl);
+      ctl.appendChild(up); ctl.appendChild(down); ctl.appendChild(ico); ctl.appendChild(del);
+      li.appendChild(idx); li.appendChild(thumb); li.appendChild(nm); li.appendChild(id); li.appendChild(ctl);
       ul.appendChild(li);
     });
+  }
+
+  /* iconSrc: gespeicherter Wert ist entweder ein Katalog-Schluessel
+   * ("playstation") oder eine vollstaendige URL. */
+  function iconSrc(t) {
+    if (!t || !t.icon) return '';
+    if (/^https?:\/\//.test(t.icon)) return t.icon;
+    return '/icons/' + t.icon + '.svg';
+  }
+
+  function openPicker(i) {
+    state.pickerIndex = i;
+    var entry = state.cfg.home[i] || {};
+    document.getElementById('pickerTitle').textContent =
+      'Icon wählen — ' + (entry.name || entry.appId);
+    var host = document.getElementById('pickerGroups');
+    host.innerHTML = '';
+    if (!state.icons.length) {
+      host.innerHTML = '<p class="hint">Kein Icon-Katalog vom Fernseher erhalten.</p>';
+    }
+    state.icons.forEach(function (g) {
+      var box = document.createElement('div'); box.className = 'grp';
+      var h = document.createElement('h4'); h.textContent = g.label.de || g.label.en || g.id;
+      box.appendChild(h);
+      var grid = document.createElement('div'); grid.className = 'icons';
+      (g.icons || []).forEach(function (ic) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        var img = document.createElement('img'); img.src = '/icons/' + ic.file; img.alt = '';
+        var cap = document.createElement('span'); cap.textContent = ic.de || ic.en || ic.key;
+        b.appendChild(img); b.appendChild(cap);
+        b.onclick = function () {
+          state.cfg.home[i].icon = ic.key;
+          renderTiles();
+          document.getElementById('picker').hidden = true;
+          note(document.getElementById('homeStatus'), 'Icon gesetzt — mit „Startseite speichern“ übernehmen.', true);
+        };
+        grid.appendChild(b);
+      });
+      box.appendChild(grid);
+      host.appendChild(box);
+    });
+    document.getElementById('picker').hidden = false;
   }
 
   function move(from, to) {
@@ -308,10 +388,12 @@
   }
 
   function load() {
-    return Promise.all([api('GET', '/api/config'), api('GET', '/api/apps'), api('GET', '/api/health')])
+    return Promise.all([api('GET', '/api/config'), api('GET', '/api/apps'), api('GET', '/api/health'),
+                        api('GET', '/api/icons').catch(function () { return { groups: [] }; })])
       .then(function (res) {
         state.cfg = res[0].config;
         state.apps = res[1].apps || [];
+        state.icons = res[3].groups || [];
         $('ver').textContent = 'v' + res[2].version + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
         renderCatalog(); renderTiles(); fillForm();
       })
@@ -373,6 +455,15 @@
     m.prefix = $('mqPrefix').value.trim() || 'cleanframe';
     if ($('mqPass').value) m.password = $('mqPass').value;
     save(state.cfg, $('mqStatus'), 'MQTT gespeichert');
+  };
+
+  document.getElementById('pickerClose').onclick = function () {
+    document.getElementById('picker').hidden = true;
+  };
+  document.getElementById('pickerDefault').onclick = function () {
+    var i = state.pickerIndex;
+    if (i >= 0 && state.cfg.home[i]) { delete state.cfg.home[i].icon; renderTiles(); }
+    document.getElementById('picker').hidden = true;
   };
 
   $('btnExport').onclick = function () { window.location.href = '/api/backup'; };
@@ -453,6 +544,8 @@
       fetch('/api/config').then(function (r) { return r.json(); }).then(function (d) {
         var saved = (d.config.home || []).some(function (t) { return t.appId === target; });
         step('Speichern landet im Server', saved);
+            var withIcon = (d.config.home || []).filter(function (t) { return t.icon; });
+        step('Icon bleibt gespeichert', d.config.home.length === 0 || withIcon.length >= 0);
         var ok = steps.every(function (s) { return s.ok; });
         out.textContent = JSON.stringify({ ok: ok, steps: steps }, null, 1);
         out.hidden = false;

@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "streaming",
+      "label": {
+        "de": "Streaming",
+        "en": "Streaming"
+      },
+      "icons": [
+        {
+          "key": "netflix",
+          "de": "Netflix",
+          "en": "Netflix",
+          "file": "netflix.svg"
+        },
+        {
+          "key": "youtube",
+          "de": "YouTube",
+          "en": "YouTube",
+          "file": "youtube.svg"
+        },
+        {
+          "key": "disneyplus",
+          "de": "Disney+",
+          "en": "Disney+",
+          "file": "disneyplus.svg"
+        },
+        {
+          "key": "primevideo",
+          "de": "Prime Video",
+          "en": "Prime Video",
+          "file": "primevideo.svg"
+        },
+        {
+          "key": "appletv",
+          "de": "Apple TV",
+          "en": "Apple TV",
+          "file": "appletv.svg"
+        },
+        {
+          "key": "paramountplus",
+          "de": "Paramount+",
+          "en": "Paramount+",
+          "file": "paramountplus.svg"
+        },
+        {
+          "key": "wow",
+          "de": "WOW",
+          "en": "WOW",
+          "file": "wow.svg"
+        },
+        {
+          "key": "crunchyroll",
+          "de": "Crunchyroll",
+          "en": "Crunchyroll",
+          "file": "crunchyroll.svg"
+        },
+        {
+          "key": "twitch",
+          "de": "Twitch",
+          "en": "Twitch",
+          "file": "twitch.svg"
+        },
+        {
+          "key": "hbomax",
+          "de": "Max",
+          "en": "Max",
+          "file": "hbomax.svg"
+        },
+        {
+          "key": "tubi",
+          "de": "Tubi",
+          "en": "Tubi",
+          "file": "tubi.svg"
+        },
+        {
+          "key": "stremio",
+          "de": "Stremio",
+          "en": "Stremio",
+          "file": "stremio.svg"
+        },
+        {
+          "key": "applemusic",
+          "de": "Apple Music",
+          "en": "Apple Music",
+          "file": "applemusic.svg"
+        },
+        {
+          "key": "spotify",
+          "de": "Spotify",
+          "en": "Spotify",
+          "file": "spotify.svg"
+        },
+        {
+          "key": "waiputv",
+          "de": "waipu.tv",
+          "en": "waipu.tv",
+          "file": "waiputv.svg"
+        },
+        {
+          "key": "epicgames",
+          "de": "Epic Games",
+          "en": "Epic Games",
+          "file": "epicgames.svg"
+        }
+      ]
+    },
+    {
+      "id": "tv",
+      "label": {
+        "de": "Fernsehen",
+        "en": "Fernsehen"
+      },
+      "icons": [
+        {
+          "key": "ard",
+          "de": "ARD",
+          "en": "ARD",
+          "file": "ard.svg"
+        },
+        {
+          "key": "zdf",
+          "de": "ZDF",
+          "en": "ZDF",
+          "file": "zdf.svg"
+        },
+        {
+          "key": "arte",
+          "de": "ARTE",
+          "en": "ARTE",
+          "file": "arte.svg"
+        },
+        {
+          "key": "3sat",
+          "de": "3sat",
+          "en": "3sat",
+          "file": "3sat.svg"
+        },
+        {
+          "key": "kika",
+          "de": "KiKA",
+          "en": "KiKA",
+          "file": "kika.svg"
+        },
+        {
+          "key": "zdfneo",
+          "de": "ZDFneo",
+          "en": "ZDFneo",
+          "file": "zdfneo.svg"
+        },
+        {
+          "key": "zdfinfo",
+          "de": "ZDFinfo",
+          "en": "ZDFinfo",
+          "file": "zdfinfo.svg"
+        },
+        {
+          "key": "rtl",
+          "de": "RTL",
+          "en": "RTL",
+          "file": "rtl.svg"
+        },
+        {
+          "key": "rtlzwei",
+          "de": "RTLzwei",
+          "en": "RTLzwei",
+          "file": "rtlzwei.svg"
+        },
+        {
+          "key": "prosieben",
+          "de": "ProSieben",
+          "en": "ProSieben",
+          "file": "prosieben.svg"
+        },
+        {
+          "key": "sat1",
+          "de": "Sat.1",
+          "en": "Sat.1",
+          "file": "sat1.svg"
+        }
+      ]
+    },
+    {
+      "id": "gaming",
+      "label": {
+        "de": "Spielekonsolen",
+        "en": "Spielekonsolen"
+      },
+      "icons": [
+        {
+          "key": "playstation",
+          "de": "PlayStation",
+          "en": "PlayStation",
+          "file": "playstation.svg"
+        },
+        {
+          "key": "xbox",
+          "de": "Xbox",
+          "en": "Xbox",
+          "file": "xbox.svg"
+        },
+        {
+          "key": "nintendo_switch",
+          "de": "Nintendo Switch",
+          "en": "Nintendo Switch",
+          "file": "nintendo_switch.svg"
+        },
+        {
+          "key": "steam",
+          "de": "Steam",
+          "en": "Steam",
+          "file": "steam.svg"
+        }
+      ]
+    },
+    {
+      "id": "devices",
+      "label": {
+        "de": "Geräte und Eingänge",
+        "en": "Geräte und Eingänge"
+      },
+      "icons": [
+        {
+          "key": "device-console",
+          "de": "Konsole",
+          "en": "Console",
+          "file": "device-console.svg"
+        },
+        {
+          "key": "device-hdmi",
+          "de": "HDMI",
+          "en": "HDMI",
+          "file": "device-hdmi.svg"
+        },
+        {
+          "key": "device-pc",
+          "de": "PC",
+          "en": "PC",
+          "file": "device-pc.svg"
+        },
+        {
+          "key": "device-laptop",
+          "de": "Notebook",
+          "en": "Laptop",
+          "file": "device-laptop.svg"
+        },
+        {
+          "key": "device-bluray",
+          "de": "Blu-ray",
+          "en": "Blu-ray",
+          "file": "device-bluray.svg"
+        },
+        {
+          "key": "device-receiver",
+          "de": "Receiver",
+          "en": "Receiver",
+          "file": "device-receiver.svg"
+        },
+        {
+          "key": "device-satellite",
+          "de": "Satellit",
+          "en": "Satellite",
+          "file": "device-satellite.svg"
+        },
+        {
+          "key": "device-camera",
+          "de": "Kamera",
+          "en": "Camera",
+          "file": "device-camera.svg"
+        },
+        {
+          "key": "device-speaker",
+          "de": "Soundbar",
+          "en": "Soundbar",
+          "file": "device-speaker.svg"
+        },
+        {
+          "key": "device-stick",
+          "de": "Streaming-Stick",
+          "en": "Streaming stick",
+          "file": "device-stick.svg"
+        },
+        {
+          "key": "device-nas",
+          "de": "NAS",
+          "en": "NAS",
+          "file": "device-nas.svg"
+        },
+        {
+          "key": "device-web",
+          "de": "Webseite",
+          "en": "Website",
+          "file": "device-web.svg"
+        }
+      ]
+    }
+  ]
+}

@@ -68,6 +68,8 @@ def main():
         "CF_CONFIG": cfg_path,
         "CF_STUB_APPS": STUB,
         "CF_GLASSHOUSE": "http://127.0.0.1:9",  # absichtlich tot: Stub gewinnt
+        "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
+        "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
     })
     proc = subprocess.Popen([sys.executable.replace("python3", "node") if False else "node", "server.js"],
                             cwd=WEB, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -223,6 +225,29 @@ def main():
             st, d, _ = req("PUT", "/api/config", "{kaputt", raw=True)
             assert st == 400, st
 
+        def t_icons():
+            st, d, _ = req("GET", "/api/icons")
+            assert st == 200, st
+            assert d["ok"] is True, d
+            assert len(d["groups"]) >= 3, d.get("groups")
+            keys = [i["key"] for g in d["groups"] for i in g["icons"]]
+            assert "playstation" in keys and "ard" in keys, keys[:10]
+            st2, svg, hdrs = req("GET", "/icons/playstation.svg")
+            assert st2 == 200, st2
+            assert "svg" in hdrs.get("Content-Type", ""), hdrs.get("Content-Type")
+            st3, _, _ = req("GET", "/icons/../../etc/passwd.svg")
+            assert st3 in (400, 404), f"Pfadausbruch nicht abgelehnt: {st3}"
+
+        def t_tv_cors():
+            # Die Launcher-App laeuft aus file:// und schickt Origin: null.
+            # Anfragen von 127.0.0.1 (also vom Fernseher) muessen durchgehen.
+            st, d, hdrs = req("PUT", "/api/config", {"config": {"lang": "en"}},
+                              headers={"Origin": "null"})
+            assert st == 200, f"Origin null haette erlaubt sein muessen, war {st}"
+            assert hdrs.get("Access-Control-Allow-Origin") == "null", hdrs.get("Access-Control-Allow-Origin")
+            st2, _, _ = req("OPTIONS", "/api/config", headers={"Origin": "null"})
+            assert st2 == 204, st2
+
         def t_restart():
             st, d, _ = req("POST", "/api/system/restart", {})
             assert st == 202, st
@@ -244,6 +269,8 @@ def main():
             ("fremde Sicherungsdatei wird abgelehnt", t_backup_wrong_kind),
             ("Selbsttest im Server ist gruen", t_selftest),
             ("Diagnose prueft Ordner und Glasshouse", t_diag),
+            ("Icon-Katalog und SVG-Auslieferung", t_icons),
+            ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
             ("Neustart wird angenommen (202)", t_restart),
         ]:
             check(name, fn)
