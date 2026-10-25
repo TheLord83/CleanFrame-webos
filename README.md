@@ -73,27 +73,82 @@ downgrade is out of scope here. Details and the manual path: [docs/INSTALL.md](d
 
 ## Install
 
+### Linux and macOS
+
 ```sh
-./tools/install.sh                  # Linux and macOS: finds the TV itself
-./tools/install.sh --root           # same, but root it first
-.\tools\install.ps1                # Windows PowerShell
+./tools/install.sh                  # find the TV, install launcher and hub
+./tools/install.sh --root           # same, but root the TV first
+./tools/install.sh --info           # only report model, webOS version, node
 ```
 
-The address is **optional**: the script searches the local network (SSDP plus a port scan,
-verified by a real SSAP handshake) and takes the only TV it finds. Pass an address only when
-there are several: `./tools/install.sh 192.168.1.50`.
+Real output of such a run (TV: 43NANO779PA, launcher 0.4.17 at the time):
+
+```text
+$ ./tools/install.sh 192.168.1.50
+==> Looking for the TV
+    TV answers (SSH open)
+==> Checking prerequisites
+    node 8.12.0
+    Glasshouse answers (192.168.1.50:8080)
+==> Plan
+    install the launcher IPK: /path/to/dist/cleanframe_all.ipk
+    set up the hub: /var/lib/cleanframe, autostart, port 8484
+Proceed? [Y/n] y
+==> Installing the launcher
+   package cleanframe_all.ipk for com.blackpearl.cleanframe
+   uploading 15802724 bytes
+   confirming com.blackpearl.cleanframe 0.4.17
+   installed: com.blackpearl.cleanframe 0.4.17 (16750825 bytes)
+==> Setting up the hub
+==> Verifying
+    hub answers: {"ok":true,"name":"cleanframe-web","version":"0.4.17",...}
+    launcher is in the app list: com.blackpearl.cleanframe 0.4.17
+    launcher is on screen (live picture available)
+==> Result
+    interface: http://192.168.1.50:8484/
+```
+
+### Windows (PowerShell)
+
+```powershell
+.\tools\install.ps1                # find the TV, install launcher and hub
+.\tools\install.ps1 -Root          # same, but root the TV first
+.\tools\install.ps1 -Info          # only report model, webOS version, node
+```
+
+Windows needs the OpenSSH client (a Windows feature) and, for `-Root` and the network
+search, Python 3 on `PATH` — the upstream tools are Python. Output looks like this
+(`-DryRun`, i.e. detect and plan only):
+
+```text
+PS> .\tools\install.ps1 -DryRun
+==> Looking for a TV on the network
+    found: 192.168.1.50
+==> Checking prerequisites
+    node 8.12.0
+    Glasshouse answers (192.168.1.50:8080)
+==> Plan
+    install the launcher IPK: C:\...\dist\cleanframe_all.ipk
+    set up the hub: /var/lib/cleanframe, autostart, port 8484
+
+(dry run: nothing was changed)
+```
+
+### What it does in both cases
+
+The address is **optional**: the script searches the local network (SSDP plus a port
+scan, verified by a real SSAP handshake) and takes the only TV it finds. Pass an address
+only when there are several: `./tools/install.sh 192.168.1.50` (`-Tv 192.168.1.50` on
+Windows).
 
 One run puts both parts on the TV: it builds the IPK, uploads it through Glasshouse's
-installer, sets up the hub with autostart, then proves the result — the hub answers on port
-8484, the app is in the catalogue, and the hub can take a picture of the launcher. `--dry-run`
-(`-DryRun`) only detects, checks and prints the plan; `--info` prints model, webOS version and
-node version.
+installer, sets up the hub with autostart, then proves the result — the hub answers on
+port 8484, the app is in the catalogue, and the hub can take a picture of the launcher
+(which means it is really on screen). `--dry-run` (`-DryRun`) only detects, checks and
+prints the plan; `--info` (`-Info`) prints model, webOS version and node version.
 
-The hub then answers on `http://<tv-ip>:8484/`. On the TV the service is controlled
-with `/var/lib/cleanframe/cleanframectl status`.
-
-Rooting is scripted too (`--root`); what stays is one pairing prompt on the TV. Step by step in
-[docs/INSTALL.md](docs/INSTALL.md).
+Rooting is scripted too (`--root` / `-Root`); what stays is one pairing prompt on the TV.
+Step by step in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Build and test
 

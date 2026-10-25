@@ -86,25 +86,74 @@ picture and remote control, so do **not** block `lo`.
 
 ## Step 1 — run the installer
 
-Linux / macOS:
+### Linux and macOS
 
 ```sh
-./tools/install.sh                               # finds the TV by itself
-./tools/install.sh --root                        # same, but root it first
-./tools/install.sh 192.168.1.50 --lang de         # explicit address, German prompts
-./tools/install.sh --dry-run                      # detect and check only
+./tools/install.sh                   # find the TV, install launcher and hub
+./tools/install.sh --root            # same, but root the TV first
+./tools/install.sh --info            # only report model, webOS version, node
+./tools/install.sh --lang de         # German prompts
+./tools/install.sh --dry-run         # detect, check and print the plan only
+./tools/install.sh 192.168.1.50      # explicit address instead of the search
 ```
 
-Windows (PowerShell):
+```text
+$ ./tools/install.sh
+==> Looking for the TV
+    found: 192.168.1.50
+==> Checking prerequisites
+    node 8.12.0
+    Glasshouse answers (192.168.1.50:8080)
+==> Plan
+    install the launcher IPK: /path/to/dist/cleanframe_all.ipk
+    set up the hub: /var/lib/cleanframe, autostart, port 8484
+Proceed? [Y/n] y
+==> Installing the launcher
+   uploading 15802724 bytes
+   confirming com.blackpearl.cleanframe 0.4.17
+   installed: com.blackpearl.cleanframe 0.4.17 (16750825 bytes)
+==> Setting up the hub
+==> Verifying
+    hub answers: {"ok":true,...,"version":"0.4.17"}
+    launcher is in the app list: com.blackpearl.cleanframe 0.4.17
+    launcher is on screen (live picture available)
+==> Result
+    interface: http://192.168.1.50:8484/
+```
+
+### Windows (PowerShell)
 
 ```powershell
-.\tools\install.ps1                              # finds the TV by itself
-.\tools\install.ps1 -Root                        # same, but root it first
-.\tools\install.ps1 -Tv 192.168.1.50 -Lang de -DryRun
+.\tools\install.ps1                 # find the TV, install launcher and hub
+.\tools\install.ps1 -Root           # same, but root the TV first
+.\tools\install.ps1 -Info           # only report model, webOS version, node
+.\tools\install.ps1 -Lang de -DryRun
+.\tools\install.ps1 -Tv 192.168.1.50
 ```
 
-Both scripts follow the same flow: **detect → check → plan → confirm → install →
-verify → report**. Nothing is written before the single confirmation dialog. Options:
+Needs the OpenSSH client (Windows optional feature) and Python 3 on `PATH` for `-Root` and
+the network search — the upstream tools are Python.
+
+```text
+PS> .\tools\install.ps1 -DryRun
+==> Looking for a TV on the network
+    found: 192.168.1.50
+==> Checking prerequisites
+    node 8.12.0
+    Glasshouse answers (192.168.1.50:8080)
+==> Plan
+    install the launcher IPK: C:\...\dist\cleanframe_all.ipk
+    set up the hub: /var/lib/cleanframe, autostart, port 8484
+
+(dry run: nothing was changed)
+```
+
+### Flow and options
+
+Both scripts follow the same flow: **(find) → (info) → (root) → check → plan → confirm →
+install → verify → report**. Nothing is written before the single confirmation dialog, and
+every stage is skipped when it is already done — on a running hub, on an already rooted TV,
+on an existing IPK.
 
 | Option (bash / PowerShell) | Meaning |
 | --- | --- |
@@ -120,9 +169,9 @@ verify → report**. Nothing is written before the single confirmation dialog. O
 | `--yes` / `-Yes` | skip the confirmation (for scripts) |
 | `--wake` | send Wake-on-LAN if port 22 is closed (bash only) |
 
-The installer ends with three proofs: the hub answers on port 8484, the app id shows
-up in the app list, and the hub can take a picture of the launcher (which means it
-is really on screen, not just installed).
+The installer ends with three proofs: the hub answers on port 8484, the app id shows up in
+the app list, and the hub can take a picture of the launcher (which means it is really on
+screen, not just installed).
 
 ### What was installed
 

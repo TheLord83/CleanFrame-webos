@@ -77,26 +77,82 @@ und ein Downgrade ist hier kein Thema. Einzelheiten und der Weg von Hand:
 
 ## Installieren
 
+### Linux und macOS
+
 ```sh
-./tools/install.sh                  # Linux und macOS: findet den Fernseher selbst
+./tools/install.sh                  # findet den Fernseher, installiert Launcher und Hub
 ./tools/install.sh --root           # dasselbe, aber vorher rooten
-.\tools\install.ps1                # Windows (PowerShell)
+./tools/install.sh --info           # nur melden: Modell, webOS-Version, node
 ```
 
+So sieht ein echter Lauf aus (Fernseher: 43NANO779PA, Launcher damals 0.4.17):
+
+```text
+$ ./tools/install.sh 192.168.1.50
+==> Fernseher suchen
+    Fernseher antwortet (SSH offen)
+==> Voraussetzungen pruefen
+    node 8.12.0
+    Glasshouse antwortet (192.168.1.50:8080)
+==> Vorhaben
+    Launcher als IPK installieren: /pfad/zu/dist/cleanframe_all.ipk
+    Hub einrichten: /var/lib/cleanframe, Autostart, Port 8484
+Ausfuehren? [J/n] j
+==> Launcher installieren
+   package cleanframe_all.ipk for com.blackpearl.cleanframe
+   uploading 15802724 bytes
+   confirming com.blackpearl.cleanframe 0.4.17
+   installed: com.blackpearl.cleanframe 0.4.17 (16750825 bytes)
+==> Hub einrichten
+==> Nachpruefen
+    Hub antwortet: {"ok":true,"name":"cleanframe-web","version":"0.4.17",...}
+    Launcher haengt im Katalog: com.blackpearl.cleanframe 0.4.17
+    launcher is on screen (live picture available)
+==> Ergebnis
+    Oberflaeche: http://192.168.1.50:8484/
+```
+
+### Windows (PowerShell)
+
+```powershell
+.\tools\install.ps1                # findet den Fernseher, installiert Launcher und Hub
+.\tools\install.ps1 -Root          # dasselbe, aber vorher rooten
+.\tools\install.ps1 -Info          # nur melden: Modell, webOS-Version, node
+```
+
+Windows braucht den OpenSSH-Client (Windows-Feature) und für `-Root` und die Netzweite Suche
+Python 3 im `PATH` — die Werkzeuge dafür sind Python. Die Ausgabe sieht so aus
+(`-DryRun`, also nur suchen und Plan zeigen):
+
+```text
+PS> .\tools\install.ps1 -DryRun
+==> Fernseher im Netz suchen
+    gefunden: 192.168.1.50
+==> Voraussetzungen pruefen
+    node 8.12.0
+    Glasshouse antwortet (192.168.1.50:8080)
+==> Vorhaben
+    Launcher als IPK installieren: C:\...\dist\cleanframe_all.ipk
+    Hub einrichten: /var/lib/cleanframe, Autostart, Port 8484
+
+(Probelauf: nichts wurde veraendert)
+```
+
+### Was in beiden Fällen passiert
+
 Die Adresse ist **optional**: das Script sucht im lokalen Netz (SSDP plus Portscan, geprüft
-über einen echten SSAP-Handshake) und nimmt den einzigen Fernseher, den es findet. Eine Adresse
-nur angeben, wenn mehrere Geräte in Frage kommen: `./tools/install.sh 192.168.1.50`.
+über einen echten SSAP-Handshake) und nimmt den einzigen Fernseher, den es findet. Eine
+Adresse nur angeben, wenn mehrere Geräte in Frage kommen: `./tools/install.sh 192.168.1.50`
+(auf Windows `-Tv 192.168.1.50`).
 
-Ein Befehl bringt beide Teile auf den Fernseher: baut das IPK, laedt es ueber den
-Installer von Glasshouse hoch, richtet den Hub mit Autostart ein und belegt danach das
-Ergebnis — der Hub antwortet auf Port 8484, die App steht im Katalog, und der Hub kann
-ein Bild vom Launcher holen. `--dry-run` (`-DryRun`) sucht und prueft nur und zeigt den Plan.
+Ein Lauf bringt beide Teile auf den Fernseher: baut das IPK, lädt es über den Installer von
+Glasshouse hoch, richtet den Hub mit Autostart ein und belegt danach das Ergebnis — der Hub
+antwortet auf Port 8484, die App steht im Katalog, und der Hub kann ein Bild vom Launcher
+holen (also ist er wirklich auf dem Schirm). `--dry-run` (`-DryRun`) sucht und prüft nur und
+zeigt den Plan; `--info` (`-Info`) meldet Modell, webOS-Version und node.
 
-Danach antwortet der Hub auf `http://<tv-ip>:8484/`. Auf dem Fernseher wird der Dienst
-mit `/var/lib/cleanframe/cleanframectl status` bedient.
-
-Das Rooten selbst laesst sich nicht automatisieren — dafuer braucht es die
-Fernbedienung. Schritt fuer Schritt in [docs/INSTALL.md](docs/INSTALL.md).
+Gerootet wird ebenfalls per Script (`--root` / `-Root`); Handarbeit bleibt ein einziger
+Kopplungsdialog am Fernseher. Schritt für Schritt in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Bauen und prüfen
 
