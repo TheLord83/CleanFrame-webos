@@ -1,4 +1,4 @@
-# Configuration server and web interface
+# CleanFrame Hub — configuration server and web interface
 
 The launcher keeps its configuration in one JSON file. A small HTTP server on the
 TV (`com.blackpearl.cleanframe.web`) serves the file over a JSON API and hosts a

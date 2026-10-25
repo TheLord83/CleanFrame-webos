@@ -18,7 +18,7 @@ TV instead of the Tizen API.
 | Part | What it is | Where it runs |
 | --- | --- | --- |
 | **Launcher** | The start screen as a webOS app (`com.blackpearl.cleanframe`), packaged as an IPK | On the TV |
-| **Hub** | Configuration server and web interface: edits settings, shows a live picture, sends remote key presses | Also on the TV, reachable from the LAN |
+| **CleanFrame Hub** | Configuration server and web interface: edits settings, shows a live picture, sends remote key presses | Also on the TV, reachable from the LAN |
 
 The hub owns the configuration. The launcher reads it at start and re-reads it every two
 seconds, so a change made in the browser is visible on screen within seconds — no restart, no

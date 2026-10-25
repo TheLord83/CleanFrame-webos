@@ -19,7 +19,7 @@ ersetzt nur die Geräteanbindung: `app/device.js` spricht den lokal auf dem Fern
 | Teil | Was es ist | Wo es läuft |
 | --- | --- | --- |
 | **Launcher** | Die Startseite als webOS-App (`com.blackpearl.cleanframe`), als IPK verpackt | Auf dem Fernseher |
-| **Hub** | Konfigurations-Server mit Web-Oberfläche: Einstellungen ändern, Live-Bild holen, Tasten der Fernbedienung senden | Ebenfalls auf dem Fernseher, im LAN erreichbar |
+| **CleanFrame Hub** | Konfigurations-Server mit Web-Oberfläche: Einstellungen ändern, Live-Bild holen, Tasten der Fernbedienung senden | Ebenfalls auf dem Fernseher, im LAN erreichbar |
 
 Der Hub ist die maßgebliche Quelle der Konfiguration. Der Launcher liest sie beim Start und
 holt sie danach alle zwei Sekunden neu — eine Änderung im Browser ist deshalb in Sekunden auf
