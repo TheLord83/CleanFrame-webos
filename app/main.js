@@ -387,7 +387,8 @@
   function serverPayload(c) {
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
     cfg.schemaVersion = cfg.schemaVersion || 1;
-    cfg.look = { layout: c.layout, apps: c.apps, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
+    cfg.look = { bg: c.bg, layout: c.layout, apps: c.apps, controls: c.controls, focus: c.focus,
+                 material: c.material, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
     cfg.home = c.home.map(function (id) {
       var out = { appId: id };
       prev.forEach(function (e) { if (e && e.appId === id) { if (e.name) out.name = e.name; if (e.icon) out.icon = e.icon; if (e.url) out.url = e.url; } });
@@ -399,6 +400,34 @@
   /* Aenderungen an der Darstellung sofort an den Server geben. Sonst gilt beim
    * naechsten Start wieder die alte Server-Konfiguration — genau das liess die
    * Einstellungen "nach Neustart auf default" zurueckspringen. */
+  /* Aenderungen aus der Web-Oberflaeche im laufenden Betrieb uebernehmen:
+   * der Server zaehlt bei jeder Speicherung `rev` hoch. Aendert sich die Nummer,
+   * ohne dass wir selbst geschrieben haben, laden wir die Konfiguration neu.
+   * Nur auf der Startseite und ohne offenen Dialog — sonst warten. */
+  function startConfigWatch() {
+    if (S.watchTimer) clearInterval(S.watchTimer);
+    S.watchTimer = setInterval(function () {
+      if (S.pendingCfg && S.stack.length === 1) { applyConfigInto(S.pendingCfg); return; }
+      if (!window.FrameDevice || !FrameDevice.loadConfig) return;
+      FrameDevice.loadConfig(function (err, cfg) {
+        if (err || !cfg) return;
+        var rev = parseInt(cfg.rev, 10) || 0;
+        if (!rev || rev === S.appliedRev) return;
+        if (S.stack.length > 1) { S.pendingCfg = cfg; return; }  /* Dialog offen: spaeter */
+        applyConfigInto(cfg);
+      });
+    }, 4000);
+  }
+
+  /* Konfiguration anwenden, ohne die Revision zu verlieren. */
+  function applyConfigInto(cfg) {
+    S.pendingCfg = null;
+    applyServerConfig(cfg);
+    render();
+    updateClock();
+    if (S.syncLog) S.syncLog.push('uebernommen aus Web (rev ' + (cfg.rev || 0) + ')');
+  }
+
   function syncServer(c) {
     S.syncLog = S.syncLog || [];
     /* Vor der Bereitschaft nur vormerken: die Server-Konfiguration steht dann noch
@@ -409,7 +438,12 @@
     try {
       var payload = serverPayload(c);
       S.serverCfg = payload;
-      FrameDevice.saveConfig(payload, function (err) { S.syncLog.push(err ? ('Fehler: ' + err) : 'ok'); });
+      FrameDevice.saveConfig(payload, function (err, saved) {
+        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
+         * nicht gleich wieder als fremde Aenderung anwendet. */
+        if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
+        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
+      });
     } catch (e) {}
   }
 
@@ -472,7 +506,12 @@
       if (!found) list.push({ appId: id, name: name });
       var payload = JSON.parse(JSON.stringify(cfg));
       payload.home = list;
-      FrameDevice.saveConfig(payload, function (err) { S.syncLog.push(err ? ('Fehler: ' + err) : 'ok'); });
+      FrameDevice.saveConfig(payload, function (err, saved) {
+        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
+         * nicht gleich wieder als fremde Aenderung anwendet. */
+        if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
+        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
+      });
       S.serverCfg = payload;
     }
     return true;
@@ -920,6 +959,7 @@
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
     cfg.onboarding = { done: false, version: 1 };
     S.serverCfg = cfg;
+    S.appliedRev = parseInt(cfg.rev, 10) || 0;
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { setTimeout(function () { location.reload(); }, 200); });
     else setTimeout(function () { location.reload(); }, 200);
   }
@@ -1270,7 +1310,8 @@
     return text.replace(/[0-9]/g, function (digit) { return '<span class="clock-digit">' + digit + '</span>'; });
   }
   function renderCaption(t, hs) {
-    var html = '<span class="clock">' + clockHtml() + '</span>';
+    /* Uhr laesst sich abschalten (Einstellung "Uhr anzeigen"); Vorgabe: an. */
+    var html = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
   }
@@ -2186,6 +2227,12 @@
     clock24: function () { return S.c.clock24 !== false; },
     setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
     setupAgain: function () { runSetupAgain(); return true; },
+    rev: function () { return { angewendet: S.appliedRev, server: S.serverCfg ? parseInt(S.serverCfg.rev, 10) || 0 : null, wartend: !!S.pendingCfg }; },
+    poll: function () {
+      if (!window.FrameDevice || !FrameDevice.loadConfig) return false;
+      FrameDevice.loadConfig(function (err, cfg) { if (!err && cfg) applyConfigInto(cfg); });
+      return true;
+    },
     listGeom: function () {
       var rows = [].slice.call(document.querySelectorAll('#sheetView .settings-group'));
       var hint = document.querySelector('#sheetView .settings-overview-hint');
@@ -2271,6 +2318,9 @@
   function applyServerConfig(cfg) {
     if (!cfg) return;
     S.serverCfg = cfg;
+    /* Revision merken: der Waechter (startConfigWatch) laesst dieselbe Revision
+     * nicht erneut anwenden. */
+    S.appliedRev = parseInt(cfg.rev, 10) || S.appliedRev || 0;
     var c = S.c;
 
     if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
@@ -2281,8 +2331,12 @@
     }
 
     if (cfg.look) {
+      if (cfg.look.bg) c.bg = cfg.look.bg;
       if (cfg.look.layout) c.layout = cfg.look.layout;
       if (cfg.look.apps) c.apps = cfg.look.apps;
+      if (cfg.look.controls) c.controls = cfg.look.controls;
+      if (cfg.look.focus) c.focus = cfg.look.focus;
+      if (cfg.look.material) c.material = cfg.look.material;
       if (cfg.look.wall && wall(cfg.look.wall)) c.wall = cfg.look.wall;
       if (cfg.look.font && FONTS[cfg.look.font]) c.font = cfg.look.font;
       if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
@@ -2348,6 +2402,7 @@
     /* Erst ab hier darf die App schreiben: vorher wuerden die Standardwerte die
      * Server-Konfiguration ueberschreiben. */
     S.ready = true;
+    startConfigWatch();
     if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }
   }
 

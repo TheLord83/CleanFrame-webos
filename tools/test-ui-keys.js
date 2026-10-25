@@ -24,6 +24,7 @@ var http = require('http');
 var net = require('net');
 var crypto = require('crypto');
 var path = require('path');
+var fs = require('fs');
 
 function arg(name, fallback) {
   var i = process.argv.indexOf('--' + name);
@@ -32,7 +33,15 @@ function arg(name, fallback) {
 
 var PORT = parseInt(arg('port', '9333'), 10);
 var DEBUG = process.argv.indexOf('--debug') > 0;
-var APP = 'file://' + path.resolve(__dirname, '..', 'index.html');
+/* Die Startseite liegt je nach Arbeitsverzeichnis im Wurzelordner oder unter app/. */
+function appPath() {
+  var root = path.resolve(__dirname, '..', 'index.html');
+  var alt = path.resolve(__dirname, '..', 'app', 'index.html');
+  if (fs.existsSync(root)) return root;
+  if (fs.existsSync(alt)) return alt;
+  return root;
+}
+var APP = 'file://' + appPath();
 /* Mit --config <url> wird eine echte Konfiguration geladen (z. B. ein lokal
  * laufender Server). Ohne die Option laeuft die Pruefung mit Attrappe und ohne
  * Konfiguration; dann sind Meldungen englisch (Schluessel = Text). */
