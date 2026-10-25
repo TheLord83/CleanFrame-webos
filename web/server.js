@@ -72,6 +72,13 @@ function json(res, code, obj) {
   send(res, code, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
 }
 
+/* Die Datei-App meldet je nach Plattform `Origin: null` (Chromium am Rechner)
+ * oder `Origin: file://<app-id>` (webOS am Fernseher). Beides ist dieselbe
+ * Herkunft: eine lokale Datei, kein fremder Server. */
+function isFileOrigin(origin) {
+  return origin === 'null' || /^file:\/\//i.test(String(origin || ''));
+}
+
 function fromTV(req) {
   var ra = (req.connection && req.connection.remoteAddress) || (req.socket && req.socket.remoteAddress) || '';
   return ra === '127.0.0.1' || ra === '::1' || ra === '::ffff:127.0.0.1';
@@ -99,43 +106,74 @@ function authed(q, req) {
  * zugestellt. Deshalb nur application/json erlauben und fremde Origins
  * ablehnen — dieselbe Ueberlegung wie Glasshouses postGuard. */
 function postGuard(req, res) {
-  var ctype = String(req.headers['content-type'] || '').toLowerCase();
-  if (ctype.indexOf('application/json') !== 0) {
-    json(res, 415, { ok: false, error: 'Content-Type muss application/json sein' });
-    return false;
-  }
   var origin = req.headers.origin;
-  /* `Origin: null` ist die Datei-App auf dem Fernseher selbst; dort herrscht
+  var ctype = String(req.headers['content-type'] || '').toLowerCase();
+  /* Schreibversuche protokollieren (ohne Geheimnisse): hilft, wenn am Fernseher
+   * ein Schreibvorgang scheitert und man die Herkunft sehen muss. */
+  console.log('[write] ' + req.method + ' ' + req.url + ' origin=' + String(origin) +
+              ' ctype=' + ctype.split(';')[0] + ' von=' + ((req.connection && req.connection.remoteAddress) || '?'));
+  /* Reihenfolge: erst die Herkunft, dann der Inhaltstyp. So bekommt eine fremde
+   * Seite immer 403 (auch mit falschem Content-Type) und der Fall bleibt klar.
+   *
+   * `Origin: null` ist die Datei-App auf dem Fernseher selbst; dort herrscht
    * ohnehin root. Jede andere Origin wird auch dann geprueft, wenn die Anfrage
    * von 127.0.0.1 kommt — sonst koennte eine Seite im LAN-Browser den Schutz
    * umgehen, indem sie ueber einen lokalen Umweg sendet. */
-  if (origin === 'null') {
-    if (fromTV(req)) return true;
-    json(res, 403, { ok: false, error: 'cross-origin request refused' });
-    return false;
-  }
-  if (origin) {
-    var host = req.headers.host;
+  if (isFileOrigin(origin)) {
+    if (!fromTV(req)) {
+      json(res, 403, { ok: false, error: 'cross-origin request refused' });
+      return false;
+    }
+  } else if (origin) {
     var o = url.parse(origin);
-    if (!o || !o.host || o.host !== host) {
+    if (!o || !o.host || o.host !== req.headers.host) {
       json(res, 403, { ok: false, error: 'cross-origin request refused' });
       return false;
     }
   }
+  /* JSON ist der Normalfall. `text/plain` nur fuer die Fernseher-App: ein POST
+   * mit application/json loest unter Chromium 79 einen CORS-Preflight aus, den
+   * `Origin: null` dort nicht besteht — die Anfrage kaeme nie an. */
+  var isJson = ctype.indexOf('application/json') === 0;
+  var appPlain = ctype.indexOf('text/plain') === 0 && fromTV(req) && isFileOrigin(origin);
+  if (!isJson && !appPlain) {
+    json(res, 415, { ok: false, error: 'Content-Type muss application/json sein' });
+    return false;
+  }
   return true;
 }
 
+/* Der Launcher laeuft aus file:// unter Chromium 79. Ein PUT oder ein
+ * application/json-POST loest dort einen CORS-Preflight aus, den die alte
+ * Chromium-Version fuer `Origin: null` nicht zuverlaessig besteht — die Anfrage
+ * kommt dann nie beim Server an (xhr.status 0). Deshalb darf die Fernseher-App
+ * einen POST mit `text/plain` schicken (einfache Anfrage, kein Preflight); der
+ * Server nimmt das nur von 127.0.0.1 mit `Origin: null` an. Alles andere muss
+ * weiterhin application/json sein. */
+/* Der Launcher laeuft aus file:// unter Chromium 79. Ein PUT oder ein POST mit
+ * application/json loest dort einen CORS-Preflight aus, den diese Chromium-Version
+ * fuer `Origin: null` nicht besteht — die Anfrage kommt dann nie an (xhr.status 0).
+ * Deshalb darf die Fernseher-App einen POST mit `text/plain` schicken (einfache
+ * Anfrage, kein Preflight). Der Server nimmt das nur von 127.0.0.1 mit
+ * `Origin: null` an; alles andere muss application/json sein.
+ *
+ * Rueckgabe wie bisher: cb(body, fehlertext) — fehlertext ist '' bei Erfolg. */
 function readBody(req, cb) {
-  var body = '';
+  var type = String(req.headers['content-type'] || '').toLowerCase();
+  var isJson = type.indexOf('application/json') === 0;
+  var fromApp = type.indexOf('text/plain') === 0 && fromTV(req) && isFileOrigin(req.headers.origin);
+  var raw = '', tooBig = false;
+  if (!isJson && !fromApp) { cb(null, 'Content-Type muss application/json sein'); return; }
   req.setEncoding('utf8');
   req.on('data', function (c) {
-    body += c;
-    if (body.length > 1024 * 1024) req.destroy();
+    raw += c;
+    if (raw.length > 1024 * 1024) { tooBig = true; req.destroy(); }
   });
   req.on('end', function () {
-    var parsed = null;
-    try { parsed = JSON.parse(body || '{}'); } catch (e) { parsed = null; }
-    cb(parsed, parsed === null ? 'ungueltiges JSON' : '');
+    if (tooBig) return cb(null, 'Anfrage zu gross');
+    var parsed;
+    try { parsed = JSON.parse(raw || '{}'); } catch (e) { return cb(null, 'ungueltiges JSON'); }
+    cb(parsed, '');
   });
 }
 
@@ -161,8 +199,10 @@ function handle(req, res) {
   /* Die Launcher-App laeuft aus file:// und damit mit `Origin: null`; jede
    * Anfrage von 127.0.0.1 kommt vom Fernseher selbst (dort herrscht ohnehin
    * root). Fuer diesen Fall CORS erlauben, fuer alle anderen nicht. */
-  if (fromTV(req) && req.headers.origin === 'null') {
-    res.setHeader('Access-Control-Allow-Origin', 'null');
+  if (fromTV(req) && isFileOrigin(req.headers.origin)) {
+    /* Die Herkunft muss zurueckgespiegelt werden, sonst darf der Browser die
+     * Antwort nicht lesen ("file://<app-id>" ist nicht "null"). */
+    res.setHeader('Access-Control-Allow-Origin', String(req.headers.origin));
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Vary', 'Origin');
@@ -192,7 +232,7 @@ function handle(req, res) {
     return json(res, 200, { ok: true, config: config.redact(cfg), schemaVersion: config.VERSION });
   }
 
-  if (req.method === 'PUT' && p === '/api/config') {
+  if ((req.method === 'PUT' || req.method === 'POST') && p === '/api/config') {
     if (!postGuard(req, res)) return;
     return readBody(req, function (body, err) {
       if (err) return json(res, 400, { ok: false, error: err });

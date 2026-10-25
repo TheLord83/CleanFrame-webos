@@ -217,11 +217,29 @@ def main():
 
         def t_posts_need_json():
             # Glasshouse-PostGuard-Prinzip: "einfacher" Content-Type wird vom
-            # Browser ohne Preflight zugestellt und muss deshalb abgelehnt werden.
+            # Browser ohne Preflight zugestellt. Erlaubt ist er nur der
+            # Fernseher-App (127.0.0.1 + Origin: null), sonst abgelehnt.
             st, d, _ = req("POST", "/api/backup", "lang=de", headers={"Content-Type": "text/plain"}, raw=True)
             assert st == 415, f"text/plain haette abgelehnt werden muessen, war {st}"
-            st2, d2, _ = req("POST", "/api/config", {}, raw=False)
-            assert st2 == 405, f"POST auf /api/config ist keine Route und muss 405 sein, war {st2}"
+            # Die TV-App schreibt per POST + text/plain (kein Preflight unter Chromium 79).
+            # Geschrieben wird immer die vollstaendige Konfiguration — wie in der App.
+            _, cur, _ = req("GET", "/api/config")
+            full = cur["config"]
+            full["look"]["apps"] = "icons"
+            st2, d2, _ = req("POST", "/api/config", {"config": full},
+                             headers={"Content-Type": "text/plain;charset=UTF-8", "Origin": "null"})
+            assert st2 == 200, f"POST /api/config von der TV-App haette 200 sein muessen, war {st2}"
+            assert d2["config"]["look"]["apps"] == "icons"
+            full["look"]["apps"] = "both"
+            st3, d3, _ = req("POST", "/api/config", {"config": full})
+            assert st3 == 200, f"POST /api/config mit JSON haette 200 sein muessen, war {st3}"
+            assert d3["config"]["look"]["apps"] == "both"
+
+        def t_post_plain_from_foreign_origin():
+            # text/plain von einer fremden Seite (Origin gesetzt) darf nicht schreiben
+            st, d, _ = req("POST", "/api/config", {"config": {"look": {"apps": "text"}}},
+                           headers={"Content-Type": "text/plain", "Origin": "http://evil.example"})
+            assert st == 403, f"fremde Origin haette 403 sein muessen, war {st}"
 
         def t_cross_origin_refused():
             st, d, _ = req("PUT", "/api/config", {"config": {}},
@@ -387,7 +405,8 @@ def main():
             ("PUT /api/config speichert, redigiert Token, entdoppelt", t_put_config),
             ("Konfiguration liegt vollstaendig auf der Platte", t_persisted_on_disk),
             ("leeres Token in der Oberflaeche leert das Geheimnis nicht", t_token_kept_when_empty),
-            ("POST ohne application/json wird abgelehnt (415)", t_posts_need_json),
+            ("POST ohne application/json wird abgelehnt (415), TV-App darf text/plain", t_posts_need_json),
+            ("text/plain von fremder Origin wird abgelehnt (403)", t_post_plain_from_foreign_origin),
             ("fremde Origin wird abgelehnt (403)", t_cross_origin_refused),
             ("kaputtes JSON wird abgelehnt (400)", t_invalid_json),
             ("Backup wird als Download ausgeliefert", t_backup_download),
