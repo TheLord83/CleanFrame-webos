@@ -27,6 +27,10 @@ function mkdirp(dir) {
  * oeffentlich erreichbar, also muss der Server selbst validieren. */
 var LANGS = ['de', 'en', 'system'];
 var LAYOUTS = ['dock', 'list'];
+/* Vollstaendige Darstellungs-Achsen des Launchers (siehe web/lib/schema.js). */
+var BGS = ['photo', 'dark', 'light'];
+var FOCUS = ['glass', 'type'];
+var MATERIALS = ['soft', 'frost', 'tint'];
 var DOCK_MODES = ['both', 'icons', 'text'];
 
 function defaults() {
@@ -83,9 +87,16 @@ function validate(input) {
   var cfg = defaults();
   var src = input && typeof input === 'object' ? input : {};
 
+  /* Revisionsnummer durchreichen (siehe Store.write) — der launcher erkennt
+   * daran Aenderungen, die aus der Web-Oberflaeche kommen. */
+  cfg.rev = parseInt(src.rev, 10) || 0;
   cfg.lang = oneOf(src.lang, LANGS, 'system');
 
   var look = src.look && typeof src.look === 'object' ? src.look : {};
+  cfg.look.bg = oneOf(look.bg, BGS, 'photo');
+  cfg.look.controls = oneOf(look.controls, DOCK_MODES, 'both');
+  cfg.look.focus = oneOf(look.focus, FOCUS, 'glass');
+  cfg.look.material = oneOf(look.material, MATERIALS, 'soft');
   cfg.look.layout = oneOf(look.layout, LAYOUTS, 'dock');
   cfg.look.apps = oneOf(look.apps, DOCK_MODES, 'both');
   if (isStr(look.wall, 120) && look.wall) cfg.look.wall = look.wall;
@@ -182,6 +193,9 @@ Store.prototype.write = function (input) {
   var cfg = validate(input);
   var before = this.read();
   cfg.createdAt = before.createdAt || new Date().toISOString();
+  /* Revisionsnummer: jede Speicherung zaehlt hoch. Der launcher fragt sie
+   * regelmaessig ab und uebernimmt Aenderungen aus der Web-Oberflaeche sofort. */
+  cfg.rev = (parseInt(before.rev, 10) || 0) + 1;
   cfg.updatedAt = new Date().toISOString();
   mkdirp(path.dirname(this.file));
   var tmp = this.file + '.tmp';
@@ -195,6 +209,9 @@ module.exports = {
   mkdirp: mkdirp,
   LANGS: LANGS,
   LAYOUTS: LAYOUTS,
+  BGS: BGS,
+  FOCUS: FOCUS,
+  MATERIALS: MATERIALS,
   DOCK_MODES: DOCK_MODES,
   defaults: defaults,
   validate: validate,

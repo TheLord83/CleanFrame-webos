@@ -197,7 +197,12 @@ function snapshot(opts, cb) {
   }, cb);
 }
 
-function sendKeys(names, cb) {
+/* names: Liste von Tastennamen. opts.holdMs: Taste so lange gedrueckt halten
+ * (fuer Langdruck, z. B. OK 900 ms) — sonst 90 ms wie ein kurzer Druck. */
+function sendKeys(names, opts, cb) {
+  if (typeof opts === 'function') { cb = opts; opts = {}; }
+  opts = opts || {};
+  var holdMs = Math.max(0, Math.min(4000, parseInt(opts.holdMs, 10) || 0));
   var codes = [];
   (names || []).forEach(function (n) {
     if (KEYS[n] !== undefined) codes.push({ code: KEYS[n], key: n });
@@ -220,15 +225,55 @@ function sendKeys(names, cb) {
         if (c.code === 39) keyName = 'ArrowRight';
         if (c.code === 40) keyName = 'ArrowDown';
         if (c.code === 461) keyName = 'Backspace';
+        /* Langdruck gilt fuer die letzte Taste, wenn holdMs gesetzt ist. */
+        var downFor = (holdMs && i === codes.length - 1) ? holdMs : 90;
         ws.send({ id: ++id, method: 'Input.dispatchKeyEvent', params: { type: 'rawKeyDown', key: keyName, windowsVirtualKeyCode: c.code, nativeVirtualKeyCode: c.code } });
         setTimeout(function () {
           ws.send({ id: ++id, method: 'Input.dispatchKeyEvent', params: { type: 'keyUp', key: keyName, windowsVirtualKeyCode: c.code, nativeVirtualKeyCode: c.code } });
           setTimeout(function () { next(i + 1); }, 180);
-        }, 90);
+        }, downFor);
       }(0));
     }, function (e) { finish('CDP: ' + e); });
-    setTimeout(function () { try { ws.close(); } catch (e) {} finish('Zeitueberschreitung beim Senden'); }, 9000);
+    setTimeout(function () { try { ws.close(); } catch (e) {} finish('Zeitueberschreitung beim Senden'); }, 9000 + holdMs);
   }, cb);
 }
 
-module.exports = { snapshot: snapshot, sendKeys: sendKeys, KEYS: KEYS };
+/* Ansichten, die die Weboberflaeche am Fernseher anzeigen kann. Die App
+ * bietet dafuer bereits window.CleanFrameDebug (openSettings/closeAll) an -
+ * damit laesst sich die Ansicht gezielt setzen, statt Tastenfolgen zu raten. */
+var VIEWS = {
+  home: 'window.CleanFrameDebug && CleanFrameDebug.closeAll()',
+  settings: 'window.CleanFrameDebug && CleanFrameDebug.openSettings()',
+  appearance: "window.CleanFrameDebug && CleanFrameDebug.openSettings('background')"
+};
+
+/* Wertet einen Ausdruck im Launcher aus (Runtime.evaluate, returnByValue) und
+ * gibt das Ergebnis zurueck. */
+function evaluate(expression, cb) {
+  var expr = String(expression || '');
+  if (!expr) return cb('leerer Ausdruck');
+  withPage(function (port, page, done) {
+    var finished = false;
+    function finish(err, a) { if (finished) return; finished = true; done(err, a); }
+    var ws = wsConnect(port, page.webSocketDebuggerUrl.replace(/^ws:\/\/[^\/]+/, ''), function (raw) {
+      var msg;
+      try { msg = JSON.parse(raw); } catch (e) { return; }
+      if (msg.id !== 1) return;
+      if (msg.result && msg.result.exceptionDetails) {
+        var ex = msg.result.exceptionDetails;
+        finish('Launcher meldet: ' + ((ex.exception && ex.exception.description) || ex.text || 'Fehler'));
+        ws.close();
+        return;
+      }
+      var res = msg.result && msg.result.result;
+      finish(null, res && res.value !== undefined ? res.value : null);
+      ws.close();
+    }, function () {
+      ws.send({ id: 1, method: 'Runtime.evaluate',
+                params: { expression: expr, returnByValue: true, awaitPromise: false } });
+    }, function (e) { finish('CDP: ' + e); });
+    setTimeout(function () { try { ws.close(); } catch (e) {} finish('Zeitueberschreitung beim Umschalten'); }, 6000);
+  }, cb);
+}
+
+module.exports = { snapshot: snapshot, sendKeys: sendKeys, evaluate: evaluate, KEYS: KEYS, VIEWS: VIEWS };

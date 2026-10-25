@@ -112,6 +112,7 @@ def main():
         "CF_GLASSHOUSE": "http://127.0.0.1:9",  # absichtlich tot: Stub gewinnt
         "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
         "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
+        "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
         # Port ohne Gegenstelle: der Bildschirmfoto-Test soll den Fehlerpfad pruefen,
         # nicht eine zufaellig laufende Weiterleitung auf dem Rechner treffen.
         "CF_DEVTOOLS_PORT": str(free_port()),
@@ -147,6 +148,27 @@ def main():
     try:
         wait_up(port)
         print(f"\nServer auf Port {port}, Konfiguration {cfg_path}\n")
+
+        def t_schema():
+            st, d, _ = req("GET", "/api/schema")
+            assert st == 200, st
+            sch = d["schema"]
+            for key in ("bg", "layout", "apps", "controls", "focus", "material", "fonts", "walls"):
+                assert key in sch["look"], key
+            assert len(sch["look"]["walls"]) >= 10, len(sch["look"]["walls"])
+            assert len(sch["langs"]) == 3, sch["langs"]
+
+        def t_wall_thumb():
+            st, d, hdrs = req("GET", "/api/wall/misty")
+            assert st == 200, st
+            assert "image" in hdrs.get("Content-Type", ""), hdrs
+            st2, d2, _ = req("GET", "/api/wall/gibtsnicht")
+            assert st2 == 404, st2
+
+        def t_hold_parameter():
+            """holdMs wird angenommen (ohne Geraet: 503), ungueltige Tasten bleiben 400."""
+            st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
+            assert st in (200, 503), (st, d)
 
         def t_tv_keys():
             st, d, _ = req("GET", "/api/tv/keys")
@@ -415,6 +437,17 @@ def main():
             st2, _, _ = req("OPTIONS", "/api/config", headers={"Origin": "null"})
             assert st2 == 204, st2
 
+        def t_tv_views():
+            # Ohne Fernseher gibt es kein Bild, aber die Ansichten-Liste und die
+            # Ablehnung unbekannter Namen muessen auch hier stimmen: die
+            # Oberflaeche baut ihre Knoepfe daraus.
+            st, d, _ = req("GET", "/api/tv/views")
+            assert st == 200, st
+            assert d["views"] == ["home", "settings", "appearance"], d
+            st2, d2, _ = req("POST", "/api/tv/view", {"view": "hack"})
+            assert st2 == 400, f"unbekannte Ansicht haette 400 sein muessen, war {st2}"
+            assert "unbekannte Ansicht" in d2.get("error", ""), d2
+
         def t_restart():
             st, d, _ = req("POST", "/api/system/restart", {})
             assert st == 202, st
@@ -423,6 +456,9 @@ def main():
         for name, fn in [
             ("/ liefert die Oberflaeche", t_static),
             ("/api/health meldet Pfad und Version", t_health),
+            ("Schema liefert alle Darstellungs-Achsen", t_schema),
+            ("Wandbild-Vorschau wird ausgeliefert", t_wall_thumb),
+            ("Langdruck-Parameter wird angenommen", t_hold_parameter),
             ("Fernbedienung kennt die Tastennamen", t_tv_keys),
             ("ungueltige Tasten werden abgelehnt", t_tv_key_invalid),
             ("Bildschirmfoto ohne Geraet meldet einen Fehler", t_tv_snapshot_without_tv),
@@ -448,6 +484,7 @@ def main():
             ("Senioren-Modus, Schriftgroesse und Assistent-Zustand", t_config_ui_and_onboarding),
             ("Icon-Katalog und SVG-Auslieferung", t_icons),
             ("CORS fuer die TV-App (Origin: null)", t_tv_cors),
+            ("Ansichten am Fernseher: Liste und Ablehnung", t_tv_views),
             ("Neustart wird angenommen (202)", t_restart),
         ]:
             check(name, fn)

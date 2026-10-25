@@ -17,6 +17,8 @@
  *   POST /api/backup              Konfiguration importieren
  *   GET  /api/selftest            interne Pruefungen (fuer Tests ohne Fernseher)
  *   POST /api/system/restart      Dienst neu starten (nur mit root)
+ *   GET  /api/schema              alle Auswahlmoeglichkeiten (Wandbilder, Schriften, ...)
+ *   GET  /api/wall/<id>           Vorschaubild eines Wandbildes
  *   GET  /api/tv/snapshot         Bildschirmfoto des Launchers (PNG, base64)
  *   GET  /api/tv/keys             erlaubte Tastennamen
  *   POST /api/tv/key              Tastendruecke senden {keys: ["down","ok"]}
@@ -36,6 +38,7 @@ var appCatalog = require('./lib/apps');
 var diag = require('./lib/diag');
 var ha = require('./lib/ha');
 var remote = require('./lib/remote');
+var schema = require('./lib/schema');
 
 var VERSION = '0.1.0';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
@@ -49,6 +52,8 @@ var ICON_JSON = process.env.CF_ICONS_JSON ||
   '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons.json';
 var ICON_DIR = process.env.CF_ICONS_DIR ||
   '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/icons';
+var WALL_DIR = process.env.CF_WALL_DIR ||
+  '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/assets/wallpapers';
 var STUB = process.env.CF_STUB_APPS || '';
 
 var store = new config.Store(CONFIG_PATH);
@@ -264,6 +269,23 @@ function handle(req, res) {
     });
   }
 
+  if (req.method === 'GET' && p === '/api/schema') {
+    return json(res, 200, { ok: true, schema: schema.full() });
+  }
+  if (req.method === 'GET' && p.indexOf('/api/wall/') === 0) {
+    var wallId = decodeURIComponent(p.slice('/api/wall/'.length));
+    var file = schema.wallFile(wallId);
+    if (!file) return json(res, 404, { ok: false, error: 'unbekanntes Wandbild' });
+    var wallPath = path.join(WALL_DIR, file);
+    /* Nur Dateien aus dem Katalog, kein Pfad-Bau aus der Anfrage. */
+    if (wallPath.indexOf(WALL_DIR) !== 0) return json(res, 400, { ok: false, error: 'ungueltiger Pfad' });
+    return fs.readFile(wallPath, function (err, buf) {
+      if (err) return json(res, 404, { ok: false, error: 'Wandbild nicht gefunden' });
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'max-age=86400' });
+      res.end(buf);
+    });
+  }
+
   if (req.method === 'GET' && p === '/api/icons') {
     var file = fs.existsSync(ICON_JSON) ? ICON_JSON : path.join(__dirname, 'assets', 'icons.json');
     return fs.readFile(file, 'utf8', function (err, raw) {
@@ -398,9 +420,28 @@ function handle(req, res) {
        * unnoetig eine Verbindung zum Geraet und meldet 503 statt 400. */
       var known = keys.filter(function (k) { return remote.KEYS[k] !== undefined || /^[0-9]+$/.test(String(k)); });
       if (!known.length) return json(res, 400, { ok: false, error: 'unbekannte Tasten: ' + keys.join(', ') });
-      remote.sendKeys(keys, function (e2, sent) {
+      remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
         if (e2) return json(res, 503, { ok: false, error: String(e2) });
         json(res, 200, { ok: true, sent: sent });
+      });
+    });
+  }
+
+  /* Ansicht am Fernseher setzen ("Am Fernseher zeigen" je Reiter). Nur eine
+   * feste Liste - kein freies Auswerten von Ausdruecken ueber die API. */
+  if (req.method === 'GET' && p === '/api/tv/views') {
+    return json(res, 200, { ok: true, views: Object.keys(remote.VIEWS) });
+  }
+  if (req.method === 'POST' && p === '/api/tv/view') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var name = String((body && body.view) || '').toLowerCase();
+      if (!remote.VIEWS[name]) {
+        return json(res, 400, { ok: false, error: 'unbekannte Ansicht: ' + name, views: Object.keys(remote.VIEWS) });
+      }
+      remote.evaluate(remote.VIEWS[name], function (e2, wert) {
+        if (e2) return json(res, 503, { ok: false, error: String(e2) });
+        json(res, 200, { ok: true, view: name, result: wert });
       });
     });
   }

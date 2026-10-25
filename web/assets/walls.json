@@ -1,0 +1,107 @@
+[
+ {
+  "id": "misty",
+  "name": "Misty coast",
+  "thumb": "assets/wallpapers/misty-thumb.jpg",
+  "src": "assets/wallpapers/misty.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "cove",
+  "name": "Quiet cove",
+  "thumb": "assets/wallpapers/cove-thumb.jpg",
+  "src": "assets/wallpapers/cove.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "forest",
+  "name": "Forest mist",
+  "thumb": "assets/wallpapers/forest-thumb.jpg",
+  "src": "assets/wallpapers/forest.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "valley",
+  "name": "Mountain valley",
+  "thumb": "assets/wallpapers/valley-thumb.jpg",
+  "src": "assets/wallpapers/valley.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "night",
+  "name": "Desert stars",
+  "thumb": "assets/wallpapers/night-thumb.jpg",
+  "src": "assets/wallpapers/night.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "peaks",
+  "name": "Blue peaks",
+  "thumb": "assets/wallpapers/peaks-thumb.jpg",
+  "src": "assets/wallpapers/peaks.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "bridge",
+  "name": "Bridge at dusk",
+  "thumb": "assets/wallpapers/bridge-thumb.jpg",
+  "src": "assets/wallpapers/bridge.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "ridge",
+  "name": "Sunlit ridges",
+  "thumb": "assets/wallpapers/ridge-thumb.jpg",
+  "src": "assets/wallpapers/ridge.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "golden",
+  "name": "Golden hour",
+  "thumb": "assets/wallpapers/golden-thumb.jpg",
+  "src": "assets/wallpapers/golden.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "summit",
+  "name": "Sunlit summits",
+  "thumb": "assets/wallpapers/summit-thumb.jpg",
+  "src": "assets/wallpapers/summit.jpg",
+  "tone": "dark"
+ },
+ {
+  "id": "goldcoast",
+  "name": "Gold Coast dusk",
+  "thumb": "assets/wallpapers/goldcoast-thumb.jpg",
+  "src": "assets/wallpapers/goldcoast.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "sydney",
+  "name": "Sydney Harbour",
+  "thumb": "assets/wallpapers/sydney-thumb.jpg",
+  "src": "assets/wallpapers/sydney.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "amber",
+  "name": "Amber hills",
+  "thumb": "assets/wallpapers/amber-thumb.jpg",
+  "src": "assets/wallpapers/amber.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "mint",
+  "name": "Mint wave",
+  "thumb": "assets/wallpapers/mint-thumb.jpg",
+  "src": "assets/wallpapers/mint.jpg",
+  "tone": "light"
+ },
+ {
+  "id": "alpine",
+  "name": "Alpine glow",
+  "thumb": "assets/wallpapers/alpine-thumb.jpg",
+  "src": "assets/wallpapers/alpine.jpg",
+  "tone": "light"
+ }
+]
