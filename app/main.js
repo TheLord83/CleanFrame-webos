@@ -890,6 +890,7 @@
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
+      { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
@@ -908,7 +909,19 @@
   };
   function settingsOk(id) {
     if (id === 'editor') openEditor('settings');
+    else if (id === 'setup') runSetupAgain();
     else openAppearance(id);
+  }
+
+  /* Erststart-Assistent erneut starten: die Einrichtung wird wieder auf "offen"
+   * gesetzt und die Oberflaeche neu geladen — der Assistent laeuft dann wie beim
+   * ersten Start durch (Sprache, Startseite, Darstellung, Abschluss). */
+  function runSetupAgain() {
+    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
+    cfg.onboarding = { done: false, version: 1 };
+    S.serverCfg = cfg;
+    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { setTimeout(function () { location.reload(); }, 200); });
+    else setTimeout(function () { location.reload(); }, 200);
   }
   /* Sprache: 'system' folgt dem Fernseher, Deutsch und Englisch sind fest
    * waehlbar. Die Auswahl landet in der Server-Konfiguration; danach wird die
@@ -936,7 +949,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), setup: T('Run setup again'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -2172,10 +2185,18 @@
     clockText: function () { return clockText(); },
     clock24: function () { return S.c.clock24 !== false; },
     setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
+    setupAgain: function () { runSetupAgain(); return true; },
+    listGeom: function () {
+      var rows = [].slice.call(document.querySelectorAll('#sheetView .settings-group'));
+      var hint = document.querySelector('#sheetView .settings-overview-hint');
+      var last = rows[rows.length - 1], r = last ? last.getBoundingClientRect() : null, h = hint ? hint.getBoundingClientRect() : null;
+      return { zeilen: rows.length, letzteUnten: r ? Math.round(r.bottom) : null, hinweisOben: h ? Math.round(h.top) : null,
+               ueberlappt: r && h ? r.bottom > h.top : null };
+    },
     language: function (code) { setLanguage(code); return true; },
     openSettings: function (group) {
       while (S.stack.length > 1) S.stack.pop();
-      push({ id: 'settings', f: { id: 'language' } });
+      push({ id: 'settings', f: { id: 'background' } });
       render(); renderSheet(top(), true);
       if (group) { openAppearance(group); render(); }
       return top().id;

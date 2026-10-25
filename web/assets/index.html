@@ -21,6 +21,33 @@
   header h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: .2px; }
   header .ver { color: var(--muted); font-size: 13px; }
   nav { display: flex; gap: 4px; padding: 14px 28px 0; flex-wrap: wrap; }
+  #shell { display: flex; gap: 18px; align-items: flex-start; padding: 0 24px 40px 28px; }
+  #shell main { flex: 1 1 auto; min-width: 0; }
+  #tvPanel {
+    flex: 0 0 440px; width: 440px; position: sticky; top: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; max-height: calc(100vh - 24px); overflow: auto;
+  }
+  #tvPanel.collapsed { flex-basis: 220px; width: 220px; }
+  #tvPanel.collapsed #tvShot, #tvPanel.collapsed .remote-pad, #tvPanel.collapsed .panel-keys,
+  #tvPanel.collapsed .panel-row #btnShot, #tvPanel.collapsed .panel-row select, #tvPanel.collapsed #tvStatus { display: none; }
+  #tvPanel img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; display: block; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .panel-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .panel-dot.ok { background: var(--ok); }
+  .panel-dot.bad { background: var(--bad); }
+  .panel-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .panel-check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .panel-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .panel-keys button { font-size: 13px; padding: 8px 6px; }
+  .remote-pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 42px); gap: 6px; margin-top: 10px; }
+  .remote-pad .rk { font-size: 20px; }
+  .remote-pad .rk-ok { font-weight: 700; }
+  .remote-pad button[data-key="up"] { grid-column: 2; grid-row: 1; }
+  .remote-pad button[data-key="left"] { grid-column: 1; grid-row: 2; }
+  .remote-pad button[data-key="ok"] { grid-column: 2; grid-row: 2; }
+  .remote-pad button[data-key="right"] { grid-column: 3; grid-row: 2; }
+  .remote-pad button[data-key="down"] { grid-column: 2; grid-row: 3; }
   nav button {
     background: none; border: 0; color: var(--muted); font: inherit;
     padding: 8px 14px; border-radius: 8px 8px 0 0; cursor: pointer;
@@ -120,6 +147,7 @@
   <button role="tab" data-tab="system" aria-selected="false">System</button>
 </nav>
 
+<div id="shell">
 <main>
   <section data-tab="home" data-active="true">
     <h2>Startseite</h2>
@@ -279,6 +307,43 @@
     <div class="status" id="sysStatus"></div>
   </section>
 </main>
+
+<aside id="tvPanel" aria-label="Fernseher">
+  <div class="panel-head">
+    <strong>Fernseher</strong>
+    <span class="panel-dot" id="tvDot" title="Verbindung"></span>
+    <button class="ghost" id="btnToggle" style="margin-left:auto;">einklappen</button>
+  </div>
+  <img id="tvShot" alt="Bildschirmfoto des Fernsehers">
+  <p class="hint" id="tvStatus">Bild wird geladen …</p>
+  <div class="panel-row">
+    <button id="btnShot" type="button">Bild holen</button>
+    <label class="panel-check"><input type="checkbox" id="autoShot" checked> live</label>
+    <select id="shotQuality" title="Bildqualität">
+      <option value="50">klein</option>
+      <option value="65" selected>mittel</option>
+      <option value="85">scharf</option>
+    </select>
+  </div>
+  <div class="remote-pad">
+    <button type="button" data-key="up" class="rk">▲</button>
+    <button type="button" data-key="left" class="rk">◀</button>
+    <button type="button" data-key="ok" class="rk rk-ok">OK</button>
+    <button type="button" data-key="right" class="rk">▶</button>
+    <button type="button" data-key="down" class="rk">▼</button>
+  </div>
+  <div class="panel-keys">
+    <button type="button" data-key="back">Zurück</button>
+    <button type="button" data-key="menu">Menü</button>
+    <button type="button" data-key="exit">Exit</button>
+    <button type="button" data-key="play">Play/Pause</button>
+    <button type="button" data-key="volup">Lauter</button>
+    <button type="button" data-key="voldown">Leiser</button>
+    <button type="button" data-key="chup">Kanal +</button>
+    <button type="button" data-key="chdown">Kanal −</button>
+  </div>
+</aside>
+</div>
 
 <div class="wiz" id="wizard" hidden>
   <div class="box">
@@ -491,9 +556,103 @@
       });
   }
 
-  document.querySelectorAll('nav button').forEach(function (b) {
-    b.onclick = function () { tab(b.dataset.tab); };
+
+  /* ---------- Fernseher: Bild und Tasten (dauerhaft sichtbar) ---------- */
+  var shotTimer = null, shotBusy = false;
+
+  function setDot(state) {
+    var d = $('tvDot');
+    if (!d) return;
+    d.className = 'panel-dot' + (state ? ' ' + state : '');
+  }
+
+  function loadShot() {
+    if (shotBusy || document.hidden) return;
+    shotBusy = true;
+    var q = $('shotQuality') ? $('shotQuality').value : '65';
+    var url = '/api/tv/snapshot?format=jpeg&quality=' + encodeURIComponent(q) + '&t=' + Date.now();
+    var img = $('tvShot');
+    var probe = new Image();
+    probe.onload = function () {
+      img.src = url;
+      setDot('ok');
+      var zeit = new Date().toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      note($('tvStatus'), 'Bild ' + zeit + ' — ' + probe.naturalWidth + '×' + probe.naturalHeight, true);
+      shotBusy = false;
+    };
+    probe.onerror = function () {
+      setDot('bad');
+      note($('tvStatus'), 'Kein Bild: Launcher am Fernseher geschlossen?', false);
+      shotBusy = false;
+    };
+    probe.src = url;
+  }
+
+  function sendKey(name) {
+    fetch('/api/tv/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: [name] })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) {
+        note($('tvStatus'), 'Taste nicht gesendet: ' + (j.error || 'unbekannt'), false);
+        return;
+      }
+      /* Nach jedem Tastendruck kurz warten, dann ein frisches Bild holen —
+       * so sieht man die Wirkung sofort, ohne dauernd zu pollen. */
+      setTimeout(loadShot, 400);
+    }).catch(function (e) {
+      note($('tvStatus'), 'Taste nicht gesendet: ' + e.message, false);
+    });
+  }
+
+  function startLive() {
+    if (shotTimer) clearInterval(shotTimer);
+    shotTimer = setInterval(loadShot, 3000);
+  }
+
+  document.querySelectorAll('[data-key]').forEach(function (b) {
+    b.onclick = function () { sendKey(b.dataset.key); };
   });
+
+  $('btnShot').onclick = loadShot;
+  $('shotQuality').onchange = loadShot;
+  $('autoShot').onchange = function () {
+    if ($('autoShot').checked) { loadShot(); startLive(); }
+    else if (shotTimer) { clearInterval(shotTimer); shotTimer = null; }
+  };
+
+  /* Einklappen merken (Standard: sichtbar). */
+  $('btnToggle').onclick = function () {
+    var panel = $('tvPanel');
+    var zu = panel.classList.toggle('collapsed');
+    $('btnToggle').textContent = zu ? 'ausklappen' : 'einklappen';
+    try { localStorage.setItem('cf.panel.collapsed', zu ? '1' : '0'); } catch (e) {}
+  };
+  try {
+    if (localStorage.getItem('cf.panel.collapsed') === '1') {
+      $('tvPanel').classList.add('collapsed');
+      $('btnToggle').textContent = 'ausklappen';
+    }
+  } catch (e) {}
+
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.onclick = function () { tab(b.dataset.tab); location.hash = b.dataset.tab; loadShot(); };
+  });
+
+  /* Direktlink: /#look oder /#system oeffnet den passenden Tab. */
+  (function () {
+    var want = (location.hash || '').replace('#', '');
+    if (!want) return;
+    var btn = document.querySelector('nav button[data-tab="' + want + '"]');
+    if (btn) tab(want);
+  }());
+
+  /* Fernseher-Bild ab Start laden und dauerhaft aktuell halten. */
+  setTimeout(function () {
+    if ($('autoShot') && $('autoShot').checked) { loadShot(); startLive(); }
+    else loadShot();
+  }, 200);
 
   $('btnAdd').onclick = function () {
     var id = $('addApp').value;

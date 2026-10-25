@@ -137,3 +137,29 @@ assert the interface without screenshots:
 ```sh
 chrome --headless=new --virtual-time-budget=8000 --dump-dom "http://127.0.0.1:8484/?selftest=ui"
 ```
+
+## Fernseher aus der Oberflaeche bedienen
+
+Die Seitenleiste rechts zeigt dauerhaft das Bild des laufenden Launchers und eine
+Fernbedienung. Beides laeuft ueber zwei Endpunkte des Servers:
+
+- `GET /api/tv/snapshot?format=jpeg&quality=65` — Bild als JPEG/PNG (`format=png`),
+  direkt als Bilddaten, nicht als JSON.
+- `GET /api/tv/keys` — erlaubte Tastennamen.
+- `POST /api/tv/key` mit `{"keys": ["down", "ok"]}` — bis zu 12 Tasten.
+
+Technischer Weg: Der Launcher ist eine Chromium-Web-App, deren DevTools-Konsole
+auf `127.0.0.1:9998` lauscht. Nach aussen ist der Port per iptables gesperrt
+(`INPUT ! -i lo --dport 9998 -j DROP`), ueber die Loopback-Schnittstelle bleibt er
+erreichbar — dort laeuft der Server. Er spricht CDP direkt (eigener kleiner
+WebSocket-Client, kein Paket noetig):
+
+- Bild: `Page.captureScreenshot`
+- Tasten: `Input.dispatchKeyEvent` (rawKeyDown + keyUp)
+
+Wichtig fuer node 8 auf dem Fernseher: kein `readBigUInt64BE` (64-Bit-Längen von
+Hand), und die DevTools-Konsole haelt HTTP-Verbindungen offen — die Antwort muss
+ueber `Content-Length` ausgewertet werden, nicht ueber das Verbindungsende.
+
+Ist die App am Fernseher zu, antwortet der Endpunkt mit 503 und einer Klartext-
+Meldung; die Oberflaeche zeigt dann "Kein Bild".

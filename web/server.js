@@ -17,6 +17,9 @@
  *   POST /api/backup              Konfiguration importieren
  *   GET  /api/selftest            interne Pruefungen (fuer Tests ohne Fernseher)
  *   POST /api/system/restart      Dienst neu starten (nur mit root)
+ *   GET  /api/tv/snapshot         Bildschirmfoto des Launchers (PNG, base64)
+ *   GET  /api/tv/keys             erlaubte Tastennamen
+ *   POST /api/tv/key              Tastendruecke senden {keys: ["down","ok"]}
  *
  * Auth wie bei Glasshouse: ohne konfiguriertes Token ist alles erlaubt,
  * Anfragen von 127.0.0.1 sind immer erlaubt (dort laeuft der Launcher).
@@ -32,6 +35,7 @@ var config = require('./lib/config');
 var appCatalog = require('./lib/apps');
 var diag = require('./lib/diag');
 var ha = require('./lib/ha');
+var remote = require('./lib/remote');
 
 var VERSION = '0.1.0';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
@@ -368,6 +372,37 @@ function handle(req, res) {
     });
     var allOk = checks.every(function (c) { return c.ok; });
     return json(res, 200, { ok: allOk, version: VERSION, checks: checks });
+  }
+
+  /* Fernsteuerung: Bildschirmfoto und Tastendruecke. Nur vom Fernseher selbst
+   * und aus dem LAN mit Token — der Zugriff oeffnet einen SSH-Tunnel zum
+   * DevTools-Port (9998), der sonst gesperrt ist. */
+  if (req.method === 'GET' && p === '/api/tv/snapshot') {
+    var qSnap = url.parse(req.url, true).query || {};
+    return remote.snapshot({ format: qSnap.format || 'jpeg', quality: qSnap.quality || 65 }, function (err, b64, mime) {
+      if (err) return json(res, 503, { ok: false, error: String(err) });
+      var img = Buffer.from(b64, 'base64');
+      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': img.length, 'Cache-Control': 'no-store' });
+      res.end(img);
+    });
+  }
+  if (req.method === 'GET' && p === '/api/tv/keys') {
+    return json(res, 200, { ok: true, keys: Object.keys(remote.KEYS) });
+  }
+  if (req.method === 'POST' && p === '/api/tv/key') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var keys = (body && body.keys) || (body && body.key ? [body.key] : []);
+      if (!Array.isArray(keys) || keys.length > 12) return json(res, 400, { ok: false, error: 'keys muss eine Liste mit hoechstens 12 Tasten sein' });
+      /* Unbekannte Tastennamen sofort abweisen — sonst oeffnet der Server
+       * unnoetig eine Verbindung zum Geraet und meldet 503 statt 400. */
+      var known = keys.filter(function (k) { return remote.KEYS[k] !== undefined || /^[0-9]+$/.test(String(k)); });
+      if (!known.length) return json(res, 400, { ok: false, error: 'unbekannte Tasten: ' + keys.join(', ') });
+      remote.sendKeys(keys, function (e2, sent) {
+        if (e2) return json(res, 503, { ok: false, error: String(e2) });
+        json(res, 200, { ok: true, sent: sent });
+      });
+    });
   }
 
   if (req.method === 'POST' && p === '/api/system/restart') {

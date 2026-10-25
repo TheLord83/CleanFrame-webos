@@ -112,6 +112,9 @@ def main():
         "CF_GLASSHOUSE": "http://127.0.0.1:9",  # absichtlich tot: Stub gewinnt
         "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
         "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
+        # Port ohne Gegenstelle: der Bildschirmfoto-Test soll den Fehlerpfad pruefen,
+        # nicht eine zufaellig laufende Weiterleitung auf dem Rechner treffen.
+        "CF_DEVTOOLS_PORT": str(free_port()),
     })
     ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
     ha_port = ha_server.server_address[1]
@@ -130,8 +133,9 @@ def main():
         r = urllib.request.Request(base + path, data=data, method=method, headers=h)
         try:
             with urllib.request.urlopen(r, timeout=10) as resp:
-                payload = resp.read().decode()
+                raw_body = resp.read()
                 ctype = resp.headers.get("Content-Type", "")
+                payload = raw_body.decode("utf-8", "replace")
                 return resp.status, (json.loads(payload) if "json" in ctype else payload), dict(resp.headers)
         except urllib.error.HTTPError as e:
             payload = e.read().decode()
@@ -143,6 +147,25 @@ def main():
     try:
         wait_up(port)
         print(f"\nServer auf Port {port}, Konfiguration {cfg_path}\n")
+
+        def t_tv_keys():
+            st, d, _ = req("GET", "/api/tv/keys")
+            assert st == 200, st
+            for k in ("up", "down", "ok", "back"):
+                assert k in d["keys"], k
+
+        def t_tv_key_invalid():
+            st, d, _ = req("POST", "/api/tv/key", {"keys": []})
+            assert st == 400, (st, d)
+            st, d, _ = req("POST", "/api/tv/key", {"keys": ["quatsch"]})
+            assert st == 400, (st, d)
+
+        def t_tv_snapshot_without_tv():
+            """Ohne DevTools am Testrechner: klare Fehlermeldung statt Absturz."""
+            st, d, _ = req("GET", "/api/tv/snapshot")
+            assert st in (503, 200), st
+            if st == 503:
+                assert d["ok"] is False and "error" in d, d
 
         def t_health():
             st, d, _ = req("GET", "/api/health")
@@ -400,6 +423,9 @@ def main():
         for name, fn in [
             ("/ liefert die Oberflaeche", t_static),
             ("/api/health meldet Pfad und Version", t_health),
+            ("Fernbedienung kennt die Tastennamen", t_tv_keys),
+            ("ungueltige Tasten werden abgelehnt", t_tv_key_invalid),
+            ("Bildschirmfoto ohne Geraet meldet einen Fehler", t_tv_snapshot_without_tv),
             ("Standardkonfiguration ist leer und gueltig", t_config_default),
             ("Katalog kommt aus dem Stub und enthaelt System-Apps", t_catalog),
             ("PUT /api/config speichert, redigiert Token, entdoppelt", t_put_config),

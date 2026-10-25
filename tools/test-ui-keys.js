@@ -315,6 +315,23 @@ function run(wsUrl) {
       try { rows = JSON.parse(rowsRaw) || []; } catch (e) {}
       var ids = rows.map(function (r) { return r.id; });
       check('Einstellungen bieten Uhr und Sprache', ids.indexOf('clocklang') >= 0, ids.join(','));
+      check('Einrichtung laesst sich erneut starten', ids.indexOf('setup') >= 0, ids.join(','));
+      evalJs('(window.CleanFrameDebug.openSettings(), 1)', function () {
+        (function measure(n) {
+          setTimeout(function () {
+            evalJs('JSON.stringify(window.CleanFrameDebug.listGeom())', function (g) {
+              var o = {};
+              try { o = JSON.parse(g); } catch (e) {}
+              if ((o.zeilen === 0 || o.letzteUnten === null || o.hinweisOben === null) && n > 0) {
+                evalJs('(window.CleanFrameDebug.closeAll(), window.CleanFrameDebug.openSettings(), 1)', function () { measure(n - 1); });
+                return;
+              }
+              check('Einstellungsliste ueberdeckt den Bedienhinweis nicht', o.ueberlappt === false,
+                    'letzte Zeile unten ' + o.letzteUnten + ', Hinweis oben ' + o.hinweisOben + ', Zeilen ' + o.zeilen);
+            });
+          }, 600);
+        }(3));
+      });
       if (ids.indexOf('clocklang') < 0) { configTests(); return; }
       evalJs('(window.CleanFrameDebug.openSettings("clocklang"), 1)', function () {
         setTimeout(function () {
@@ -400,6 +417,10 @@ function run(wsUrl) {
           get(CONFIG_URL, function (err, body) {
             var cfg = {};
             try { cfg = (JSON.parse(body) || {}).config || {}; } catch (e) {}
+            if ((cfg.look || {}).apps !== target && n === 6) {
+              /* Netzwerkschluckauf beim Schreiben: einmal nachfassen. */
+              evalJs('(window.CleanFrameDebug.look({ apps: ' + JSON.stringify(target) + ' }), 1)', function () {});
+            }
             if ((cfg.look || {}).apps !== target && n > 0) { setTimeout(function () { poll(n - 1); }, 600); return; }
             check('Aenderung steht im Server', (cfg.look || {}).apps === target, 'Server: ' + (cfg.look || {}).apps);
             if ((cfg.look || {}).apps !== target) {

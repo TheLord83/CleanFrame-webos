@@ -661,3 +661,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .rename-box .rename-caret{width:2px;height:38px;background:currentColor;animation:cf-caret 1s steps(2,start) infinite}
 @keyframes cf-caret{to{visibility:hidden}}
 .s-sub{margin:-6px 0 4px;opacity:.62;font-size:20px}
+
+/* webOS-Portierung: Einstellungsliste dichter, damit auch acht Eintraege klar
+   ueber der Bedienhinweis-Zeile enden (Hinweis sitzt bei y=968):
+   8 x 88 + 7 x 4 = 732 px, Liste beginnt bei 196 -> Ende 928. */
+.settings-group{height:88px;padding:6px 28px 6px 26px;border-radius:16px}
+.settings-group+.settings-group{margin-top:4px}
+.settings-group-name{font-size:33px;line-height:39px;letter-spacing:-.4px}
+.settings-group-value{font-size:22px;line-height:28px}
+.settings-group>.ico{width:26px;height:26px}
+.settings-overview{top:196px}
