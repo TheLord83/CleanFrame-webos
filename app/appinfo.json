@@ -1,6 +1,6 @@
 {
   "id": "com.blackpearl.cleanframe",
-  "version": "0.2.3",
+  "version": "0.2.6",
   "vendor": "blackpearl",
   "type": "web",
   "main": "index.html",
@@ -18,5 +18,8 @@
   "noSplashOnLaunch": true,
   "appCategory": [
     "home"
+  ],
+  "requiredPermissions": [
+    "all"
   ]
 }

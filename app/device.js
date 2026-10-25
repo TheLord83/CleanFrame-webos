@@ -1,18 +1,19 @@
 /* CleanFrame auf LG webOS — Geraeteanbindung.
  *
- * Ersetzt das Tizen-Gegenstueck (device.js) und bietet dieselbe Schnittstelle:
- *   FrameDevice.launchApp(appId, done)
- *   FrameDevice.launch(brand, done)
- *   FrameDevice.apps(done)           -> done(null, [{appId,name,brand,icon,rank}])
+ * Zwei Wege, bewusst getrennt:
+ *
+ * 1. Aktionen (App starten, LG Home, TV-Einstellungen, Bildschirmschoner) laufen ueber
+ *    die native Luna-Schnittstelle der Plattform (`PalmServiceBridge`). Das ist der
+ *    einzige Weg, der aus einer file://-Web-App heraus funktioniert: HTTP-Aufrufe an
+ *    Glasshouse tragen einen fremden Origin-Header und werden dort mit
+ *    "cross-origin request refused" abgelehnt.
+ * 2. Nur fuer die App-Liste und die Icons wird Glasshouse gelesen (GET /api/apps,
+ *    /api/apps/icon). GET ist nicht betroffen, und Icons sind <img>-Ladungen ohne CORS.
+ *
+ * Schnittstelle wie im Tizen-Original:
+ *   FrameDevice.launchApp(appId, done) / launch(brand, done) / apps(done)
  *   FrameDevice.home(done) / settings(done) / art(done)
- *
- * Alles laeuft ueber den Glasshouse-Server auf dem Fernseher selbst (Port 8080):
- *   GET  /api/apps                 liefert die installierten Apps
- *   GET  /api/apps/icon?id=<id>    liefert das App-Icon
- *   POST /api/control              {"action":"launchApp","value":"<id>"}
- *
- * Ist Glasshouse nicht erreichbar (Browser-Vorschau), meldet jede Aktion einen
- * verstaendlichen Fehler, statt still zu scheitern.
+ * done bekommt (null) bei Erfolg oder ({message, detail}) bei einem Fehler.
  */
 (function () {
   'use strict';
@@ -44,100 +45,151 @@
   };
 
   var LG_HOME = 'com.webos.app.home';
-  var LG_SETTINGS = 'com.webos.app.settings';
+  var LG_SETTINGS = 'com.palm.app.settings';
   var LG_SCREENSAVER = 'com.webos.app.screensaver';
-
-  function bounded(done) {
-    var finished = false;
-    var timer = setTimeout(function () {
-      finish({ message: 'Der Fernseher hat nicht geantwortet.', detail: 'Glasshouse auf Port 8080 antwortet nicht.' });
-    }, 8000);
-
-    function finish(err, value) {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      done(err, value);
-    }
-    return finish;
-  }
 
   function resolve(appId) {
     if (!appId) return '';
     return TIZEN_LEGACY[appId] || IDS[appId] || appId;
   }
 
-  function control(payload, done) {
-    var finish = bounded(done);
-    var request;
-    try {
-      request = fetch(GW + '/api/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (err) {
-      finish({ message: 'Glasshouse ist nicht erreichbar.', detail: String(err && err.message || err) });
-      return;
+  /* Ein Luna-Aufruf mit Zeitlimit. cb(antwortObjekt) — nie eine Exception nach aussen. */
+  function luna(uri, params, cb) {
+    var settled = false, bridge, timer;
+
+    function finish(result) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { if (bridge && bridge.cancel) bridge.cancel(); } catch (e) {}
+      cb(result || {});
     }
-    request.then(function (res) { return res.json(); })
-      .then(function (json) {
-        if (json && json.ok) finish(null);
-        else finish({ message: 'Der Fernseher konnte diese Aktion nicht ausfuehren.', detail: (json && json.error) || '' });
-      })
-      .catch(function (err) {
-        finish({ message: 'Glasshouse ist nicht erreichbar.', detail: String(err && err.message || err) });
-      });
+
+    try {
+      if (!window.PalmServiceBridge) {
+        finish({ returnValue: false, errorText: 'no-luna-bridge' });
+        return;
+      }
+      bridge = new window.PalmServiceBridge();
+      bridge.onservicecallback = function (msg) {
+        var parsed = {};
+        try { parsed = JSON.parse(msg); } catch (e) { parsed = {}; }
+        finish(parsed);
+      };
+      timer = setTimeout(function () { finish({ returnValue: false, errorText: 'timeout' }); }, 8000);
+      bridge.call(uri, JSON.stringify(params || {}));
+    } catch (err) {
+      finish({ returnValue: false, errorText: String(err && err.message || err) });
+    }
   }
 
-  function launchApp(appId, done) {
-    control({ action: 'launchApp', value: resolve(appId) }, done);
+  function launchId(appId, done) {
+    var id = resolve(appId);
+    if (!id) { done({ message: 'Diese App hat kein Startziel.' }); return; }
+    luna('luna://com.webos.applicationManager/launch', { id: id }, function (res) {
+      if (res && res.returnValue === true) { done(null); return; }
+      done({
+        message: 'Der Fernseher konnte diese App nicht starten.',
+        detail: (res && (res.errorText || res.errorCode)) ? String(res.errorText || res.errorCode) : 'unbekannt'
+      });
+    });
   }
+
+  function launchApp(appId, done) { launchId(appId, done); }
 
   function launch(brand, done) {
     if (!IDS[brand]) {
       done({ message: 'Fuer diese App gibt es auf webOS kein Ziel.', detail: 'Bitte im Apps-Browser eine installierte App waehlen.' });
       return;
     }
-    launchApp(IDS[brand], done);
+    launchId(IDS[brand], done);
   }
 
-  function home(done) { launchApp(LG_HOME, done); }
+  function home(done) { launchId(LG_HOME, done); }
 
-  function settings(done) { launchApp(LG_SETTINGS, done); }
+  function settings(done) { launchId(LG_SETTINGS, done); }
 
-  function art(done) { launchApp(LG_SCREENSAVER, done); }
+  function art(done) { launchId(LG_SCREENSAVER, done); }
 
-  function apps(done) {
-    var finish = bounded(done);
+  /* App-Liste: Glasshouse (GET, ohne CORS-Problem), sonst Luna. */
+  function appsFromGlasshouse(done) {
     var request;
     try {
       request = fetch(GW + '/api/apps', { cache: 'no-store' });
     } catch (err) {
-      finish({ message: 'Glasshouse ist nicht erreichbar.', detail: String(err && err.message || err) });
+      done({ message: 'Die App-Liste liess sich nicht lesen.', detail: String(err && err.message || err) });
       return;
     }
     request.then(function (res) { return res.json(); })
       .then(function (json) {
         var installed = (json && json.installed) || [];
-        var out = [];
-        installed.forEach(function (app) {
-          if (!app || !app.id) return;
-          var brand = BRAND_OF[app.id] || '';
-          out.push({
-            appId: app.id,
-            name: String(app.title || app.id).slice(0, 160),
-            brand: brand,
-            icon: brand ? '' : (GW + '/api/apps/icon?id=' + encodeURIComponent(app.id)),
-            rank: brand ? Object.keys(IDS).indexOf(brand) : 30
-          });
-        });
-        out.sort(function (a, b) { return a.rank - b.rank || a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
-        finish(null, out);
+        if (!installed.length) { appsFromLuna(done); return; }
+        done(null, mergeBuiltins(installed.map(toEntry)));
       })
-      .catch(function (err) {
-        finish({ message: 'Die App-Liste liess sich nicht lesen.', detail: String(err && err.message || err) });
+      .catch(function () { appsFromLuna(done); });
+  }
+
+  function appsFromLuna(done) {
+    luna('luna://com.webos.applicationManager/listApps', { subscribe: false }, function (res) {
+      var list = (res && res.apps) || [];
+      if (!list.length) {
+        done({ message: 'Die App-Liste liess sich nicht lesen.', detail: (res && res.errorText) || 'keine Antwort' });
+        return;
+      }
+      done(null, mergeBuiltins(list
+        .filter(function (a) { return a && a.id && a.visible !== false; })
+        .map(function (a) { return toEntry({ id: a.id, title: a.title || a.id }); })));
+    });
+  }
+
+  function toEntry(app) {
+    var brand = BRAND_OF[app.id] || '';
+    return {
+      appId: app.id,
+      name: String(app.title || app.id).slice(0, 160),
+      brand: brand,
+      icon: brand ? '' : (GW + '/api/apps/icon?id=' + encodeURIComponent(app.id)),
+      rank: brand ? Object.keys(IDS).indexOf(brand) : 30
+    };
+  }
+
+  /* System-Apps, die Glasshouse nicht in `installed` fuehrt (nur entfernbare
+   * Apps und Kacheln von LG-Leiste) und die eine Startseite trotzdem braucht.
+   * IDs am Gerät verifiziert (Titel aus appinfo.json). */
+  var BUILTIN = [
+    { id: 'com.webos.app.enactbrowser', title: 'Webbrowser' },
+    { id: 'org.webosbrew.hbchannel', title: 'Homebrew Channel' },
+    { id: 'com.tvweb.dashboard', title: 'Glasshouse' },
+    { id: 'com.webos.app.mediadiscovery', title: 'Media Player' },
+    { id: 'com.webos.app.igallery', title: 'Kunstgalerie' },
+    { id: 'com.palm.app.settings', title: 'TV-Einstellungen' }
+  ];
+
+  function mergeBuiltins(entries) {
+    var seen = {};
+    entries.forEach(function (e) { seen[e.appId] = true; });
+    BUILTIN.forEach(function (b) {
+      if (seen[b.id]) return;
+      seen[b.id] = true;
+      entries.push({
+        appId: b.id,
+        name: b.title,
+        brand: BRAND_OF[b.id] || '',
+        icon: BRAND_OF[b.id] ? '' : (GW + '/api/apps/icon?id=' + encodeURIComponent(b.id)),
+        rank: 40
       });
+    });
+    return entries;
+  }
+
+  function apps(done) {
+    var finished = false;
+    function once(err, list) {
+      if (finished) return;
+      finished = true;
+      done(err, list);
+    }
+    appsFromGlasshouse(once);
   }
 
   window.FrameDevice = {
