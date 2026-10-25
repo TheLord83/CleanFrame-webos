@@ -1,0 +1,1721 @@
+--- upstream/app/main.js
++++ port/app/main.js
+@@ -1,6 +1,13 @@
+ /* CleanFrame Home. Static materials, local preferences and public Tizen app controls. */
+ (function () {
+   'use strict';
++  /* webOS-Portierung: zweisprachige Oberflaeche (de/en), Woerterbuch in i18n.js */
++  /* Sprache darf spaeter wechseln (Konfiguration vom Server), deshalb wird die
++   * Uebersetzung bei jedem Aufruf geholt und nicht beim Start kopiert. */
++  function T(key, vars) {
++    if (window.CleanFrameI18n && window.CleanFrameI18n.t) return window.CleanFrameI18n.t(key, vars);
++    return key;
++  }
+ 
+   /* ---------- Bundled data ---------- */
+   var ASSETS = 'assets/', ICONS = ASSETS + 'icons/', WP = ASSETS + 'wallpapers/';
+@@ -11,28 +18,29 @@
+   var PH_TOP = 220, PH_PITCH = 128, PH_FULL = 5, PH_HEIGHT = 944, PH_COMPACT_TOP = 144, PH_COMPACT_PITCH = 88, PH_COMPACT_VISIBLE = 9;
+   var WALL_VISIBLE = 6, WALL_ROW = 92, WALL_DELAY = 200;
+   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
+-  var FULL = 'Home holds nine apps. Remove one first.', LAST = 'Home needs one app';
++  var FULL = T('Home holds nine apps. Remove one first.'), LAST = T('Home needs one app');
+ 
++  // webOS-Portierung: Marken-Kacheln mit den App-IDs des Fernsehers.
++  // Die Icons kommen weiter aus assets/icons/<id>.svg (Marken-Marks).
+   var PRIMARY_APPS = [
+-    { id: 'stremio', name: 'Stremio', mark: true, appId: 'IkWsFHtOY9.Stremio' },
+-    { id: 'netflix', name: 'Netflix', mark: true, appId: 'org.tizen.netflix-app' },
+-    { id: 'disneyplus', name: 'Disney+', mark: true, appId: 'MCmYXNxgcu.DisneyPlus' },
+-    { id: 'youtube', name: 'YouTube', mark: true, appId: '9Ur5IzDKqV.TizenYouTube' },
+-    { id: 'appletv', name: 'Apple TV', mark: true, appId: 'com.samsung.tv.aria-video' },
+-    { id: 'primevideo', name: 'Prime Video', mark: true, appId: 'org.tizen.primevideo' },
+-    { id: 'abciview', name: 'ABC iview', mark: true, appId: 'mWK87Xghap.ABCiview' },
+-    { id: 'sbs', name: 'SBS On Demand', mark: true, appId: 'OyE7OuxlUi.SBSOnDemand' },
+-    { id: 'applemusic', name: 'Apple Music', mark: true, appId: 'org.tizen.apple.apple-music' }
++    { id: 'netflix', name: 'Netflix', mark: true, appId: 'netflix' },
++    { id: 'youtube', name: 'YouTube', mark: true, appId: 'youtube.leanback.v4' },
++    { id: 'disneyplus', name: 'Disney+', mark: true, appId: 'com.disney.disneyplus' },
++    { id: 'primevideo', name: 'Prime Video', mark: true, appId: 'com.amazon.amazonvideo.lite' },
++    { id: 'spotify', name: 'Spotify', mark: true, appId: 'spotify-beehive' },
++    { id: 'appletv', name: 'Apple TV', mark: true, appId: 'com.apple.appletv' }
+   ];
+   var PRIMARY = PRIMARY_APPS.map(function (a) { return a.id; }), APPS = PRIMARY_APPS.slice(), ALPHA = [];
+   var WALLS = window.CleanFrameWallpapers || [{ id: 'misty', name: 'Misty coast', tone: 'light', ut: { tr: 'mist', br: 'mist' }, frostVeil: .20 }];
+   var ADAPTIVE_INK = window.CleanFrameAdaptiveInk || {};
+   WALLS.forEach(function (w) { w.ut = w.ut || { tr: 'light', br: 'light' }; w.frostVeil = w.frostVeil || .12; });
+   var MODES = [
+-    { id: 'fixed', name: 'Fixed', min: 0 }, { id: 'open', name: 'Each time Home opens', min: 0 },
++    { id: 'fixed', name: T('Fixed'), min: 0 }, { id: 'open', name: T('Each time Home opens'), min: 0 },
+     { id: '5', name: 'Every 5 minutes', min: 5 }, { id: '15', name: 'Every 15 minutes', min: 15 },
+-    { id: '60', name: 'Every hour', min: 60 }
++    { id: '60', name: T('Every hour'), min: 60 }
+   ];
++  var uiScale = 1;   /* Schriftfaktor aus der Konfiguration (Senioren-Modus) */
++  var booted = false; /* erst nach dem Start darf die Darstellung live getauscht werden */
+   var KEY = 'cleanframe.home.v1', storageOk = true, catalog = { loading: false, loaded: false, error: null, request: 0, revision: 0 };
+   var QA = window.ShoreQA = { minuteMs: window.ShoreQA && window.ShoreQA.minuteMs || 60000 };
+   var FONTS = {
+@@ -46,11 +54,11 @@
+   var PRIVATE_FONTS = window.CleanFramePrivateFontIDs || [], fontMetrics = {}, unavailableFonts = {}, widthCache = {}, fontsReady = false;
+   var LOOK_KEYS = ['bg', 'layout', 'apps', 'font', 'controls', 'focus', 'material'];
+   var LOOK_VALUES = { bg: ['dark', 'light', 'photo'], layout: ['list', 'dock'], apps: ['icons', 'both', 'text'], font: Object.keys(FONTS).filter(function (id) { return id === 'manrope' || PRIVATE_FONTS.indexOf(id) >= 0; }), controls: ['icons', 'both', 'text'], focus: ['type', 'glass'], material: ['soft', 'frost', 'tint'] };
+-  var LOOK_NAMES = { bg: 'Background', layout: 'Layout', apps: 'Apps', font: 'Font', controls: 'Home controls', focus: 'Focus', material: 'Material' };
+-  var VALUE_NAMES = { dark: 'Dark', light: 'Light', photo: 'Photo', list: 'List', dock: 'Dock', type: 'Type', glass: 'Glass', soft: 'Soft', frost: 'Frost', tint: 'Clear tint', icons: 'Icons', both: 'Icons and text', text: 'Text' };
+-  var UTIL = { art: ['Art Mode', 'art'], apps: ['All apps', 'apps'], arrange: ['Arrange', 'arrange'], settings: ['Settings', 'settings'] };
++  var LOOK_NAMES = { bg: T('Background'), layout: T('Layout'), apps: 'Apps', font: T('Font'), controls: T('Home controls'), focus: T('Focus'), material: T('Material') };
++  var VALUE_NAMES = { dark: T('Dark'), light: T('Light'), photo: T('Photo'), list: T('List'), dock: T('Dock'), type: 'Type', glass: T('Glass'), soft: T('Soft'), frost: T('Frost'), tint: T('Clear tint'), icons: T('Icons'), both: T('Icons and text'), text: T('Text') };
++  var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], settings: [T('Settings'), 'settings'] };
+   var MSG = {
+-    leave: { title: 'Leave Home?', line: 'Open Samsung Home?', note: '', actions: [['stay', 'Stay'], ['samsung', 'Samsung Home']] }
++    leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] }
+   };
+   var SVG = {
+     art: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.8" r="1.5"/><path d="m4.5 17.5 4.5-4.5 3 3 2.5-2.5 5 5"/>',
+@@ -86,7 +94,7 @@
+     for (var i = 0; i < list.length; i++) if (list[i].toLowerCase() === v) return list[i];
+     return fallback;
+   }
+-  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material }; }
++  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material, clock24: c.clock24 !== false }; }
+   function materialApplies(c) { c = c || S.c; return c.bg === 'photo' && (c.layout === 'dock' || c.focus === 'glass'); }
+   function derivedTheme() { return S.c.layout === 'list' ? 'list' : 'shore'; }
+ 
+@@ -273,8 +281,8 @@
+   function reducedDockLabel(id) { return S.c.apps !== 'icons' && dockLabelSize(id) === (S.c.apps === 'text' ? 34 : 32); }
+   function actionWidth(text) { return clamp(Math.ceil(textWidth(text, 30, 500, -.3) + 40), 288, 400); }
+   function photoLabel(id, compact) {
+-    var text = app(id).name, size = compact ? 56 : 88, limit = compact ? 640 : 992, width = textWidth(text, size, 600, -1.8, 'display');
+-    if (!compact && width > limit) { size = 76; width = textWidth(text, size, 600, -1.8, 'display'); }
++    var text = app(id).name, size = Math.round((compact ? 56 : 88) * uiScale), limit = compact ? 640 : 992, width = textWidth(text, size, 600, -1.8, 'display');
++    if (!compact && width > limit) { size = Math.round(76 * uiScale); width = textWidth(text, size, 600, -1.8, 'display'); }
+     // Newsreader's ninth compact Type row otherwise enters the lower fade by .63px.
+     return { size: size, top: (compact ? 10.66 : size === 76 ? 10.36 : 9.68) + fontShift('display', size) - (compact && homeFont() === 'newsreader' ? .7 : 0), width: Math.min(limit, width), ellipsis: width > limit };
+   }
+@@ -313,7 +321,8 @@
+ 
+   /* ---------- Saved preferences ---------- */
+   function safeId(id) { return typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,160}$/.test(id) && ['constructor', 'prototype', '__proto__'].indexOf(id) < 0; }
+-  function safeIcon(path) { return typeof path === 'string' && path.length < 2048 && /^(?:\/[^\/]|file:\/\/\/|wgt-package:\/\/\/)/.test(path) ? path : ''; }
++  /* webOS-Portierung: Icons duerfen zusaetzlich von Glasshouse (Port 8080) kommen. */
++  function safeIcon(path) { return typeof path === 'string' && path.length < 2048 && /^(?:\/[^\/]|file:\/\/\/|wgt-package:\/\/\/|http:\/\/127\.0\.0\.1:8080\/)/.test(path) ? path : ''; }
+   function load() {
+     var keys = [KEY, 'cleanframe.shore.v1'], raw, saved, i;
+     for (i = 0; i < keys.length; i++) {
+@@ -345,6 +354,7 @@
+       apps: pick(modern.apps, LOOK_VALUES.apps, legacyList ? 'text' : 'both'), controls: pick(modern.controls, LOOK_VALUES.controls, 'both'),
+       focus: pick(modern.focus, LOOK_VALUES.focus, legacyList ? 'type' : 'glass'), material: pick(modern.material, LOOK_VALUES.material, 'soft'),
+       font: pick(modern.font, LOOK_VALUES.font, 'manrope'), wall: wall(modern.wall || s.wallpaper) ? modern.wall || s.wallpaper : WALLS[0].id,
++      clock24: modern.clock24 !== false,
+       home: h, recent: recent, lastApp: h.indexOf(s.lastApp) >= 0 ? s.lastApp : h[0],
+       mode: pick(s.mode, MODES.map(function (m) { return m.id; }), 'fixed')
+     };
+@@ -374,15 +384,100 @@
+   function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; return c; }
+   function snap() { return { home: S.c.home.slice(), recent: S.c.recent.slice() }; }
+   function pushRecent(list, id) { return [id].concat(without(list, id)).slice(0, 5); }
++  /* Was der Server wissen muss: Darstellung und Startseite. Namen und Icons der
++   * Kacheln bleiben erhalten, weil sie nur in der Server-Konfiguration stehen. */
++  function serverPayload(c) {
++    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {})), prev = (S.serverCfg && S.serverCfg.home) || [];
++    cfg.schemaVersion = cfg.schemaVersion || 1;
++    /* Stand, auf dem diese Aenderung beruht — der Server weist aeltere Staende ab. */
++    cfg.rev = S.appliedRev || undefined;
++    cfg.look = { bg: c.bg, layout: c.layout, apps: c.apps, controls: c.controls, focus: c.focus,
++                 material: c.material, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
++    cfg.home = c.home.map(function (id) {
++      var out = { appId: id };
++      prev.forEach(function (e) { if (e && e.appId === id) { if (e.name) out.name = e.name; if (e.icon) out.icon = e.icon; if (e.url) out.url = e.url; } });
++      return out;
++    });
++    return cfg;
++  }
++
++  /* Aenderungen an der Darstellung sofort an den Server geben. Sonst gilt beim
++   * naechsten Start wieder die alte Server-Konfiguration — genau das liess die
++   * Einstellungen "nach Neustart auf default" zurueckspringen. */
++  /* Sperrt ein offener Dialog die Uebernahme? Nur Menue, Umbenennen, Meldung. */
++  function istDialog() {
++    var t = top();
++    if (!t) return false;
++    return t.id === 'ctx' || t.id === 'rename' || t.id === 'message';
++  }
++
++  /* Aenderungen aus der Web-Oberflaeche im laufenden Betrieb uebernehmen:
++   * der Server zaehlt bei jeder Speicherung `rev` hoch. Aendert sich die Nummer,
++   * ohne dass wir selbst geschrieben haben, laden wir die Konfiguration neu.
++   * Nur auf der Startseite und ohne offenen Dialog — sonst warten. */
++  function startConfigWatch() {
++    if (S.watchTimer) clearInterval(S.watchTimer);
++    S.watchTimer = setInterval(function () {
++      if (S.pendingCfg && !istDialog()) { applyConfigInto(S.pendingCfg); return; }
++      if (!window.FrameDevice || !FrameDevice.loadConfig) return;
++      FrameDevice.loadConfig(function (err, cfg) {
++        if (err || !cfg) return;
++        var rev = parseInt(cfg.rev, 10) || 0;
++        if (!rev || rev === S.appliedRev) return;
++        /* Nur bei echten Dialogen warten (Kachel-Menue, Umbenennen, Meldung).
++       * Auf der Startseite, in den Einstellungen und auf den Detailseiten wird
++       * sofort uebernommen — dort will man die Aenderung ja sehen. */
++      if (istDialog()) { S.pendingCfg = cfg; return; }
++        applyConfigInto(cfg);
++      });
++    }, 2000);
++  }
++
++  /* Konfiguration anwenden, ohne die Revision zu verlieren. */
++  function applyConfigInto(cfg) {
++    S.pendingCfg = null;
++    applyServerConfig(cfg);
++    render();
++    updateClock();
++    if (S.syncLog) S.syncLog.push('uebernommen aus Web (rev ' + (cfg.rev || 0) + ')');
++  }
++
++  function syncServer(c) {
++    S.syncLog = S.syncLog || [];
++    /* Vor der Bereitschaft nur vormerken: die Server-Konfiguration steht dann noch
++     * nicht, ein sofortiges Schreiben wuerde sie ueberschreiben. */
++    if (!S.ready) { S.syncPending = c; S.syncLog.push('vorgemerkt'); return; }
++    if (!window.FrameDevice || !FrameDevice.saveConfig) { S.syncLog.push('keine Anbindung'); return; }
++    S.syncLog.push('gesendet');
++    try {
++      var payload = serverPayload(c);
++      S.serverCfg = payload;
++      FrameDevice.saveConfig(payload, function (err, saved, conflict) {
++        if (conflict && saved) {
++          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
++           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
++          S.syncLog.push('Konflikt: neueren Stand uebernommen');
++          applyConfigInto(saved);
++          return;
++        }
++        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
++         * nicht gleich wieder als fremde Aenderung anwendet. */
++        if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
++        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
++      });
++    } catch (e) {}
++  }
++
+   function write(c, label) {
+     try { localStorage.setItem(KEY, JSON.stringify(serialise(c))); }
+-    catch (e) { storageOk = false; S.failed++; S.err = label; log('Not saved: ' + label); return false; }
++    catch (e) { storageOk = false; S.failed++; S.err = label; log(T('Not saved: ') + label); return false; }
+     if (c.wall !== S.c.wall || c.mode !== S.c.mode) resetRotation();
+-    storageOk = true; S.c = c; S.writes++; S.err = null; log('Saved: ' + label);
++    storageOk = true; S.c = c; S.writes++; S.err = null; log(T('Saved: ') + label);
++    syncServer(c);
+     return true;
+   }
+   function errText(lifted) {
+-    return 'Couldn’t save. Nothing changed.';
++    return T('Couldn’t save. Nothing changed.');
+   }
+   function statusHtml(def, lifted) {
+     if (S.err) return '<span class="warn error-chip">' + esc(errText(lifted)) + '</span>';
+@@ -405,36 +500,76 @@
+     if (i < 0) return false;
+     if (S.c.home.length <= 1) { S.note = LAST; return false; }
+     h = S.c.home.slice(); h.splice(i, 1);
+-    if (!write(next(h, pushRecent(S.c.recent, id)), 'Remove ' + a.name + ' from Home')) return false;
++    if (!write(next(h, pushRecent(S.c.recent, id)), T('Remove ') + a.name + T(' from Home'))) return false;
+     S.removedAt[id] = i;
+-    S.undo.push({ label: 'Remove ' + a.name, snap: before });
++    S.undo.push({ label: T('Remove ') + a.name, snap: before });
++    return true;
++  }
++
++  /* Umbenennen einer Startseiten-Kachel.
++   * Der neue Name geht an den Server (Quelle fuer App und Web-Oberflaeche) und
++   * zusaetzlich in den localStorage-Stand, damit die Aenderung auch ohne Server
++   * erhalten bleibt. Der Katalog in "Alle Apps" bleibt unveraendert. */
++  function homeRename(id, newName) {
++    var a = app(id), name = String(newName || '').trim().slice(0, 120);
++    if (!a || !name) return false;
++    var before = snap();
++    a.name = name;
++    write(next(S.c.home.slice(), S.c.recent.slice()), T('Rename') + ': ' + name);
++    S.undo.push({ label: T('Rename') + ': ' + name, snap: before });
++    if (window.FrameDevice && FrameDevice.api) {
++      var cfg = S.serverCfg || {};
++      var list = (cfg.home || []).map(function (e) {
++        return { appId: e.appId, name: e.name, icon: e.icon, url: e.url };
++      });
++      var found = false;
++      list.forEach(function (e) { if (e.appId === id) { e.name = name; found = true; } });
++      if (!found) list.push({ appId: id, name: name });
++      var payload = JSON.parse(JSON.stringify(cfg));
++      payload.home = list;
++      FrameDevice.saveConfig(payload, function (err, saved, conflict) {
++        if (conflict && saved) {
++          /* Der Server hat einen neueren Stand: der gewinnt (z.B. gerade in der
++           * Web-Oberflaeche geaendert), sonst wuerde die App ihn ueberschreiben. */
++          S.syncLog.push('Konflikt: neueren Stand uebernommen');
++          applyConfigInto(saved);
++          return;
++        }
++        /* Eigene Aenderung: neue Revision uebernehmen, damit der Waechter sie
++         * nicht gleich wieder als fremde Aenderung anwendet. */
++        if (saved && saved.rev) S.appliedRev = parseInt(saved.rev, 10) || S.appliedRev;
++        S.syncLog.push(err ? ('Fehler: ' + err) : 'ok');
++      });
++      S.serverCfg = payload;
++    }
+     return true;
+   }
++
+   function homeAdd(id) {
+     var a = app(id), before = snap(), h = S.c.home.slice(), at;
+     if (h.length >= CAP) { S.note = FULL; return false; }
+     at = S.removedAt.hasOwnProperty(id) ? Math.min(S.removedAt[id], h.length) : h.length;
+     h.splice(at, 0, id);
+-    if (!write(next(h, without(S.c.recent, id)), 'Add ' + a.name + ' to Home')) return false;
+-    S.undo.push({ label: 'Add ' + a.name, snap: before });
++    if (!write(next(h, without(S.c.recent, id)), T('Add ') + a.name + T(' to Home'))) return false;
++    S.undo.push({ label: T('Add ') + a.name, snap: before });
+     return true;
+   }
+   function homeMove(order, id, before) {
+     var a = app(id);
+-    if (!write(next(order, S.c.recent.slice()), 'Move ' + a.name)) return false;
+-    S.undo.push({ label: 'Move ' + a.name, snap: before });
++    if (!write(next(order, S.c.recent.slice()), T('Move ') + a.name)) return false;
++    S.undo.push({ label: T('Move ') + a.name, snap: before });
+     return true;
+   }
+   function undoLast(arr) {
+     var u = S.undo[S.undo.length - 1];
+-    if (!u) { S.note = 'Nothing to undo'; return false; }
++    if (!u) { S.note = T('Nothing to undo'); return false; }
+     if (!write(next(u.snap.home.slice(), u.snap.recent.slice()), 'Undo ' + u.label)) return false;
+     S.undo.pop();
+-    S.note = 'Undone: ' + u.label + '.';
++    S.note = T('Undone: ') + u.label + '.';
+     return true;
+   }
+   function undoLabel() { var u = S.undo[S.undo.length - 1]; return u ? u.label : ''; }
+-  function undoCaption() { var label = undoLabel(); return label ? 'Undo ' + label.charAt(0).toLowerCase() + label.slice(1) : 'Nothing to undo'; }
++  function undoCaption() { var label = undoLabel(); return label ? 'Undo ' + label.charAt(0).toLowerCase() + label.slice(1) : T('Nothing to undo'); }
+   function editStatus(hint, move) {
+     if (S.err) return statusHtml('', !!move);
+     if (S.note === FULL || S.note === LAST) return '<span class="warn">' + esc(S.note) + '</span>';
+@@ -445,21 +580,21 @@
+   var busy = false, busyTimer = 0;
+   function release() { busy = false; clearTimeout(busyTimer); S.press = null; }
+   function message(title, line, note) {
+-    push({ id: 'message', msg: 'error', content: { title: title, line: line, note: note || '', actions: [['back', 'Back']] }, f: { b: 0 } });
++    push({ id: 'message', msg: 'error', content: { title: title, line: line, note: note || '', actions: [['back', T('Back')]] }, f: { b: 0 } });
+   }
+   function perform(title, run) {
+     if (busy) return;
+     busy = true; busyTimer = setTimeout(release, 10000);
+     run(function (err) {
+       release();
+-      if (err) message(title, err.message || 'The TV could not open this screen.', err.detail || '');
++      if (err) message(title, err.message || T('The TV could not open this screen.'), err.detail || '');
+       render(); syncRotation();
+     });
+   }
+   function launch(id) {
+     var a = app(id), c;
+     if (!a || busy) return;
+-    if (S.c.home.indexOf(id) >= 0) { c = next(S.c.home.slice(), S.c.recent.slice()); c.lastApp = id; write(c, 'Last app'); }
++    if (S.c.home.indexOf(id) >= 0) { c = next(S.c.home.slice(), S.c.recent.slice()); c.lastApp = id; write(c, T('Last app')); }
+     S.press = id; S.lastLaunch = a.name;
+     perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
+   }
+@@ -470,7 +605,7 @@
+     FrameDevice.apps(function (err, entries) {
+       if (request !== catalog.request) return;
+       catalog.loading = false;
+-      if (err) { catalog.error = err.message || 'Could not read installed apps.'; if (!catalog.loaded) ALPHA = []; render(); return; }
++      if (err) { catalog.error = err.message || T('Could not read installed apps.'); if (!catalog.loaded) ALPHA = []; render(); return; }
+       oldFocus = top().id === 'apps' ? ALPHA[top().f.i] : null;
+       ALPHA = [];
+       entries.forEach(function (entry) {
+@@ -498,7 +633,7 @@
+     return { prev: v ? 'up' : 'left', next: v ? 'down' : 'right', out: v ? 'right' : 'up', inn: v ? 'left' : 'down' };
+   }
+   function utilAction(u) {
+-    if (u === 'art') perform('Art Mode', FrameDevice.art);
++    if (u === 'art') perform(T('Screensaver'), FrameDevice.art);
+     else if (u === 'apps') openApps();
+     else openSettings();
+   }
+@@ -682,7 +817,7 @@
+ 
+   /* ---------- Installed apps ---------- */
+   function appsItems() { return catalog.error ? [] : ALPHA; }
+-  function appsHead() { return catalog.error ? [['retry', 'Try again', '', '']] : [['editor', 'Apps on Home', '', 'home']]; }
++  function appsHead() { return catalog.error ? [['retry', T('Try again'), '', '']] : [['editor', T('Apps on Home'), '', 'home']]; }
+   V.apps = {
+     sheet: true,
+     norm: function (t) {
+@@ -792,7 +927,7 @@
+   function editorRemove(t, id) {
+     if (!homeRemove(id)) return;
+     t.f.zone = 'other'; t.f.j = otherList().indexOf(id);
+-    S.note = app(id).name + ' is in Recently removed. OK puts it back.';
++    S.note = app(id).name + T(' is in Recently removed. OK puts it back.');
+   }
+   function editorAdd(t, id) {
+     rememberOther(t);
+@@ -816,12 +951,14 @@
+   function mode() { for (var i = 0; i < MODES.length; i++) if (MODES[i].id === S.c.mode) return MODES[i]; return MODES[0]; }
+   function settingsRows() {
+     var n = S.c.home.length;
+-    return [{ id: 'background', label: 'Background', value: S.c.bg === 'photo' ? wall(S.c.wall).name : VALUE_NAMES[S.c.bg] },
+-      { id: 'layout', label: 'Layout', value: VALUE_NAMES[S.c.layout] },
+-      { id: 'typography', label: 'Typography', value: FONTS[S.c.font].name },
+-      { id: 'focus', label: 'Focus', value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
+-      { id: 'editor', label: 'Apps on Home', value: n + (n === 1 ? ' app' : ' apps') },
+-      { id: 'samsung', label: 'Samsung', value: 'Home and TV settings' }];
++    return [{ id: 'background', label: T('Background'), value: S.c.bg === 'photo' ? wall(S.c.wall).name : VALUE_NAMES[S.c.bg] },
++      { id: 'layout', label: T('Layout'), value: VALUE_NAMES[S.c.layout] },
++      { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
++      { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
++      { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
++      { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
++      { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
++      { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
+   }
+   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
+   V.settings = {
+@@ -839,47 +976,93 @@
+   };
+   function settingsOk(id) {
+     if (id === 'editor') openEditor('settings');
++    else if (id === 'setup') runSetupAgain();
+     else openAppearance(id);
+   }
+-  var DETAIL_NAMES = { background: 'Background', layout: 'Layout', typography: 'Typography', focus: 'Focus', rotation: 'Rotation', samsung: 'Samsung' };
++
++  /* Erststart-Assistent erneut starten: die Einrichtung wird wieder auf "offen"
++   * gesetzt und die Oberflaeche neu geladen — der Assistent laeuft dann wie beim
++   * ersten Start durch (Sprache, Startseite, Darstellung, Abschluss). */
++  function runSetupAgain() {
++    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
++    cfg.onboarding = { done: false, version: 1 };
++    S.serverCfg = cfg;
++    S.appliedRev = parseInt(cfg.rev, 10) || 0;
++    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { setTimeout(function () { location.reload(); }, 200); });
++    else setTimeout(function () { location.reload(); }, 200);
++  }
++  /* Sprache: 'system' folgt dem Fernseher, Deutsch und Englisch sind fest
++   * waehlbar. Die Auswahl landet in der Server-Konfiguration; danach wird die
++   * Oberflaeche neu geladen, damit auch die beim Start gebauten Texte passen. */
++  var LANGS = [{ id: 'system', name: T('Like the TV') }, { id: 'de', name: 'Deutsch' }, { id: 'en', name: 'English' }];
++  function clockLabel() { return S.c.clock24 !== false ? '24 h' : '12 h'; }
++  function setClock24(on) {
++    var c = next(S.c.home.slice(), S.c.recent.slice());
++    c.clock24 = !!on;
++    if (!write(c, 'Uhrzeit')) return;
++    /* lookOf traegt clock24 mit, deshalb hier direkt in den Server-Stand spiegeln. */
++    if (S.serverCfg) { S.serverCfg.look = serverPayload(c).look; syncServer(c); }
++    render(); updateClock();
++  }
++  function langLabel(code) {
++    for (var i = 0; i < LANGS.length; i++) if (LANGS[i].id === code) return LANGS[i].name;
++    return LANGS[0].name;
++  }
++  function setLanguage(code) {
++    if (window.CleanFrameI18n && window.CleanFrameI18n.set) window.CleanFrameI18n.set(code === 'system' ? 'de' : code);
++    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
++    cfg.lang = code;
++    S.serverCfg = cfg;
++    function reload() { setTimeout(function () { try { location.reload(); } catch (e) {} }, 250); }
++    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
++    else reload();
++  }
++  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), setup: T('Run setup again'), samsung: 'LG' };
+   function choice(axis, value, disabled) {
+     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
+-      label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? 'Both' : VALUE_NAMES[value] };
++      label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
+   }
+   function detailSections(t) {
+     var flat = S.c.bg !== 'photo', inactive = !materialApplies();
+     function options(axis, values, disabled) { return values.map(function (value) { return choice(axis, value, disabled); }); }
+     if (t.group === 'background') return [
+-      { id: 'bg', title: 'Background type', items: options('bg', ['photo', 'light', 'dark']) },
+-      { id: 'wall', title: 'Wallpaper', items: [{ action: 'background.wallpaper', label: wall(S.c.wall).name, thumbnail: true, disabled: flat }] },
+-      { id: 'rotation', title: 'Rotation', items: [{ action: 'background.rotation', label: mode().name, disabled: flat }], reason: flat ? 'Choose Photo to use wallpaper and rotation.' : '' }
++      { id: 'bg', title: T('Background type'), items: options('bg', ['photo', 'light', 'dark']) },
++      { id: 'wall', title: T('Wallpaper'), items: [{ action: 'background.wallpaper', label: wall(S.c.wall).name, thumbnail: true, disabled: flat }] },
++      { id: 'rotation', title: T('Rotation'), items: [{ action: 'background.rotation', label: mode().name, disabled: flat }], reason: flat ? T('Choose Photo to use wallpaper and rotation.') : '' }
+     ];
+     if (t.group === 'layout') return [
+-      { id: 'layout', title: 'Layout', horizontal: true, items: options('layout', ['list', 'dock']) },
+-      { id: 'apps', title: 'App display', horizontal: true, items: options('apps', ['text', 'icons', 'both']) },
+-      { id: 'controls', title: 'Home controls', horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
++      { id: 'layout', title: T('Layout'), horizontal: true, items: options('layout', ['list', 'dock']) },
++      { id: 'apps', title: T('App display'), horizontal: true, items: options('apps', ['text', 'icons', 'both']) },
++      { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
+     ];
+     if (t.group === 'typography') return [{ id: 'font', title: '', items: options('font', LOOK_VALUES.font) }];
+     if (t.group === 'focus') return [
+-      { id: 'focus', title: 'Focus style', horizontal: true, items: options('focus', ['type', 'glass']) },
+-      { id: 'material', title: 'Material', horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
+-        reason: inactive ? flat ? 'Materials are available with a Photo background.' : 'Choose Glass focus or the Dock layout to use materials.' : '' }
++      { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
++      { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
++        reason: inactive ? flat ? 'Materials are available with a Photo background.' : T('Choose Glass focus or the Dock layout to use materials.') : '' }
+     ];
++    if (t.group === 'clocklang') return [
++      { id: 'clock', title: T('Clock'), horizontal: true, items: [
++        { action: 'clock.set.24', value: '24', label: '24 h' },
++        { action: 'clock.set.12', value: '12', label: '12 h' }] },
++      { id: 'lang', title: T('Language'), horizontal: true, items: LANGS.map(function (l) {
++        return { action: 'language.set.' + l.id, value: l.id, label: l.name };
++      }) }];
+     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
+-      reason: flat ? 'Choose Photo in Background to use rotation.' : 'Timed changes pause while Settings or another panel is open.' }];
++      reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
+     return [{ id: 'samsung', title: '', items: [
+-      { action: 'samsung.home', label: 'Samsung Home', description: 'Open Samsung’s Home screen' },
+-      { action: 'samsung.settings', label: 'TV settings', description: 'Picture, sound and network settings' }
++      { action: 'samsung.home', label: T('LG Home'), description: T('Open the LG Home screen') },
++      { action: 'samsung.settings', label: T('TV settings'), description: T('Picture, sound and network settings') }
+     ] }];
+   }
+   function detailRows(t) {
+-    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : 'Settings' }]];
++    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : T('Settings') }]];
+     detailSections(t).forEach(function (section) {
+       var enabled = section.items.filter(function (item) { return !item.disabled; });
+       if (section.horizontal && enabled.length) rows.push(enabled);
+       else enabled.forEach(function (item) { rows.push([item]); });
+     });
+-    if (S.lookError) rows.push([{ action: 'settings.retry', label: 'Try again' }]);
++    if (S.lookError) rows.push([{ action: 'settings.retry', label: T('Try again') }]);
+     return rows;
+   }
+   function detailLocation(t) {
+@@ -914,8 +1097,10 @@
+     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
+     else if (item.action === 'background.wallpaper') openWallpaper();
+     else if (item.action === 'background.rotation') openAppearance('rotation');
+-    else if (item.action === 'samsung.home') perform('Samsung Home', FrameDevice.home);
+-    else if (item.action === 'samsung.settings') perform('TV settings', FrameDevice.settings);
++    else if (item.action.indexOf('clock.set.') === 0) setClock24(item.action.slice('clock.set.'.length) === '24');
++    else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
++    else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
++    else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
+   }
+   V.appearance = {
+     norm: function (t) {
+@@ -950,6 +1135,92 @@
+     }
+   };
+   function messageContent(t) { return t.content || MSG[t.msg]; }
++
++  /* ---------- webOS-Portierung: Kontextmenue per langem OK ---------- */
++  function ctxActions(t) {
++    var id = t.app, list = [];
++    if (onHome(id)) {
++      list.push({ label: T('Rename'), run: function () { openRename(id); } });
++      list.push({ label: T('Remove from Home'), run: function () { homeRemove(id); } });
++    } else {
++      list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
++    }
++    /* Kein eigener "Abbrechen"-Eintrag: Zurueck schliesst das Menue. Damit bleibt
++     * die Liste kurz und verdeckt die Kacheln darunter nicht. */
++    return list;
++  }
++
++  /* Umbenennen: alter Name als Startwert, Bestaetigung per OK.
++   * Geaendert wird nur der Eintrag auf der Startseite, nie der Katalog. */
++  function openRename(id) {
++    var a = app(id);
++    resetSheet();
++    push({ id: 'rename', app: id, text: a ? a.name : id, f: { i: (a ? a.name : id).length, zone: 'ok' } });
++    render(); renderSheet(top(), true);
++  }
++  /* Neues Menue = neues Markup. Ohne das Zuruecksetzen wird das HTML des vorigen
++   * Aufrufs wiederverwendet (sheetKey) und die geaenderten Aktionen erscheinen nie. */
++  function resetSheet() { sheetKey = ''; slotEls = {}; }
++
++  function openCtx(id) {
++    if (!id) return;
++    resetSheet();
++    push({ id: 'ctx', app: id, f: { i: 0 } });
++    render(); renderSheet(top(), true);
++  }
++  /* Lange OK: in "Alle Apps" der Katalogeintrag, auf der Startseite die Kachel.
++   * Ohne diesen Fall startet ein langer Druck sofort die App — das Menue war nur
++   * in der App-Liste erreichbar. */
++  function longPressTarget() {
++    var t = top(), hs, it;
++    if (!t) return null;
++    if (t.id === 'apps' && t.f.zone === 'grid') return ALPHA[t.f.i] || null;
++    if (t.id === 'home' && t.f.zone === 'apps') {
++      hs = homeState(t);
++      it = hs.items[hs.i];
++      return it && it.id ? it.id : null;
++    }
++    return null;
++  }
++  V.rename = {
++    sheet: true,
++    key: function (t, k) {
++      if (k === 'back') { pop(); render(); return; }
++      if (k === 'ok') { homeRename(t.app, t.text); pop(); render(); return; }
++      if (k === 'left' || k === 'right') {
++        var i = parseInt(t.f.i, 10) || 0;
++        t.f.i = clamp(i + (k === 'left' ? -1 : 1), 0, t.text.length);
++        t.f.zone = t.f.i === t.text.length ? 'ok' : 'text';
++        render(); return;
++      }
++      if (k === 'clear') { t.text = ''; render(); return; }
++    },
++    char: function (t, ch) {
++      var i = parseInt(t.f.i, 10) || 0;
++      t.text = t.text.slice(0, i) + ch + t.text.slice(i);
++      t.f.i = i + 1;
++      t.f.zone = 'text';
++      render();
++    },
++    point: function (t, z, i) {
++      if (z === 'rename-ok') { homeRename(t.app, t.text); pop(); render(); }
++      else if (z === 'rename-cancel') { pop(); render(); }
++    }
++  };
++
++  V.ctx = {
++    sheet: true,
++    key: function (t, k) {
++      var A = ctxActions(t), i = Math.min(Math.max(0, t.f.i || 0), A.length - 1);
++      if (k === 'up') t.f.i = i > 0 ? i - 1 : 0;
++      else if (k === 'down') t.f.i = i < A.length - 1 ? i + 1 : i;
++      else if (k === 'back') pop();
++      else if (k === 'ok') { var act = A[i]; pop(); act.run(); return; }
++      render();
++    },
++    point: function (t, z, i) { if (z === 'ctx') { t.f.i = i; this.key(t, 'ok'); } }
++  };
++
+   V.message = {
+     sheet: true,
+     key: function (t, k) {
+@@ -957,7 +1228,7 @@
+       if (k === 'left') t.f.b = Math.max(0, t.f.b - 1);
+       else if (k === 'right') t.f.b = Math.min(A.length - 1, t.f.b + 1);
+       else if (k === 'back') pop();
+-      else if (k === 'ok') { a = A[t.f.b][0]; pop(); if (a === 'samsung') perform('Samsung Home', FrameDevice.home); }
++      else if (k === 'ok') { a = A[t.f.b][0]; pop(); if (a === 'samsung') perform(T('LG Home'), FrameDevice.home); }
+     },
+     point: function (t, z, i) { if (z === 'act') { t.f.b = i; this.key(t, 'ok'); } }
+   };
+@@ -1018,13 +1289,16 @@
+   function render() {
+     var t = top(), sheet = !!V[t.id].sheet, shown = wall(S.shown ? S.shown.wall : S.c.wall), palette = ADAPTIVE_INK[shown.id];
+     var adaptive = applyAdaptiveInk(palette), tr = adaptive && palette.tr ? palette.tr.pol : shown.ut.tr, br = adaptive && palette.br ? palette.br.pol : shown.ut.br;
+-    stage.className = 'stage bg-' + S.c.bg + ' l-' + S.c.layout + ' v-' + S.variant + ' m-' + (materialApplies() ? S.c.material : 'none') + ' f-' + S.c.focus + ' a-' + S.c.apps + ' u-' + S.c.controls + ' g-' + S.geom + ' tone-' + shown.tone + ' tr-' + tr + ' br-' + br + wallClasses(shown) + inkRungClasses(palette, adaptive) + ' at-' + t.id + ' font-' + homeFont() + (homeFont() !== 'manrope' ? ' font-custom' : '') + (S.fontSwitch ? ' is-font-switch' : '') + (adaptive ? ' has-adaptive-ink adaptive-tl-' + palette.tl.pol : '') + (!adaptive && shown.clockInk ? ' has-clock-ink' : '') + (!adaptive && shown.dockClockInk ? ' has-dock-clock-ink' : '') + (registeredMaterial(shown.id) ? ' registered-material' : '') + (sheet ? ' is-sheet' : '') + (S.reflow ? ' is-reflow' : '');
++    stage.className = 'stage bg-' + S.c.bg + ' l-' + S.c.layout + ' v-' + S.variant + ' m-' + (materialApplies() ? S.c.material : 'none') + ' f-' + S.c.focus + ' a-' + S.c.apps + ' u-' + S.c.controls + ' g-' + S.geom + ' tone-' + shown.tone + ' tr-' + tr + ' br-' + br + wallClasses(shown) + inkRungClasses(palette, adaptive) + ' at-' + t.id + ' font-' + homeFont() + (homeFont() !== 'manrope' ? ' font-custom' : '') + (S.fontSwitch ? ' is-font-switch' : '') + (adaptive ? ' has-adaptive-ink adaptive-tl-' + palette.tl.pol : '') + (!adaptive && shown.clockInk ? ' has-clock-ink' : '') + (!adaptive && shown.dockClockInk ? ' has-dock-clock-ink' : '') + (registeredMaterial(shown.id) ? ' registered-material' : '') + (sheet ? ' is-sheet' : '') + (S.reflow ? ' is-reflow' : '') + (S.serverCfg && S.serverCfg.ui && S.serverCfg.ui.senior ? ' senior' : '');
+     if (!adaptive && shown.clockInk) stage.style.setProperty('--clock-ink', shown.clockInk);
+     else stage.style.removeProperty('--clock-ink');
+     if (!adaptive && shown.dockClockInk) stage.style.setProperty('--dock-clock-ink', shown.dockClockInk);
+     else stage.style.removeProperty('--dock-clock-ink');
+     applyHomeFont();
+-    if (!sheet) renderHome(t);
++    /* Auch bei offener Unterseite die Startseite mitzeichnen: Aenderungen aus
++     * der Web-Oberflaeche sollen dort sofort sichtbar sein (Schriftgroesse,
++     * Wandbild, Kacheln), und der Editor braucht die Liste ohnehin. */
++    renderHome(t);
+     renderSheet(t, sheet);
+     renderAppearance(t);
+     renderFocusStatus(t);
+@@ -1055,9 +1329,11 @@
+     renderAppFocusName(hs);
+   }
+ 
++  /* 24-Stunden-Anzeige ist der Standard (Deutschland/Europa); 12 Stunden mit
++   * fuehrender Null wie im Original, wenn ausdruecklich gewaehlt. */
+   function clockText() {
+-    var d = new Date(), h = d.getHours() % 12 || 12, m = d.getMinutes();
+-    return h + ':' + (m < 10 ? '0' : '') + m;
++    var d = new Date(), h = S.c.clock24 !== false ? d.getHours() : (d.getHours() % 12 || 12), m = d.getMinutes();
++    return (S.c.clock24 !== false && h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+   }
+   function clockHtml() {
+     var text = clockText(), metrics = fontMetrics[homeFont()];
+@@ -1065,7 +1341,8 @@
+     return text.replace(/[0-9]/g, function (digit) { return '<span class="clock-digit">' + digit + '</span>'; });
+   }
+   function renderCaption(t, hs) {
+-    var html = '<span class="clock">' + clockHtml() + '</span>';
++    /* Uhr laesst sich abschalten (Einstellung "Uhr anzeigen"); Vorgabe: an. */
++    var html = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
+     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
+     setHTML(caption, html);
+   }
+@@ -1090,7 +1367,7 @@
+   function renderUtilFocusLabel(button) {
+     var text, key, r, sr, scale, width, x;
+     if (!button) { utilFocusLabel.className = 'util-focus-label'; utilFocusKey = ''; return; }
+-    text = S.err ? 'Not saved. OK tries again.' : button.getAttribute('aria-label');
++    text = S.err ? T('Not saved. OK tries again.') : button.getAttribute('aria-label');
+     key = button.getAttribute('data-action') + '|' + text + '|' + homeFont();
+     if (key !== utilFocusKey) {
+       utilFocusLabel.className = 'util-focus-label'; utilFocusLabel.textContent = text;
+@@ -1154,7 +1431,14 @@
+     var m = DOCK_MODES[S.c.apps], vis = Math.max(1, Math.min(5, n)), shelfW = vis * m.pitch - 8, w = shelfW + 32;
+     var broad = S.geom === 'broad' && n > 5;
+     if (n < 0) { w = 912; shelfW = 880; }
+-    else if (broad) { w = 1728; shelfW = 1696; }
++    else if (broad) {
++      /* webOS-Portierung: die breite Leiste ist fuer fuenf Kacheln plus Nachbar-
++         Einblick gedacht. Passen alle Kacheln in voller Breite hinein, wird die
++         Leiste auf den Inhalt zugeschnitten, statt leer weiterzulaufen. */
++      var needed = Math.round(n * m.pitch) - 8;
++      if (needed <= 1696) { shelfW = needed; w = shelfW + 32; broad = false; vis = n; }
++      else { w = 1728; shelfW = 1696; }
++    }
+     return { x: Math.round((1920 - w) / 2), y: 908 - m.th - 32, h: m.th + 32, w: w, shelf: shelfW, vis: vis, broad: broad, empty: n < 0, tw: m.tw, th: m.th, pitch: m.pitch };
+   }
+   /* Five centred: the window moves one tile when focus passes an edge. Broad: keep a
+@@ -1177,9 +1461,9 @@
+   }
+   function dockTileHtml(it, full) {
+     var a, body;
+-    if (it.kind === 'add') return '<span class="add">' + icon('plus') + '</span><span class="label">' + (full ? 'Home is full' : 'Add app') + '</span>';
++    if (it.kind === 'add') return '<span class="add">' + icon('plus') + '</span><span class="label">' + (full ? T('Home is full') : T('Add app')) + '</span>';
+     a = app(it.id);
+-    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 136 : 120, S.c.apps === 'icons' ? 88 : 72, S.c.apps === 'icons' ? 72 : 58);
++    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 152 : 200, S.c.apps === 'icons' ? 116 : 118, S.c.apps === 'icons' ? 88 : 96);
+     return body + (S.c.apps === 'icons' ? '' : '<span class="label" style="font-size:' + dockLabelSize(a.id) + 'px;top:' + ((S.c.apps === 'text' ? 28 : 128) + fontShift('primary', dockLabelSize(a.id))) + 'px"><span class="label-ink">' + esc(a.name) + '</span></span>') + '<span class="nudge nudge-l">' + icon('left') + '</span><span class="nudge nudge-r">' + icon('right') + '</span>';
+   }
+   /* A wide label can reach the shelf before its icon. Check the rendered icon box,
+@@ -1223,7 +1507,10 @@
+     keyed(track, empty ? [] : items, function (el, it, i) {
+       var a = it.id ? app(it.id) : null, left = i * g.pitch, focus = tileFocus && i === anchor, sel = tileSel && i === anchor;
+       var lifted = hs.lifted && i === anchor, partial = g.broad && (left - off < -1 || left + g.tw - off > g.shelf + 1);
+-      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
++      /* Schluessel enthaelt Name und Icon: aendert sich nur das Icon (z.B. aus der
++       * Web-Oberflaeche), muss die Kachel neu aufgebaut werden. */
++      var markKey = a ? (a.name + '|' + (a.icon || '') + '|' + (a.mark ? 'mark' : 'text')) : '';
++      setContent(el, it.kind + '|' + (it.id || '') + '|' + (it.id ? dockLabelSize(it.id) : full) + '|' + S.c.bg + '|' + S.c.apps + '|' + markKey + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="tile-content">' + dockTileHtml(it, full) + '</span>');
+       el.className = 'tile k-' + it.kind + (focus ? ' is-focus' : '') + (sel ? ' is-sel' : '') + (lifted ? ' is-lifted' : '') + (partial ? ' is-partial' : '')
+         + (a && !a.mark ? ' is-text' : '') + (it.kind === 'add' && full ? ' is-full' : '') + (it.kind === 'app' && S.press === it.id ? ' is-press' : '')
+         + (lifted && i === 0 ? ' no-l' : '') + (lifted && i >= ns - 1 ? ' no-r' : '');
+@@ -1250,7 +1537,7 @@
+     ax = g.x + 16 + anchor * g.pitch - off;
+     if (hs.mode === 'arrange' && !hs.lifted && (hs.zone === 'tiles' || hs.zone === 'act') && focusItem && focusItem.kind !== 'add') {
+       s = hs.arr.slots[anchor];
+-      label = (s.removed ? 'Restore ' : 'Remove ') + app(s.id).name; width = actionWidth(label);
++      label = (s.removed ? 'Restore ' : T('Remove ')) + app(s.id).name; width = actionWidth(label);
+       ax = clamp(ax + (g.tw - width) / 2, 112, 1808 - width);
+       setHTML(dockAction, '<span>' + esc(label) + '</span>');
+       dockAction.className = 'dock-action is-on' + (hs.zone === 'act' ? ' is-focus' : '');
+@@ -1327,7 +1614,9 @@
+       var typography = photoLabel(it.id, compact), focus = rowFocus && i === anchor, lifted = hs.lifted && i === anchor, markImage, body = '';
+       if (S.c.apps !== 'text') body += appMark(app(it.id), S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 60 : 84, S.c.apps === 'icons' ? compact ? 64 : 88 : compact ? 44 : 64, S.c.apps === 'icons' ? compact ? 52 : 72 : compact ? 42 : 54);
+       if (S.c.apps !== 'icons') body += '<span class="ph-name" style="font-size:' + typography.size + 'px;top:' + typography.top + 'px">' + esc(app(it.id).name) + '</span>';
+-      setContent(row, it.id + '|' + typography.size + '|' + S.c.bg + '|' + S.c.apps + '|' + homeFont(), '<span class="ph-group">' + body + '</span><span class="ph-move ph-move-up">' + icon('up') + '</span><span class="ph-move ph-move-down">' + icon('down') + '</span>');
++      /* Schluessel mit Name und Icon: in der Listenansicht sonst veralteter Inhalt. */
++      setContent(row, it.id + '|' + typography.size + '|' + S.c.bg + '|' + S.c.apps + '|' +
++        (app(it.id).name || '') + '|' + (app(it.id).icon || '') + '|' + (S.renderEpoch || 0) + '|' + homeFont(), '<span class="ph-group">' + body + '</span><span class="ph-move ph-move-up">' + icon('up') + '</span><span class="ph-move ph-move-down">' + icon('down') + '</span>');
+       markImage = row.querySelector('.mark img');
+       if (markImage) {
+         markImage.onerror = function () { this.style.visibility = 'hidden'; };
+@@ -1346,7 +1635,7 @@
+     plateState = !n || hs.zone === null ? '' : hs.lifted ? 'on-lift' : S.c.focus === 'glass' && rowFocus ? 'on-focus' : S.c.focus === 'glass' && remembered ? 'on-sel' : '';
+     renderPhotoPlate(items[anchor] ? items[anchor].id : '', width, compact ? 88 : 134, y, plateState);
+     if (compact && !hs.lifted && (hs.zone === 'tiles' || hs.zone === 'act') && items[anchor]) {
+-      s = hs.arr.slots[anchor]; label = (s.removed ? 'Restore ' : 'Remove ') + app(s.id).name; aw = actionWidth(label);
++      s = hs.arr.slots[anchor]; label = (s.removed ? 'Restore ' : T('Remove ')) + app(s.id).name; aw = actionWidth(label);
+       setHTML(phAction, '<span>' + esc(label) + '</span>');
+       phAction.className = 'ph-action is-on' + (hs.zone === 'act' ? ' is-focus' : '');
+       phAction.style.width = aw + 'px';
+@@ -1366,8 +1655,15 @@
+     if (sheet) sheetView.setAttribute('aria-modal', 'true');
+     else sheetView.removeAttribute('aria-modal');
+     sceneEl.setAttribute('aria-hidden', sheet || isSettingsDetail(t) ? 'true' : 'false');
+-    if (!sheet) { sheetView.innerHTML = ''; sheetKey = ''; return; }
+-    key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg;
++    /* Der Schluessel wird IMMER gebildet (vorher stand hier ein frueher return,
++     * der sheetKey nach dem Schliessen nie neu setzte — das erste Menue danach
++     * blieb dann leer, weil das Markup als "schon gerendert" galt). */
++    key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg
++      + (t.id === 'ctx' ? '|' + t.app + '|' + ctxActions(t).map(function (a) { return a.label; }).join(',') : '');
++    if (!sheet) {
++      if (sheetKey !== '') { sheetView.innerHTML = ''; sheetKey = ''; slotEls = {}; }
++      return;
++    }
+     if (key !== sheetKey) {
+       sheetView.innerHTML = FRAMES[t.id](t);
+       sheetKey = key; slotEls = {};
+@@ -1386,14 +1682,17 @@
+     appearanceTitle.textContent = DETAIL_NAMES[t.group];
+     var at = detailLocation(t), selected = at.item, error = S.lookError, status = '', hint;
+     function command(item, inner, cls) {
+-      var applied = item.axis && S.c[item.axis] === item.value;
++      var applied = (item.axis && S.c[item.axis] === item.value)
++        || (item.action === 'clock.set.24' && S.c.clock24 !== false)
++        || (item.action === 'clock.set.12' && S.c.clock24 === false)
++        || (item.action.indexOf && item.action.indexOf('language.set.') === 0 && S.serverCfg && S.serverCfg.lang === item.action.slice('language.set.'.length));
+       var loading = !!(item.axis && S.pending && S.pending.target[item.axis] === item.value && S.pending.row === item.axis);
+       return '<button type="button" tabindex="-1" class="setting-choice' + (cls ? ' ' + cls : '') + (t.f.action === item.action ? ' is-focus' : '') + (item.disabled ? ' is-disabled' : '') + (applied ? ' is-applied' : '') + (loading ? ' is-loading' : '') + '"'
+-        + (item.axis ? ' role="radio" aria-checked="' + !!applied + '"' : '') + ' aria-label="' + esc(item.axis && item.value === 'both' ? 'Icons and text' : item.label) + '" aria-disabled="' + !!item.disabled + '" aria-busy="' + loading + '"'
++        + (item.axis ? ' role="radio" aria-checked="' + !!applied + '"' : '') + ' aria-label="' + esc(item.axis && item.value === 'both' ? T('Icons and text') : item.label) + '" aria-disabled="' + !!item.disabled + '" aria-busy="' + loading + '"'
+         + ' data-z="detail" data-i="0" data-id="' + item.action + '" data-action="' + item.action + '">' + inner
+         + (item.axis ? '<span class="setting-tick" aria-hidden="true">' + (applied ? icon('check') : '') + '</span>' : '') + '</button>';
+     }
+-    setHTML(appearanceBack, command({ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : 'Settings' }, icon('left') + '<span>' + (t.group === 'rotation' ? 'Background' : 'Settings') + '</span>', 'setting-back'));
++    setHTML(appearanceBack, command({ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : T('Settings') }, icon('left') + '<span>' + (t.group === 'rotation' ? T('Background') : T('Settings')) + '</span>', 'setting-back'));
+     setHTML(appearanceRows, detailSections(t).map(function (section) {
+       return '<section class="setting-section' + (section.horizontal ? ' is-horizontal' : '') + ' section-' + section.id + '">'
+         + (section.title ? '<h3 class="setting-label" id="setting-' + section.id + '">' + section.title + '</h3>' : '')
+@@ -1412,17 +1711,17 @@
+     }).join(''));
+     if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
+     else if (error) {
+-      status = '<p class="setting-error">' + (error.type === 'save' ? 'Couldn’t save this change.' : error.type === 'font' ? 'Couldn’t load ' + esc(FONTS[error.font].name) + '.' : 'Couldn’t load this appearance.') + ' Your current choice is kept.</p>'
+-        + command({ action: 'settings.retry', label: 'Try again' }, '<span>Try again</span>', 'setting-retry');
++      status = '<p class="setting-error">' + (error.type === 'save' ? T('Couldn’t save this change.') : error.type === 'font' ? 'Couldn’t load ' + esc(FONTS[error.font].name) + '.' : 'Couldn’t load this appearance.') + ' Your current choice is kept.</p>'
++        + command({ action: 'settings.retry', label: T('Try again') }, '<span>Try again</span>', 'setting-retry');
+     }
+     setHTML(appearanceStatus, status);
+-    hint = selected.disabled ? '' : selected.action === 'settings.back' ? 'Return to ' + (t.group === 'rotation' ? 'Background' : 'Settings') : selected.action === 'settings.retry' ? 'Retry this change' : selected.axis ? 'Apply selected setting' : selected.action === 'background.wallpaper' ? 'Choose a wallpaper' : selected.action === 'background.rotation' ? 'Choose a rotation interval' : 'Open on the TV';
++    hint = selected.disabled ? '' : selected.action === 'settings.back' ? T('Return to ') + (t.group === 'rotation' ? T('Background') : T('Settings')) : selected.action === 'settings.retry' ? T('Retry this change') : selected.axis ? T('Apply selected setting') : selected.action === 'background.wallpaper' ? T('Choose a wallpaper') : selected.action === 'background.rotation' ? T('Choose a rotation interval') : T('Open on the TV');
+     setHTML(appearanceDesc, hint ? '<span class="remote-key">OK</span><span>' + esc(hint) + '</span>' : '');
+   }
+   function renderWallpaper(t) {
+     V.wallpaper.norm(t);
+     appearanceEl.className = 'appearance detail-wallpaper';
+-    appearanceTitle.textContent = 'Wallpaper';
++    appearanceTitle.textContent = T('Wallpaper');
+     appearanceRows.className = 'appearance-rows wallpaper-picker';
+     setHTML(appearanceBack, '<button type="button" tabindex="-1" class="setting-choice setting-back' + (t.f.zone === 'back' ? ' is-focus' : '') + '" data-z="wall-back" data-action="wallpaper.back">' + icon('left') + '<span>Background</span></button>');
+     setHTML(appearanceRows, '<div class="wallpaper-edge wallpaper-before" aria-hidden="true">' + icon('up') + '</div><div class="wallpaper-list" role="radiogroup" aria-label="Wallpaper"><div class="wallpaper-rows"></div></div><div class="wallpaper-edge wallpaper-after" aria-hidden="true">' + icon('down') + '</div>');
+@@ -1447,12 +1746,12 @@
+     rows.style.transform = 'translate3d(0,' + (-t.top * WALL_ROW) + 'px,0)';
+     appearanceRows.querySelector('.wallpaper-before').className = 'wallpaper-edge wallpaper-before' + (t.top > 0 ? ' is-on' : '');
+     appearanceRows.querySelector('.wallpaper-after').className = 'wallpaper-edge wallpaper-after' + (t.top + WALL_VISIBLE < WALLS.length ? ' is-on' : '');
+-    note = t.previewDue ? 'Preparing ' + candidate.name + '…' : S.wallPending ? (t.applyPending ? 'Applying ' : 'Loading ') + candidate.name + '…' : shown.id === S.c.wall ? 'Applied' : 'Preview';
++    note = t.previewDue ? T('Preparing ') + candidate.name + '…' : S.wallPending ? (t.applyPending ? 'Applying ' : 'Loading ') + candidate.name + '…' : shown.id === S.c.wall ? 'Applied' : 'Preview';
+     if (t.failedId) note = S.err ? 'Couldn’t save ' + wall(t.failedId).name + '.' : 'Couldn’t load ' + wall(t.failedId).name + '.';
+     status = '<p class="wallpaper-preview-name"><span>' + esc(shown.name) + '</span><span class="wallpaper-count">' + (wallIndex(shown.id) + 1) + ' of ' + WALLS.length + '</span></p><p class="wallpaper-preview-state' + (t.failedId ? ' setting-error' : '') + '">' + esc(note) + '</p>';
+     if (t.failedId) status += '<button type="button" tabindex="-1" class="setting-choice setting-retry' + (t.f.zone === 'retry' ? ' is-focus' : '') + '" data-z="wall-retry" data-action="wallpaper.retry">Try again</button>';
+     setHTML(appearanceStatus, status);
+-    hint = t.f.zone === 'back' ? 'Return to Background' : t.f.zone === 'retry' ? 'Retry this photo' : 'Apply selected photo';
++    hint = t.f.zone === 'back' ? T('Return to Background') : t.f.zone === 'retry' ? T('Retry this photo') : T('Apply selected photo');
+     if (t.f.zone === 'photo' && candidate.id === S.c.wall && !S.pending && !t.failedId) hint = '';
+     setHTML(appearanceDesc, hint ? '<span class="remote-key">OK</span><span>' + hint + '</span>' : '');
+   }
+@@ -1460,7 +1759,7 @@
+      shares its position without changing the control's identity or key behaviour. */
+   function renderFocusStatus(t) {
+     if (isSettingsDetail(t)) { focusStatus.className = 'focus-status'; return; }
+-    var root = isSettingsDetail(top()) ? appearanceEl : sheetEl.hidden ? homeEl : sheetEl, active = root.querySelectorAll('.is-focus[data-action]'), target = null, text = S.err ? 'Not saved. OK tries again.' : '', i, r, sr, scale, x, y, w, action, solid, photoRow = false, photoFree = false;
++    var root = isSettingsDetail(top()) ? appearanceEl : sheetEl.hidden ? homeEl : sheetEl, active = root.querySelectorAll('.is-focus[data-action]'), target = null, text = S.err ? T('Not saved. OK tries again.') : '', i, r, sr, scale, x, y, w, action, solid, photoRow = false, photoFree = false;
+     Array.prototype.forEach.call(stage.querySelectorAll('.has-local-status'), function (el) { el.className = el.className.replace(/\s+has-local-status/g, ''); });
+     for (i = 0; i < active.length; i++) if (renderedAction(active[i])) { target = active[i]; break; }
+     if (!text && t.id === 'arrange' && (t.f.zone === 'act' || t.f.zone === 'tiles')) {
+@@ -1505,33 +1804,72 @@
+         + '<div class="row-cue grid-before" data-slot="before" aria-hidden="true">' + icon('up') + '</div><div class="row-cue grid-after" data-slot="after" aria-hidden="true">' + icon('down') + '</div>';
+     },
+     editor: function () {
+-      return '<h2 class="s-title">Apps on Home</h2><p class="s-sub" data-slot="sub"></p><div class="s-head" data-slot="head"></div>'
+-        + '<p class="s-label z-home" data-slot="lh"></p><p class="s-label z-other">Not on Home</p>'
+-        + '<div class="ed-home" data-slot="home"></div><div class="ed-order-break" data-slot="break">Then scroll</div><div class="ed-other-view" data-slot="ov"><div class="ed-other" data-slot="other"></div></div><div class="ed-origin" data-slot="origin"></div>'
++      return '<h2 class="s-title">' + T('Apps on Home') + '</h2><p class="s-sub" data-slot="sub"></p><div class="s-head" data-slot="head"></div>'
++        + '<p class="s-label z-home" data-slot="lh"></p><p class="s-label z-other">' + T('Not on Home') + '</p>'
++        + '<div class="ed-home" data-slot="home"></div><div class="ed-order-break" data-slot="break">' + T('Then scroll') + '</div><div class="ed-other-view" data-slot="ov"><div class="ed-other" data-slot="other"></div></div><div class="ed-origin" data-slot="origin"></div>'
+         + '<div class="row-cue editor-before" data-slot="otherBefore" aria-hidden="true">' + icon('up') + '</div><div class="row-cue editor-after" data-slot="otherAfter" aria-hidden="true">' + icon('down') + '</div>';
+     },
+-    settings: function () { return '<h2 class="s-title">Settings</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>Open selected group</span></p>'; },
++    settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
++    rename: function (t) {
++      var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
++      return '<h2 class="s-title">' + T('Rename') + '</h2>'
++        + '<p class="s-sub">' + esc(a ? a.name : t.app) + '</p>'
++        + '<div class="rename-box" data-z="rename-text"><span>' + esc(cur) + '</span><i class="rename-caret"></i><span>' + esc(rest) + '</span></div>'
++        + '<div class="settings-overview" data-slot="list">'
++        + '<button type="button" tabindex="-1" class="settings-group' + (t.f.zone === 'ok' ? ' is-focus' : '') + '" data-z="rename-ok">'
++        + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Save') + '</span></span></button>'
++        + '<button type="button" tabindex="-1" class="settings-group" data-z="rename-cancel">'
++        + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Cancel') + '</span></span></button>'
++        + '</div>';
++    },
++    /* Markup ohne Index und ohne Text: beides setzt FILLS.ctx bei jedem Render
++     * (das HTML wird zwischengespeichert, damit es keine veralteten Eintraege gibt). */
++    ctx: function (t) {
++      var a = app(t.app), acts = ctxActions(t);
++      return '<h2 class="s-title">' + esc(a ? a.name : t.app) + '</h2><div class="settings-overview" data-slot="list">'
++        + acts.map(function (x, i) {
++            return '<button type="button" tabindex="-1" class="settings-group" data-z="ctx" data-i="' + i + '">'
++              + '<span class="settings-group-copy"><span class="settings-group-name"></span></span></button>';
++          }).join('')
++        + '</div>';
++    },
+     message: function (t) {
+       var m = messageContent(t);
+       return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p><p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
+     }
+   };
+   function gridTileHtml(id) {
+-    var a = app(id), state = onHome(id) ? badge(true) + '<span>On Home</span>' : '';
++    var a = app(id), state = onHome(id) ? badge(true) + '<span>' + T('On Home') + '</span>' : '';
+     return '<span class="panel-content">' + appMark(a, 120, 72, 58) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
+   }
+   var FILLS = {
++    /* Der Fokus im Kontextmenue kommt aus t.f.i und wird bei jedem Render neu
++     * gesetzt. Das Markup wird zwischengespeichert (sheetKey), deshalb darf die
++     * Markierung nicht im HTML stehen — sonst bleibt der erste Eintrag markiert,
++     * waehrend die Tasten schon weiterzaehlen. */
++    /* Der Fokus kommt aus t.f.i und wird bei jedem Render ins DOM geschrieben —
++     * unabhaengig davon, ob das Markup neu erzeugt oder aus dem Puffer geholt wurde. */
++    ctx: function (t, el) {
++      var acts = ctxActions(t);
++      var i = Math.min(Math.max(0, parseInt(t.f.i, 10) || 0), acts.length - 1);
++      t.f.i = i;
++      Array.prototype.forEach.call(sheetView.querySelectorAll('[data-z="ctx"]'), function (btn, idx) {
++        btn.className = 'settings-group' + (idx === i ? ' is-focus' : '');
++        var name = btn.querySelector('.settings-group-name');
++        if (name && acts[idx]) name.textContent = acts[idx].label;
++      });
++    },
+     apps: function (t, el) {
+       var f = t.f, items = appsItems(), n = items.length, rows = Math.ceil(n / COLS), vis = 3, row = Math.floor(f.i / COLS);
+-      setHTML(el.title, 'All apps');
+-      setHTML(el.sub, esc(catalog.loading ? 'Loading installed apps…' : catalog.error || (!n ? 'No installed apps found.' : '')));
++      setHTML(el.title, T('All apps'));
++      setHTML(el.sub, esc(catalog.loading ? T('Loading installed apps…') : catalog.error || (!n ? T('No installed apps found.') : '')));
+       setHTML(el.head, headButtons(appsHead(), f.zone === 'head' ? 0 : -1, 'apps'));
+       el.head.className = 's-head' + (f.zone === 'head' ? ' is-awake' : '');
+       if (f.zone === 'grid') { if (row < t.top) t.top = row; if (row > t.top + vis - 1) t.top = row - vis + 1; }
+       t.top = clamp(t.top, 0, Math.max(0, rows - vis));
+       keyed(el.grid, items.map(function (id) { return { key: id, id: id }; }), function (tile, it, i) {
+         var focus = f.zone === 'grid' && i === f.i;
+-        setContent(tile, [it.id, app(it.id).name, onHome(it.id)].join('|'), gridTileHtml(it.id));
++        setContent(tile, [it.id, app(it.id).name, app(it.id).icon || '', onHome(it.id), S.renderEpoch || 0].join('|'), gridTileHtml(it.id));
+         tile.className = 'gt' + (focus ? ' is-focus' : '');
+         tile.style.transform = 'translate3d(' + ((i % COLS) * GRID_COL) + 'px,' + (Math.floor(i / COLS) * GRID_ROW) + 'px,0)';
+         tile.setAttribute('role', 'button'); tile.setAttribute('aria-label', app(it.id).name);
+@@ -1545,11 +1883,11 @@
+     editor: function (t, el) {
+       var f = t.f, H = t.lifted ? t.lifted.order : S.c.home, O = otherGroups(), list = O.recent.concat(O.rest), full = S.c.home.length >= CAP;
+       var entries = [], ys = [], y = 0, yf, minTop, maxTop = 0, rowEnd, before = false, afterRows = false;
+-      var hint = catalog.error ? catalog.error : catalog.loading ? 'Loading installed apps…' : f.zone === 'head' && f.h === 0 ? undoCaption() : f.zone === 'home' && f.part === 'remove' ? (H.length <= 1 ? LAST : app(H[f.i]).name + ' stays installed.') : '';
+-      setHTML(el.sub, editStatus(hint, t.lifted ? 'Moving ' + app(t.lifted.id).name + '. OK places it, Back puts it back.' : ''));
+-      setHTML(el.head, headButtons([['undo', 'Undo', S.undo.length ? '' : 'is-idle', 'undo'], ['done', 'Done', '', 'check']], f.zone === 'head' ? f.h : -1, 'editor'));
++      var hint = catalog.error ? catalog.error : catalog.loading ? T('Loading installed apps…') : f.zone === 'head' && f.h === 0 ? undoCaption() : f.zone === 'home' && f.part === 'remove' ? (H.length <= 1 ? LAST : app(H[f.i]).name + T(' stays installed.')) : '';
++      setHTML(el.sub, editStatus(hint, t.lifted ? T('Moving ') + app(t.lifted.id).name + '. ' + T('OK places it, Back puts it back.') : ''));
++      setHTML(el.head, headButtons([['undo', T('Undo'), S.undo.length ? '' : 'is-idle', 'undo'], ['done', T('Done'), '', 'check']], f.zone === 'head' ? f.h : -1, 'editor'));
+       el.head.className = 's-head' + (f.zone === 'head' ? ' is-awake' : '');
+-      setHTML(el.lh, 'On Home <span class="s-count">' + S.c.home.length + ' of ' + CAP + '</span>');
++      setHTML(el.lh, T('On Home') + ' <span class="s-count">' + S.c.home.length + T(' of ') + CAP + '</span>');
+       el['break'].className = 'ed-order-break' + (H.length > editorCut() ? ' is-on' : '');
+       el['break'].style.top = (264 + editorCut() * ED_ROW) + 'px';
+ 
+@@ -1561,16 +1899,16 @@
+         row.querySelector('.er-num').textContent = String(i + 1);
+         row.firstChild.className = 'er-name' + (here && (f.part === 'name' || lifted) ? ' is-focus' : '');
+         row.lastChild.className = 'er-rm' + (here && f.part === 'remove' && !lifted ? ' is-focus' : '') + (H.length <= 1 ? ' is-limit' : '');
+-        row.lastChild.firstChild.textContent = H.length <= 1 ? LAST : 'Remove from Home';
++        row.lastChild.firstChild.textContent = H.length <= 1 ? LAST : T('Remove from Home');
+         attrs(row.firstChild, 'name', i, 'editor.move.' + it.id);
+         attrs(row.lastChild, 'remove', i, 'editor.remove.' + it.id);
+       });
+       el.origin.className = 'ed-origin' + (t.lifted && t.lifted.from !== f.i ? ' is-on' : '');
+       if (t.lifted) el.origin.style.transform = 'translate3d(0,' + (264 + editorHomeY(t.lifted.from) + 16) + 'px,0)';
+ 
+-      if (O.recent.length) { entries.push({ key: 'sep-recent', sep: 'Recently removed', y: y }); y += ED_SEP; }
++      if (O.recent.length) { entries.push({ key: 'sep-recent', sep: T('Recently removed'), y: y }); y += ED_SEP; }
+       O.recent.forEach(function (id) { entries.push({ key: id, id: id, y: y }); ys.push(y); y += ED_ROW; });
+-      if (O.recent.length && O.rest.length) { entries.push({ key: 'sep-rest', sep: 'Other installed apps', y: y }); y += ED_SEP; }
++      if (O.recent.length && O.rest.length) { entries.push({ key: 'sep-rest', sep: T('Other installed apps'), y: y }); y += ED_SEP; }
+       O.rest.forEach(function (id) { entries.push({ key: id, id: id, y: y }); ys.push(y); y += ED_ROW; });
+       if (f.zone === 'other' && ys.length) {
+         yf = ys[f.j] - (O.recent.length && (f.j === 0 || f.j === O.recent.length) ? ED_SEP : 0);
+@@ -1591,7 +1929,7 @@
+         if (it.sep) { setContent(row, 'sep|' + it.sep, esc(it.sep)); row.className = 'eo-sep'; return; }
+         j = list.indexOf(it.id); focus = f.zone === 'other' && j === f.j; a = app(it.id);
+         setContent(row, it.id, '<span class="panel-content">' + smallMark(a) + '<span class="eo-text">' + esc(a.name) + '</span><span class="eo-verb"></span></span>');
+-        row.querySelector('.eo-verb').innerHTML = focus ? '<span class="verb' + (full ? ' is-off' : '') + '">' + (full ? 'Home is full' : 'Add to Home') + '</span>' : '';
++        row.querySelector('.eo-verb').innerHTML = focus ? '<span class="verb' + (full ? ' is-off' : '') + '">' + (full ? T('Home is full') : 'Add to Home') + '</span>' : '';
+         row.className = 'eo' + (focus ? ' is-focus' : '');
+         row.setAttribute('role', 'button');
+         attrs(row, 'other', j, 'editor.add.' + it.id);
+@@ -1825,16 +2163,62 @@
+     if (!el || el === stage) return;
+     pointAt(el);
+   });
+-  var heldKeys = {};
++
++  /* Tastatureingabe im Umbenennen-Dialog: Buchstaben, Ziffern, Leerzeichen,
++   * Umlaute, Loeschen. Eine Quelle (keydown) — ein zusaetzlicher keypress-Listener
++   * haette jedes Zeichen doppelt eingefuegt. */
++  document.addEventListener('keydown', function (ev) {
++    var t = top();
++    if (!t || t.id !== 'rename') return;
++    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
++    if (ev.keyCode === 8 || ev.keyCode === 46) {
++      ev.preventDefault();
++      var i = parseInt(t.f.i, 10) || 0;
++      if (i > 0) { t.text = t.text.slice(0, i - 1) + t.text.slice(i); t.f.i = i - 1; }
++      render();
++      return;
++    }
++    var ch = ev.key;
++    if (!ch || ch.length !== 1 || ch.charCodeAt(0) < 32) return;
++    ev.preventDefault();
++    V.rename.char(t, ch);
++  });
++  var heldKeys = {}, holdTimer = 0, holdFired = false;
+   document.addEventListener('keydown', function (ev) {
+     var code = ev.keyCode, k = KEYS[code];
+     if (code === 9) { ev.preventDefault(); return; }
+     if (!k || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+     ev.preventDefault();
+-    if (k === 'ok' || k === 'back') { if (ev.repeat || heldKeys[code]) return; heldKeys[code] = true; }
++    if (k === 'ok' || k === 'back') {
++      if (ev.repeat || heldKeys[code]) return;
++      heldKeys[code] = true;
++      releaseKeySoon(code);
++    }
++    if (k === 'ok') {
++      var target = longPressTarget();
++      if (target) {
++        holdFired = false;
++        holdTimer = setTimeout(function () {
++          holdTimer = 0; holdFired = true; openCtx(target);
++        }, 650);
++        return;
++      }
++    }
+     press(k);
+   });
+-  document.addEventListener('keyup', function (ev) { delete heldKeys[ev.keyCode]; });
++  document.addEventListener('keyup', function (ev) {
++    delete heldKeys[ev.keyCode];
++    if (ev.keyCode === 13) {
++      if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; if (!holdFired) press('ok'); }
++      holdFired = false;
++    }
++  });
++  /* Kommt ein keyup nicht an (Fokuswechsel, App-Wechsel), bleibt die Taste sonst
++   * dauerhaft als "gehalten" markiert und OK/Zurueck waeren tot. Deshalb wird die
++   * Sperre nach kurzer Zeit selbst geloest. */
++  function releaseKeySoon(code) {
++    setTimeout(function () { delete heldKeys[code]; }, 1200);
++  }
+   window.addEventListener('blur', function () { heldKeys = {}; });
+   window.addEventListener('focus', function () { release(); focusStage(); after(); updateClock(); });
+   document.addEventListener('visibilitychange', function () {
+@@ -1846,6 +2230,95 @@
+ 
+   /* Readable browser checks use the real state and actions, without fake outcomes. */
+   var NAV = { left: 'left', right: 'right', up: 'up', down: 'down', ok: 'ok', enter: 'ok', back: 'back', escape: 'back' };
++
++  /* webOS-Portierung: schmale Pruefschnittstelle fuer Pruefungen ohne Fernbedienung
++   * (Screenshots und Messungen laufen ueber CDP). Nur lesende Werte plus das
++   * Kontextmenue, keine Zustandsaenderung an Einstellungen. */
++  window.CleanFrameDebug = {
++    state: function () {
++      var t = top();
++      return {
++        view: t.id,
++        group: t.group || null,
++        action: (t.f && t.f.action) || null,
++        lang: (window.CleanFrameI18n && window.CleanFrameI18n.lang) || null,
++        stack: S.stack.map(function (e) { return e.id; }),
++        zone: t.f && t.f.zone,
++        index: t.f && t.f.i,
++        apps: S.c.apps,
++        home: S.c.home.slice(),
++        catalog: ALPHA.slice()
++      };
++    },
++    focusStage: focusStage,
++    serverConfig: function () { return S.serverCfg || null; },
++    look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },
++    walls: function () { return WALLS.map(function (w) { return w.id; }); },
++    serverPayload: function () { return serverPayload(S.c); },
++    syncLog: function () { return (S.syncLog || []).slice(-6); },
++    ready: function () { return !!S.ready; },
++    settingsRows: settingsRows,
++    langOptions: function () { return LANGS.map(function (l) { return l.id; }); },
++    clockText: function () { return clockText(); },
++    clock24: function () { return S.c.clock24 !== false; },
++    setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
++    setupAgain: function () { runSetupAgain(); return true; },
++    /* Kachel-Datensaetze mit Icon und Marken-Flag (Diagnose: kommt ein Icon an?) */
++    icons: function () {
++      return (S.c.home || []).map(function (id) {
++        var a = app(id) || {};
++        return { id: id, name: a.name || '', icon: a.icon || '', mark: !!a.mark, brand: a.brand || '' };
++      });
++    },
++    rev: function () { return { angewendet: S.appliedRev, server: S.serverCfg ? parseInt(S.serverCfg.rev, 10) || 0 : null, wartend: !!S.pendingCfg }; },
++    poll: function () {
++      if (!window.FrameDevice || !FrameDevice.loadConfig) return false;
++      FrameDevice.loadConfig(function (err, cfg) { if (!err && cfg) applyConfigInto(cfg); });
++      return true;
++    },
++    listGeom: function () {
++      var rows = [].slice.call(document.querySelectorAll('#sheetView .settings-group'));
++      var hint = document.querySelector('#sheetView .settings-overview-hint');
++      var last = rows[rows.length - 1], r = last ? last.getBoundingClientRect() : null, h = hint ? hint.getBoundingClientRect() : null;
++      return { zeilen: rows.length, letzteUnten: r ? Math.round(r.bottom) : null, hinweisOben: h ? Math.round(h.top) : null,
++               ueberlappt: r && h ? r.bottom > h.top : null };
++    },
++    language: function (code) { setLanguage(code); return true; },
++    openSettings: function (group) {
++      while (S.stack.length > 1) S.stack.pop();
++      push({ id: 'settings', f: { id: 'background' } });
++      render(); renderSheet(top(), true);
++      if (group) { openAppearance(group); render(); }
++      return top().id;
++    },
++    closeAll: function () { while (S.stack.length > 1) S.stack.pop(); S.stack[0].f = { zone: 'apps', u: 0 }; render(); return S.stack.length; },
++    applyServerConfig: applyServerConfig,
++    screensaver: function () { return S.cfgScreensaver || null; },
++    idle: function () { return Math.round((Date.now() - idleSince) / 1000); },
++    openCtx: openCtx,
++    renameText: function () {
++      var t = top();
++      return t && t.id === 'rename' ? { text: t.text, caret: t.f.i, zone: t.f.zone } : null;
++    },
++    rawActions: function () {
++      var t = top();
++      return t && t.id === 'ctx' ? ctxActions(t) : [];
++    },
++    ctxActions: function () {
++      var t = top();
++      return t && t.id === 'ctx' ? ctxActions(t).map(function (a) { return a.label; }) : [];
++    },
++    ctxRun: function (label) {
++      var t = top();
++      if (!t || t.id !== 'ctx') return false;
++      var list = ctxActions(t), hit = null;
++      list.forEach(function (a) { if (a.label === label) hit = a; });
++      if (!hit) return false;
++      pop(); hit.run(); render(); renderSheet(top(), !!V[top().id].sheet); return true;
++    },
++    longPressTarget: longPressTarget
++  };
++
+   QA.state = function () {
+     var out = serialise(S.c), t = top(), item = t.id === 'appearance' ? detailLocation(t).item : null;
+     out.committed = S.c; out.shown = S.shown; out.pending = S.pending; out.view = t.id; out.selected = S.sel;
+@@ -1874,9 +2347,141 @@
+   QA.activate = function (action) { return activate(action) ? QA.state() : null; };
+   QA.actions = function () { var view = isSettingsDetail(top()) ? appearanceEl : sheetEl.hidden ? homeEl : sheetEl; return Array.prototype.filter.call(view.querySelectorAll('[data-action]'), renderedAction).map(function (el) { return el.getAttribute('data-action'); }); };
+ 
++
++  /* ---------- Konfiguration vom Web-Server uebernehmen ----------
++   * Der Server (Port 8484) ist die gemeinsame Quelle: Name, Icon, Anordnung,
++   * Sprache, Senioren-Modus und Schoner-Zeit kommen von dort. Fehlt er, bleibt
++   * der localStorage-Stand unveraendert in Kraft. */
++  function resolveIcon(v) {
++    if (!v) return '';
++    if (/^https?:\/\//.test(v) || v.indexOf('assets/') === 0) return v;
++    return 'assets/icons/' + v + '.svg';
++  }
++
++  function applyServerConfig(cfg) {
++    if (!cfg) return;
++    S.serverCfg = cfg;
++    /* Revision merken: der Waechter (startConfigWatch) laesst dieselbe Revision
++     * nicht erneut anwenden. */
++    S.appliedRev = parseInt(cfg.rev, 10) || S.appliedRev || 0;
++    /* Neue Konfiguration: alle Bausteine neu aufbauen — Kacheln, App-Raster und die
++     * Zeilen der Darstellung haengen an setContent() und dessen Zwischenspeicher. */
++    S.renderEpoch = (S.renderEpoch || 0) + 1;
++    catalog.revision++;
++    var c = S.c;
++
++    if (cfg.lang && window.CleanFrameI18n && window.CleanFrameI18n.set) {
++      /* 'system' bedeutet: der Fernseher entscheidet. Fehlt eine nutzbare
++       * Systemsprache (Web-App meldet en-US), bleibt Deutsch als Standard. */
++      var want = cfg.lang === 'system' ? 'de' : cfg.lang;
++      window.CleanFrameI18n.set(want);
++    }
++
++    if (cfg.look) {
++      /* Darstellung ueber den normalen Weg setzen (setLook): nur so werden
++       * Wandbild-Dateien geladen und getauscht. Direktes Setzen von c.wall
++       * aendert bloss den Wert, nicht das Bild. */
++      var patch = {}, lookKeys = ['bg', 'layout', 'apps', 'controls', 'focus', 'material', 'wall', 'font'];
++      lookKeys.forEach(function (k) {
++        var v = cfg.look[k];
++        if (!v) return;
++        if (k === 'wall' && !wall(v)) return;
++        if (k === 'font' && !FONTS[v]) return;
++        if (v !== c[k]) patch[k] = v;
++      });
++      if (Object.keys(patch).length) {
++        if (booted) {
++          /* Im Betrieb: ueber setLook, damit Wandbild-Dateien wirklich getauscht werden. */
++          try { setLook(patch, { transient: true }); }
++          catch (e) { lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; }); }
++        } else {
++          /* Beim Start ist die Oberflaeche noch nicht aufgebaut — setLook wuerde
++           * scheitern. Hier nur die Werte setzen; der Start laedt das Bild selbst. */
++          lookKeys.forEach(function (k) { if (patch[k]) c[k] = patch[k]; });
++        }
++      }
++      if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
++      if (typeof cfg.look.clock24 === 'boolean') c.clock24 = cfg.look.clock24;
++    }
++
++    if (cfg.home && cfg.home.length) {
++      c.home = cfg.home.map(function (e) { return e.appId; });
++      cfg.home.forEach(function (e) {
++        var a = app(e.appId);
++        if (!a) { a = { id: e.appId, appId: e.appId, name: e.name || e.appId, mark: false }; APPS.push(a); }
++        if (e.name) a.name = e.name;
++        var icon = resolveIcon(e.icon);
++        if (icon) { a.icon = icon; a.mark = false; }
++      });
++    }
++
++    if (cfg.ui) {
++      var scale = parseInt(cfg.ui.textScale, 10);
++      /* Senioren-Modus hebt die Schrift mindestens auf 125 % an. */
++      if (cfg.ui.senior && (!isFinite(scale) || scale < 125)) scale = 125;
++      uiScale = isFinite(scale) && scale > 0 ? scale / 100 : 1;
++      if (uiScale !== 1) stage.style.setProperty('--cf-scale', String(uiScale));
++      else stage.style.removeProperty('--cf-scale');
++    }
++
++    S.cfgScreensaver = cfg.screensaver || null;
++    idleSince = Date.now();
++    norm(); render(); fit();
++  }
++
++  /* Nach X Minuten ohne Bedienung den Schoner starten (Kopplung aus der Konfiguration). */
++  var idleSince = Date.now(), idleTimer = null;
++  function markActive() { idleSince = Date.now(); }
++  function startIdleWatch() {
++    if (idleTimer) return;
++    idleTimer = setInterval(function () {
++      var sc = S.cfgScreensaver;
++      if (!sc || !sc.enabled) return;
++      var minutes = parseInt(sc.minutes, 10) || 10;
++      if (Date.now() - idleSince < minutes * 60000) return;
++      idleSince = Date.now();
++      perform(T('Screensaver'), FrameDevice.art);
++    }, 15000);
++  }
++  ['keydown', 'click', 'mousemove', 'focus'].forEach(function (ev) {
++    document.addEventListener(ev, markActive, true);
++  });
++
+   /* ---------- Start ---------- */
+   cueL.innerHTML = icon('left'); cueR.innerHTML = icon('right');
+   initialise();
+-  setLook({}, { transient: true, startup: true });
+-  norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
++
++  /* Die Konfiguration kommt vom Server (Port 8484) und bestimmt schon das erste
++   * Bild: Sprache, Startseite, Anordnung. Deshalb wird darauf gewartet — hoechstens
++   * 1200 ms, danach startet die App mit dem localStorage-Stand (Server fehlt). */
++  var started = false, startTimer = null;
++
++  function startApp() {
++    booted = true;
++    if (started) return;
++    started = true;
++    clearTimeout(startTimer);
++    setLook({}, { transient: true, startup: true });
++    norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
++    startIdleWatch();
++    /* Erst ab hier darf die App schreiben: vorher wuerden die Standardwerte die
++     * Server-Konfiguration ueberschreiben. */
++    S.ready = true;
++    startConfigWatch();
++    if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }
++  }
++
++  if (window.FrameDevice && FrameDevice.loadConfig) {
++    startTimer = setTimeout(startApp, 1200);
++    try {
++      FrameDevice.loadConfig(function (err, cfg) {
++        if (cfg) applyServerConfig(cfg);
++        startApp();
++      });
++    } catch (e) {
++      startApp();
++    }
++  } else {
++    startApp();
++  }
+ })();
+--- upstream/app/device.js
++++ port/app/device.js
+@@ -1,74 +1,260 @@
+-/* Public Tizen application APIs. No Mac server, network address or credentials. */
++/* CleanFrame auf LG webOS — Geraeteanbindung.
++ *
++ * Zwei Wege, bewusst getrennt:
++ *
++ * 1. Aktionen (App starten, LG Home, TV-Einstellungen, Bildschirmschoner) laufen ueber
++ *    die native Luna-Schnittstelle der Plattform (`PalmServiceBridge`). Das ist der
++ *    einzige Weg, der aus einer file://-Web-App heraus funktioniert: HTTP-Aufrufe an
++ *    Glasshouse tragen einen fremden Origin-Header und werden dort mit
++ *    "cross-origin request refused" abgelehnt.
++ * 2. Nur fuer die App-Liste und die Icons wird Glasshouse gelesen (GET /api/apps,
++ *    /api/apps/icon). GET ist nicht betroffen, und Icons sind <img>-Ladungen ohne CORS.
++ *
++ * Schnittstelle wie im Tizen-Original:
++ *   FrameDevice.launchApp(appId, done) / launch(brand, done) / apps(done)
++ *   FrameDevice.home(done) / settings(done) / art(done)
++ * done bekommt (null) bei Erfolg oder ({message, detail}) bei einem Fehler.
++ */
+ (function () {
+   'use strict';
++
++  var GW = 'http://127.0.0.1:8080';
++
++  // Marken-Kennung in der Oberflaeche -> App-ID auf webOS.
+   var IDS = {
+-    stremio: 'IkWsFHtOY9.Stremio', netflix: 'org.tizen.netflix-app',
+-    disneyplus: 'MCmYXNxgcu.DisneyPlus', youtube: '9Ur5IzDKqV.TizenYouTube',
+-    appletv: 'com.samsung.tv.aria-video', primevideo: 'org.tizen.primevideo',
+-    abciview: 'mWK87Xghap.ABCiview', sbs: 'OyE7OuxlUi.SBSOnDemand',
+-    applemusic: 'org.tizen.apple.apple-music'
++    netflix: 'netflix',
++    disneyplus: 'com.disney.disneyplus',
++    youtube: 'youtube.leanback.v4',
++    primevideo: 'com.amazon.amazonvideo.lite',
++    spotify: 'spotify-beehive',
++    appletv: 'com.apple.appletv',
++    applemusic: 'com.apple.applemusic'
+   };
+-  var STREAMING = ['as6cYRgkPy.Binge', '73iTZRTc34.Stan', '5b8c3eb16b.BeamCTVDev',
+-    'KaLitts8bq.tenplaySamsungTizen', 'eYuOiOLYQX.KayoSports', 'Ne2ZsPWdKl.9NOW',
+-    '3KA0pm7a7V.TubiTV', 'rJeHak5zRg.Spotify', 'icp4AvUPiA.7plus'];
+-  var CONSUMER_SYSTEM = ['org.tizen.browser', 'com.microsoft.copilot'];
+-  var EXTRA_BRANDS = {'rJeHak5zRg.Spotify': 'spotify', '5b8c3eb16b.BeamCTVDev': 'hbomax', '3KA0pm7a7V.TubiTV': 'tubi'};
+-  var INTERNAL = ['adplatform.ADPlayer', 'WykOS4t4F0.cmsWebApp', '25emanual3.emanual',
+-    'ZODRT12q2l.WebAccountExtension', 'ByJlgt0XeD.CastSettingsApp', 'tv6pbVMQFF.PrivacyChoices'];
+-  var SELF = 'nClrkHome1.FrameHome';
+-  function api() { return window.tizen && window.tizen.application; }
+-  function unavailable(done) {
+-    done({ message: 'Open CleanFrame on the TV to use this control.', detail: 'The web preview cannot control the TV.' });
+-  }
+-  function failure(err) {
+-    return { message: 'The TV could not open this screen.', detail: err && (err.message || err.name) || 'Try again, or press the remote’s Home button to return to CleanFrame.' };
+-  }
+-  function bounded(done) {
+-    var finished = false, timer = setTimeout(function () { finish({ message: 'The TV did not respond. Please try again.' }); }, 8000);
+-    function finish(err, value) { if (finished) return; finished = true; clearTimeout(timer); done(err, value); }
+-    return finish;
+-  }
+-  function launchApp(id, done) {
+-    if (!api()) { unavailable(done); return; }
+-    var finish = bounded(done);
+-    try { api().launch(id, function () { finish(null); }, function (err) { finish(failure(err)); }); }
+-    catch (err) { finish(failure(err)); }
++
++  var BRAND_OF = {};
++  Object.keys(IDS).forEach(function (brand) { BRAND_OF[IDS[brand]] = brand; });
++
++  // Tizen-IDs, die in gespeicherten Einstellungen stecken koennen
++  var TIZEN_LEGACY = {
++    'org.tizen.netflix-app': 'netflix',
++    'MCmYXNxgcu.DisneyPlus': 'com.disney.disneyplus',
++    '9Ur5IzDKqV.TizenYouTube': 'youtube.leanback.v4',
++    'org.tizen.primevideo': 'com.amazon.amazonvideo.lite',
++    'rJeHak5zRg.Spotify': 'spotify-beehive',
++    'com.samsung.tv.aria-video': 'com.apple.appletv'
++  };
++
++  var LG_HOME = 'com.webos.app.home';
++  var LG_SETTINGS = 'com.palm.app.settings';
++  var LG_SCREENSAVER = 'com.webos.app.screensaver';
++
++  function resolve(appId) {
++    if (!appId) return '';
++    return TIZEN_LEGACY[appId] || IDS[appId] || appId;
++  }
++
++  /* Ein Luna-Aufruf mit Zeitlimit. cb(antwortObjekt) — nie eine Exception nach aussen. */
++  function luna(uri, params, cb) {
++    var settled = false, bridge, timer;
++
++    function finish(result) {
++      if (settled) return;
++      settled = true;
++      clearTimeout(timer);
++      try { if (bridge && bridge.cancel) bridge.cancel(); } catch (e) {}
++      cb(result || {});
++    }
++
++    try {
++      if (!window.PalmServiceBridge) {
++        finish({ returnValue: false, errorText: 'no-luna-bridge' });
++        return;
++      }
++      bridge = new window.PalmServiceBridge();
++      bridge.onservicecallback = function (msg) {
++        var parsed = {};
++        try { parsed = JSON.parse(msg); } catch (e) { parsed = {}; }
++        finish(parsed);
++      };
++      timer = setTimeout(function () { finish({ returnValue: false, errorText: 'timeout' }); }, 8000);
++      bridge.call(uri, JSON.stringify(params || {}));
++    } catch (err) {
++      finish({ returnValue: false, errorText: String(err && err.message || err) });
++    }
+   }
++
++  function launchId(appId, done) {
++    var id = resolve(appId);
++    if (!id) { done({ message: 'Diese App hat kein Startziel.' }); return; }
++    luna('luna://com.webos.applicationManager/launch', { id: id }, function (res) {
++      if (res && res.returnValue === true) { done(null); return; }
++      done({
++        message: 'Der Fernseher konnte diese App nicht starten.',
++        detail: (res && (res.errorText || res.errorCode)) ? String(res.errorText || res.errorCode) : 'unbekannt'
++      });
++    });
++  }
++
++  function launchApp(appId, done) { launchId(appId, done); }
++
+   function launch(brand, done) {
+-    if (!IDS[brand]) { done({message: 'This app has no launch target.'}); return; }
+-    launchApp(IDS[brand], done);
++    if (!IDS[brand]) {
++      done({ message: 'Fuer diese App gibt es auf webOS kein Ziel.', detail: 'Bitte im Apps-Browser eine installierte App waehlen.' });
++      return;
++    }
++    launchId(IDS[brand], done);
+   }
+-  function art(done) {
+-    if (!api()) { unavailable(done); return; }
+-    var finish = bounded(done);
++
++  function home(done) { launchId(LG_HOME, done); }
++
++  function settings(done) { launchId(LG_SETTINGS, done); }
++
++  function art(done) { launchId(LG_SCREENSAVER, done); }
++
++  /* App-Liste: Glasshouse (GET, ohne CORS-Problem), sonst Luna. */
++  function appsFromGlasshouse(done) {
++    var request;
+     try {
+-      var data = [new tizen.ApplicationControlData('mode', ['fullscreen']), new tizen.ApplicationControlData('requester', ['mobile'])];
+-      var control = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/default', null, null, null, data);
+-      api().launchAppControl(control, 'org.tizen.art-app', function () { finish(null); }, function (err) { finish(failure(err)); });
+-    } catch (err) { finish(failure(err)); }
++      request = fetch(GW + '/api/apps', { cache: 'no-store' });
++    } catch (err) {
++      done({ message: 'Die App-Liste liess sich nicht lesen.', detail: String(err && err.message || err) });
++      return;
++    }
++    request.then(function (res) { return res.json(); })
++      .then(function (json) {
++        var installed = (json && json.installed) || [];
++        if (!installed.length) { appsFromLuna(done); return; }
++        done(null, mergeBuiltins(installed.map(toEntry)));
++      })
++      .catch(function () { appsFromLuna(done); });
++  }
++
++  function appsFromLuna(done) {
++    luna('luna://com.webos.applicationManager/listApps', { subscribe: false }, function (res) {
++      var list = (res && res.apps) || [];
++      if (!list.length) {
++        done({ message: 'Die App-Liste liess sich nicht lesen.', detail: (res && res.errorText) || 'keine Antwort' });
++        return;
++      }
++      done(null, mergeBuiltins(list
++        .filter(function (a) { return a && a.id && a.visible !== false; })
++        .map(function (a) { return toEntry({ id: a.id, title: a.title || a.id }); })));
++    });
+   }
+-  function home(done) { launchApp('com.samsung.tv.csfs', done); }
+-  function settings(done) { launchApp('com.samsung.tv.coba.setting', done); }
++
++  function toEntry(app) {
++    var brand = BRAND_OF[app.id] || '';
++    return {
++      appId: app.id,
++      name: String(app.title || app.id).slice(0, 160),
++      brand: brand,
++      icon: brand ? '' : (GW + '/api/apps/icon?id=' + encodeURIComponent(app.id)),
++      rank: brand ? Object.keys(IDS).indexOf(brand) : 30
++    };
++  }
++
++  /* System-Apps, die Glasshouse nicht in `installed` fuehrt (nur entfernbare
++   * Apps und Kacheln von LG-Leiste) und die eine Startseite trotzdem braucht.
++   * IDs am Gerät verifiziert (Titel aus appinfo.json). */
++  var BUILTIN = [
++    { id: 'com.webos.app.enactbrowser', title: 'Webbrowser' },
++    { id: 'org.webosbrew.hbchannel', title: 'Homebrew Channel' },
++    { id: 'com.tvweb.dashboard', title: 'Glasshouse' },
++    { id: 'com.webos.app.mediadiscovery', title: 'Media Player' },
++    { id: 'com.webos.app.igallery', title: 'Kunstgalerie' },
++    { id: 'com.palm.app.settings', title: 'TV-Einstellungen' }
++  ];
++
++  function mergeBuiltins(entries) {
++    var seen = {};
++    entries.forEach(function (e) { seen[e.appId] = true; });
++    BUILTIN.forEach(function (b) {
++      if (seen[b.id]) return;
++      seen[b.id] = true;
++      entries.push({
++        appId: b.id,
++        name: b.title,
++        brand: BRAND_OF[b.id] || '',
++        icon: BRAND_OF[b.id] ? '' : (GW + '/api/apps/icon?id=' + encodeURIComponent(b.id)),
++        rank: 40
++      });
++    });
++    return entries;
++  }
++
+   function apps(done) {
+-    if (!api()) { unavailable(done); return; }
+-    var finish = bounded(done);
++    var finished = false;
++    function once(err, list) {
++      if (finished) return;
++      finished = true;
++      done(err, list);
++    }
++    appsFromGlasshouse(once);
++  }
++
++  /* ---------- Konfiguration vom CleanFrame-Web-Server (Port 8484) ----------
++   * Der Server ist die gemeinsame Quelle fuer Fernseher und Web-Oberflaeche.
++   * Ist er nicht installiert, bleibt alles wie bisher (localStorage). */
++  var CF_API = 'http://127.0.0.1:8484';
++
++  function apiCall(method, path, body, done, contentType) {
++    var xhr = new XMLHttpRequest(), finished = false;
++    function finish(err, data) {
++      if (finished) return;
++      finished = true;
++      done(err, data);
++    }
+     try {
+-      api().getAppsInfo(function (list) {
+-        var known = {}, seen = {}, result = [];
+-        Object.keys(IDS).forEach(function (brand) { known[IDS[brand]] = brand; });
+-        list.forEach(function (a) {
+-          var primary = !!known[a.id], stream = STREAMING.indexOf(a.id) >= 0;
+-          var consumer = /^[A-Za-z0-9]{10}\.[A-Za-z0-9_-]+$/.test(a.id) || CONSUMER_SYSTEM.indexOf(a.id) >= 0;
+-          if (a.id === SELF || INTERNAL.indexOf(a.id) >= 0 || seen[a.id] || !a.name || (!primary && !stream && (!a.show || !consumer))) return;
+-          if (!primary && /(?:service|worker|preview|promotion|plugin|launcher|test|sdk|^ep[ -]|factory|daemon)/i.test(a.name + ' ' + a.id)) return;
+-          if (/-dummy$/.test(a.id) || a.id === 'com.samsung.tv.cobalt-yt') return;
+-          seen[a.id] = true;
+-          result.push({ appId: a.id, name: a.name, brand: known[a.id] || EXTRA_BRANDS[a.id] || '', icon: a.iconPath || '', rank: primary ? Object.keys(IDS).indexOf(known[a.id]) : (stream ? 20 : 30) });
+-        });
+-        result.sort(function (a, b) { return a.rank - b.rank || a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
+-        finish(null, result);
+-      }, function (err) { finish(failure(err)); });
+-    } catch (err) { finish(failure(err)); }
++      xhr.open(method, CF_API + path, true);
++      xhr.timeout = 3000;
++      if (body) xhr.setRequestHeader('Content-Type', contentType || 'application/json');
++      xhr.onreadystatechange = function () {
++        if (xhr.readyState !== 4) return;
++        var parsed = null;
++        if (xhr.status === 200) {
++          try { parsed = JSON.parse(xhr.responseText); } catch (e) { parsed = null; }
++          finish(parsed ? null : 'Antwort ist kein JSON', parsed);
++        } else {
++          var fehler = { status: xhr.status, data: null };
++          try { fehler.data = JSON.parse(xhr.responseText); } catch (e) {}
++          finish(fehler, null);
++        }
++      };
++      xhr.ontimeout = function () { finish('timeout', null); };
++      xhr.onerror = function () { finish('Server nicht erreichbar', null); };
++      xhr.send(body ? JSON.stringify(body) : null);
++    } catch (e) {
++      finish(String(e), null);
++    }
+   }
+-  window.FrameDevice = { launch: launch, launchApp: launchApp, art: art, home: home, settings: settings, apps: apps };
++
++  window.FrameDevice = {
++    /* Konfiguration lesen; cb(null, null) wenn der Server fehlt. */
++    loadConfig: function (cb) {
++      apiCall('GET', '/api/config', null, function (err, data) {
++        if (err || !data || !data.config) return cb(null, null);
++        cb(null, data.config);
++      });
++    },
++    /* Schreiben bewusst als POST mit text/plain: alles andere loest unter
++     * Chromium 79 aus file:// einen CORS-Preflight aus, der scheitert (die
++     * Anfrage kaeme nie an). Der Server nimmt text/plain nur vom Fernseher an. */
++    /* Speichern mit Revisionsnummer: sitzt die App auf einem aelteren Stand,
++     * antwortet der Server mit 409 und dem neueren Stand — der wird dann
++     * uebernommen, statt ihn zu ueberschreiben. */
++    saveConfig: function (cfg, cb) {
++      apiCall('POST', '/api/config', { config: cfg }, function (err, data) {
++        if (err && err.status === 409 && err.data && err.data.config) return cb(null, err.data.config, true);
++        cb(err && (err.status || err), data && data.config);
++      }, 'text/plain;charset=UTF-8');
++    },
++    api: apiCall,
++    launch: launch,
++    launchApp: launchApp,
++    art: art,
++    home: home,
++    settings: settings,
++    apps: apps,
++    resolve: resolve
++  };
+ }());
+--- upstream/app/style.css
++++ port/app/style.css
+@@ -1,3 +1,8 @@
++/* ------------------------------------------------------------------
++ * webOS-Portierung: Kompatibilitat mit Chromium 79 (webOS 6.5)
++ *   - `inset:` gibt es erst ab Chromium 87  -> explizite Offsets
++ *   - `gap` in Flexbox erst ab Chromium 84  -> Geschwisterabstaende
++ * ------------------------------------------------------------------ */
+ /* CleanFrame Home. All photographic materials are generated before packaging. */
+ :root{
+   --ink:#f4f4f1;
+@@ -111,8 +116,8 @@
+ .mark{position:relative;display:block;flex:none}
+ .mark img,.mark .mk{position:absolute;max-width:none}.mark .mk{display:block;background:currentColor;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}.mark.is-bad>*{visibility:hidden}
+ .monogram{display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:0;color:inherit}
+-.monogram span{position:relative;width:1.65em;height:1.65em;display:flex;align-items:center;justify-content:center;border-radius:.4em}.monogram span::after{content:"";position:absolute;inset:0;border:2px solid currentColor;border-radius:inherit;opacity:.38}
+-.native-icon img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
++.monogram span{position:relative;width:1.65em;height:1.65em;display:flex;align-items:center;justify-content:center;border-radius:.4em}.monogram span::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border:2px solid currentColor;border-radius:inherit;opacity:.38}
++.native-icon img{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:contain}
+ .native-icon.has-native-icon>span{visibility:hidden}
+ .tile .mark{position:absolute;left:84px;top:34px;opacity:.84;transition:opacity 160ms linear,transform var(--t) var(--ease)}
+ .tile .label{position:absolute;left:4px;right:4px;top:128px;text-align:center;font-size:36px;line-height:44px;letter-spacing:-.8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.84;transition:opacity 160ms linear}
+@@ -200,7 +205,7 @@
+ .m-tint .ph-veil{background:linear-gradient(180deg,rgba(14,12,10,.30),rgba(14,12,10,.40))}
+ .m-tint .ph-plate.on-lift .ph-veil{background:linear-gradient(180deg,rgba(14,12,10,.52),rgba(14,12,10,.62))}
+ .m-tint .ph-plate::after,.m-tint .mat::after{box-shadow:inset 0 1px 0 rgba(255,252,246,.30),inset 0 0 0 1px rgba(255,252,246,.12),inset 0 0 20px rgba(255,252,246,.06)}
+-.m-tint .ph-plate::before,.m-tint .mat::before{content:"";position:absolute;z-index:1;inset:0;border-radius:inherit;background:radial-gradient(120% 90% at 22% 0%,rgba(255,252,246,.16),rgba(255,252,246,0) 55%);pointer-events:none}
++.m-tint .ph-plate::before,.m-tint .mat::before{content:"";position:absolute;z-index:1;top:0;right:0;bottom:0;left:0;border-radius:inherit;background:radial-gradient(120% 90% at 22% 0%,rgba(255,252,246,.16),rgba(255,252,246,0) 55%);pointer-events:none}
+ .ph-list.is-compact{top:72px;height:944px;-webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,0.0000) 0px,rgba(0,0,0,0.0156) 10px,rgba(0,0,0,0.0625) 20px,rgba(0,0,0,0.1406) 30px,rgba(0,0,0,0.2500) 40px,rgba(0,0,0,0.3906) 50px,rgba(0,0,0,0.5625) 60px,rgba(0,0,0,0.7656) 70px,rgba(0,0,0,1.0000) 80px,#000 856px,rgba(0,0,0,0.7656) 867px,rgba(0,0,0,0.5625) 878px,rgba(0,0,0,0.3906) 889px,rgba(0,0,0,0.2500) 900px,rgba(0,0,0,0.1406) 911px,rgba(0,0,0,0.0625) 922px,rgba(0,0,0,0.0156) 933px,rgba(0,0,0,0.0000) 944px);mask-image:linear-gradient(to bottom,rgba(0,0,0,0.0000) 0px,rgba(0,0,0,0.0156) 10px,rgba(0,0,0,0.0625) 20px,rgba(0,0,0,0.1406) 30px,rgba(0,0,0,0.2500) 40px,rgba(0,0,0,0.3906) 50px,rgba(0,0,0,0.5625) 60px,rgba(0,0,0,0.7656) 70px,rgba(0,0,0,1.0000) 80px,#000 856px,rgba(0,0,0,0.7656) 867px,rgba(0,0,0,0.5625) 878px,rgba(0,0,0,0.3906) 889px,rgba(0,0,0,0.2500) 900px,rgba(0,0,0,0.1406) 911px,rgba(0,0,0,0.0625) 922px,rgba(0,0,0,0.0156) 933px,rgba(0,0,0,0.0000) 944px)}
+ .ph-list.is-compact .ph-group{transform-origin:28px 44px}
+ .at-arrange #phScene>.ph-plate{border-radius:28px}
+@@ -289,7 +294,7 @@
+ .grid-label{top:452px}
+ 
+ /* Panel content uses an inner group so Type focus does not move the layout box. */
+-.gt .panel-content,.sc .panel-content{position:absolute;inset:0;transform-origin:50% 50%;transition:transform var(--t) var(--ease)}
++.gt .panel-content,.sc .panel-content{position:absolute;top:0;right:0;bottom:0;left:0;transform-origin:50% 50%;transition:transform var(--t) var(--ease)}
+ .er-name .panel-content,.eo .panel-content{display:flex;align-items:center;gap:20px;min-width:0;flex:1;height:100%;transform-origin:0 50%;transition:transform var(--t) var(--ease)}
+ .er-name .er-text{min-width:0}
+ .f-type .sheet .gt,.f-type .sheet .er-name,.f-type .sheet .eo,.f-type .sheet .sc{background:none;box-shadow:none;opacity:.70;transition:opacity 160ms linear,transform var(--t) var(--ease)}
+@@ -420,7 +425,7 @@
+ .bg-dark .ph-action.is-focus,.bg-light .ph-action.is-focus{background:var(--solid);color:var(--solid-ink)}
+ .bg-light .ph-list.is-compact .ph-row::before{background:rgba(29,26,22,.05)}
+ .bg-dark .wall-keep,.bg-light .wall-keep{color:var(--ink)}
+-.tile-content{position:absolute;inset:0;border-radius:inherit;transform-origin:50% 50%;transition:opacity 160ms linear,transform var(--t) var(--ease)}
++.tile-content{position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;transform-origin:50% 50%;transition:opacity 160ms linear,transform var(--t) var(--ease)}
+ .f-type .plate{opacity:0}
+ .f-type .tile-content{opacity:.62}
+ .f-type .tile.is-focus .tile-content{opacity:1;transform:scale(1.06)}
+@@ -481,7 +486,7 @@
+ .bg-photo.l-dock.ink-tl-dark-halo .shade{display:block!important;background:radial-gradient(ellipse 560px 200px at 188px 104px,rgba(255,252,248,.12),rgba(255,252,248,.06) 55%,rgba(255,252,248,0))!important}
+ .bg-photo.ink-tr-dark-halo .ut-tr{display:block;background:radial-gradient(ellipse 900px 260px at 1500px 104px,rgba(255,252,248,.12),rgba(255,252,248,.06) 55%,rgba(255,252,248,0))!important}
+ .bg-photo.l-list.ink-br-dark-halo .ut-br{display:block;background:radial-gradient(ellipse 900px 260px at 1560px 878px,rgba(255,252,248,.12),rgba(255,252,248,.06) 55%,rgba(255,252,248,0))!important}
+-.appearance{position:absolute;z-index:3;inset:0;color:var(--ink);pointer-events:none}
++.appearance{position:absolute;z-index:3;top:0;right:0;bottom:0;left:0;color:var(--ink);pointer-events:none}
+ .settings-back{position:absolute;left:124px;top:60px;pointer-events:auto}
+ .settings-title{position:absolute;left:140px;top:132px;font-size:56px;line-height:68px;font-weight:500;letter-spacing:-1.6px}
+ .appearance-rows{position:absolute;left:140px;top:244px;width:640px;pointer-events:auto}
+@@ -597,3 +602,81 @@
+ .is-font-switch .home .ph-name,.is-font-switch .home .clock,.is-font-switch .home .tile .label,.is-font-switch .home .u-label,.is-font-switch .home .app-focus-name,.is-font-switch .home .util-focus-label{animation:font-in 160ms linear}
+ @keyframes font-in{from{opacity:0}}
+ @media(prefers-reduced-motion:reduce){.is-font-switch .home .ph-name,.is-font-switch .home .clock,.is-font-switch .home .tile .label,.is-font-switch .home .u-label,.is-font-switch .home .app-focus-name,.is-font-switch .home .util-focus-label{animation-duration:120ms}}
++
++
++/* ------------------------------------------------------------------
++ * webOS-Portierung: Kompatibilitat mit Chromium 79 (webOS 6.5)
++ *   - `inset:` gibt es erst ab Chromium 87  -> explizite Offsets
++ *   - `gap` in Flexbox erst ab Chromium 84  -> Geschwisterabstaende
++ * ------------------------------------------------------------------ */
++/* Caption: the clock, or the name of the mode Home is in */
++.caption > * + *{margin-top:4px}
++.warn > * + *{margin-left:12px}
++/* Base controls also serve wallpaper preview. Quiet Home utilities override them below. */
++.utils > * + *{margin-left:8px}
++.u > * + *{margin-left:12px}
++.s-head > * + *{margin-left:12px}
++.btn > * + *{margin-left:12px}
++.gt .state > * + *{margin-left:8px}
++.er-name .panel-content,.eo .panel-content > * + *{margin-left:20px}
++.settings-group > * + *{margin-left:32px}
++.settings-group-copy > * + *{margin-top:4px}
++.settings-overview-hint > * + *{margin-left:16px}
++.er > * + *{margin-left:8px}
++.er-name > * + *{margin-left:20px}
++.eo > * + *{margin-left:20px}
++.msg-acts > * + *{margin-left:12px}
++.u-content > * + *{margin-left:12px}
++.setting-options > * + *{margin-top:4px}
++.setting-choice > * + *{margin-left:16px}
++.setting-copy > * + *{margin-top:4px}
++.appearance-desc > * + *{margin-left:16px}
++.wallpaper-preview-name > * + *{margin-left:24px}
++
++/* webOS-Portierung: groessere Marken-Logos in der Leiste (Betreiber-Feedback)
++   und der beabsichtigte Abstand der Kopfzeile, den Chromium 79 ohne Flex-gap verliert. */
++.a-both .tile .mark{left:44px;top:14px}
++.a-icons .tile .mark{left:12px;top:12px}
++.quiet-utils > * + *{margin-left:20px}
++.quiet-utils.is-icons > * + *{margin-left:16px}
++.dock > * + *{margin-left:0}
++
++/* webOS-Portierung: echte App-Icons vom Fernseher (Jellyfin, Browser …) kommen
++   farbig; sie werden auf dieselbe weisse Silhouette gebracht wie die Marken-SVGs. */
++.mark.native-icon img{filter:grayscale(1) brightness(1.25) contrast(1.05);opacity:.9}
++.tile.is-focus .mark.native-icon img,.tile.is-lifted .mark.native-icon img{opacity:1}
++
++/* webOS-Portierung: Senioren-Modus (groessere Beschriftung, ruhigeres Raster)
++   und freie Schriftgroesse aus der Konfiguration (--cf-scale, 0.5 bis 2.0). */
++#stage.senior .tile .label,
++#stage.senior .row .label,
++#stage.senior .quiet-utils .util-label,
++#stage.senior .ph-name,
++#stage.senior .tile-content,
++#stage.senior .er-text,
++#stage.senior .eo-text,
++#stage.senior .setting-name,
++#stage.senior .setting-copy,
++#stage.senior .app-focus-name{font-size:calc(1.22em * var(--cf-scale, 1));letter-spacing:-.2px}
++#stage.senior .tile .mark,
++#stage.senior .ph-row .mark{transform:scale(1.04)}
++#stage.senior .tile .mark{transform:scale(1.04)}
++#stage [style*="--cf-scale"] .label{font-size:calc(1em * var(--cf-scale, 1))}
++
++/* webOS-Portierung: Umbenennen-Dialog (Textfeld mit Cursor, Bestaetigung) */
++.rename-box{display:flex;align-items:center;gap:2px;min-height:64px;padding:12px 20px;margin:8px 0 20px;
++  border-radius:14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
++  font-size:34px;letter-spacing:-.5px}
++.rename-box .rename-caret{width:2px;height:38px;background:currentColor;animation:cf-caret 1s steps(2,start) infinite}
++@keyframes cf-caret{to{visibility:hidden}}
++.s-sub{margin:-6px 0 4px;opacity:.62;font-size:20px}
++
++/* webOS-Portierung: Einstellungsliste dichter, damit auch acht Eintraege klar
++   ueber der Bedienhinweis-Zeile enden (Hinweis sitzt bei y=968):
++   8 x 88 + 7 x 4 = 732 px, Liste beginnt bei 196 -> Ende 928. */
++.settings-group{height:88px;padding:6px 28px 6px 26px;border-radius:16px}
++.settings-group+.settings-group{margin-top:4px}
++.settings-group-name{font-size:33px;line-height:39px;letter-spacing:-.4px}
++.settings-group-value{font-size:22px;line-height:28px}
++.settings-group>.ico{width:26px;height:26px}
++.settings-overview{top:196px}
+--- upstream/app/index.html
++++ port/app/index.html
+@@ -91,6 +91,7 @@
+ <script src="assets/wallpapers/catalog.js"></script>
+ <script src="assets/adaptive-ink.js"></script>
+ <script src="assets/font-catalog.js"></script>
++<script src="i18n.js"></script>
+ <script src="main.js"></script>
+ </body>
+ </html>

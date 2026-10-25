@@ -1,95 +1,106 @@
-# cleanframe-webos
+# CleanFrame for webOS
 
-**Inoffizielle Portierung von [CleanFrame](https://github.com/nthnclrk/CleanFrame) auf
-LG-Fernseher mit webOS 6 oder neuer.** Nicht mit dem Original verbunden, nicht vom
-ursprünglichen Autor betreut.
+**Unofficial port of [CleanFrame](https://github.com/nthnclrk/CleanFrame) to LG TVs running
+webOS 6 or newer.** Not affiliated with the original project and not maintained by its author.
 
-CleanFrame wurde für Samsung The Frame (Tizen) geschrieben: ein Foto, eine große Uhr und die
-eigenen Apps statt eines überladenen Hersteller-Startbildschirms. Diese Portierung übernimmt
-den Originalcode unverändert — Oberfläche, Fokus-Logik, Einstellungen, Wandbilder, Materialien —
-und ersetzt nur die Geräteanbindung: `app/device.js` spricht statt Tizen den lokal auf dem
-Fernseher laufenden [Glasshouse](https://github.com/rorygallagher2024/glasshouse)-Server an.
+CleanFrame was written for the Samsung The Frame (Tizen): one photo, a large clock, your own
+apps — instead of a cluttered manufacturer start screen. This port keeps the original code —
+layout, focus logic, settings, wallpapers, materials — and replaces only the device layer:
+`app/device.js` talks to [Glasshouse](https://github.com/rorygallagher2024/glasshouse) on the
+TV instead of the Tizen API.
 
-## Was anders ist als beim Original
+![Web interface](docs/img/webschnittstelle.png)
 
-| Datei | Änderung |
-| --- | --- |
-| `app/device.js` | vollständig neu: App-Start, Startseite, TV-Einstellungen und Bildschirmschoner über die native Luna-Brücke (`PalmServiceBridge`), App-Liste und Icons über Glasshouse (`/api/apps`, `/api/apps/icon`), inklusive eingebauter System-Apps (Browser, Homebrew Channel, Media Player), die Glasshouse nicht führt |
-| `app/main.js` | Marken-Kacheln auf webOS-App-IDs, `safeIcon` erlaubt TV-Icons über `http://127.0.0.1:8080/…`, sichtbare Texte „Samsung" → „LG", „Art Mode" → „Bildschirmschoner", Kontextmenü per langem OK, Leiste auf Inhalt zugeschnitten, Prüfschnittstelle `window.CleanFrameDebug` |
-| `app/i18n.js` | neu: Deutsch und Englisch, englische Strings als Schlüssel, Sprache über `localStorage['cleanframe.lang']` |
-| `app/style.css` | Chromium-79-Verträglichkeit: kein `inset`, kein Flex-`gap` (Geschwisterabstände statt `gap`), größere Marken, TV-Icons einfarbig |
-| `app/assets/` | unverändert (byte-identisch zum Original) |
-| `app/appinfo.json` | neu: webOS-Paketbeschreibung, Kategorie `home` |
-| `app/config.xml` | entfernt (Tizen-Verpackung) |
+*The hub: every setting, a live picture of the TV and a remote control on one page.*
 
-Der komplette Unterschied als anwendbarer Patch: [`PORT-CHANGES.patch`](PORT-CHANGES.patch) —
-damit lässt sich ein neues Upstream-Release in Minuten nachziehen.
+## Two parts
 
-## Umfang
+| Part | What it is | Where it runs |
+| --- | --- | --- |
+| **Launcher** | The start screen as a webOS app (`com.blackpearl.cleanframe`), packaged as an IPK | On the TV |
+| **Hub** | Configuration server and web interface: edits settings, shows a live picture, sends remote key presses | Also on the TV, reachable from the LAN |
 
-Dock mit Fokus-Linse und Glas-Materialien, Listen-Layout, Hintergrund Foto/Hell/Dunkel,
-15 Wandbilder mit Rotation, Typografie, Fokus- und Materialstile, Apps-Browser mit den
-installierten Apps des Fernsehers, eigener „Apps on Home"-Editor, Uhr, LG Home und
-TV-Einstellungen.
+The hub owns the configuration. The launcher reads it at start and re-reads it every two
+seconds, so a change made in the browser is visible on screen within seconds — no restart, no
+reinstall.
 
-## Voraussetzungen
+## Features
 
-* LG-Fernseher mit webOS 6 oder neuer, **gerootet** (Homebrew Channel installiert)
-* Glasshouse auf dem Fernseher, erreichbar auf `127.0.0.1:8080`
-* IPK-Installation über `luna://com.webos.appInstallService/dev/install` oder das
-  Glasshouse-Dashboard (Apps → Sideload)
+- List layout and bottom dock, photo / light / dark background, 15 wallpapers with rotation
+- Typography, focus and material styles, clock in 24 h or 12 h, German and English interface
+- Senior mode: larger labels (at least 125 %) for the person actually watching
+- Own app catalogue: installed webOS apps, HDMI inputs, and system apps Glasshouse does not list
+- Rename tiles, choose icons, reorder or remove them — context menu on the remote included
+- Web interface without a PIN: token optional, requests from the local machine always allowed
+- Home Assistant values as tiles; MQTT and update blocking through Glasshouse
+- Screensaver, setup wizard, backup and restore of the configuration
 
-## Bauen
+## Requirements
+
+- LG TV with webOS 6 or newer, **rooted** (Homebrew Channel installed)
+- Glasshouse on the TV, reachable at `127.0.0.1:8080`
+- IPK installation through `luna://com.webos.appInstallService/dev/install` or the Glasshouse
+  dashboard (Apps → Sideload)
+
+## Install
 
 ```sh
+# launcher (IPK) on the TV
 python3 tools/build-ipk.py app ipk/cleanframe_all.ipk
+tools/install-launcher.sh --ipk ipk/cleanframe_all.ipk
+
+# hub (configuration server) on the TV
+tools/install-web.sh <tv-ip>
 ```
 
-Erzeugt ein ar-Archiv mit `debian-binary`, `control.tar.gz` und `data.tar.gz`
-(`usr/palm/applications/<id>/` plus `usr/palm/packages/<id>/packageinfo.json`).
+The hub then answers on `http://<tv-ip>:8484/`, and the launcher appears in the app list.
+On the TV the service is controlled with `/var/lib/cleanframe/cleanframectl status`.
 
-Weitergeben (Quellpaket mit allen Lizenztexten):
+## Build and test
 
 ```sh
-tools/build-public.sh
+python3 tools/build-ipk.py app ipk/cleanframe_all.ipk   # IPK
+tools/check-all.sh                                      # all checks, no TV required
+tools/make-port-patch.sh                                # refresh docs/PORT-CHANGES.patch
 ```
 
-## Einrichtung ohne Fernbedienung
+`tools/check-all.sh` starts its own configuration server and a headless Chrome, then runs
+syntax, node 8 compatibility, icon, API, remote-key and live-apply checks in one go. Details in
+[docs/TESTS.md](docs/TESTS.md). The same script runs in CI on every push.
 
-Ein zweiter, eigenständiger Dienst auf dem Fernseher liefert die Konfiguration
-über eine JSON-API und eine Web-Oberfläche (`http://<tv-ip>:8484`). Damit lassen
-sich Startseite, Darstellung, Sprache und Integrationen am Rechner einstellen,
-statt mit der Fernbedienung durch Menüs zu laufen.
+## Documentation
 
-```sh
-./tools/install-web.sh 192.168.1.50      # Server + Autostart
-/var/lib/cleanframe/cleanframectl status # auf dem Fernseher
-```
+- [docs/WEB.md](docs/WEB.md) — hub: API endpoints, configuration schema, operating the service
+- [docs/TESTS.md](docs/TESTS.md) — what is tested and how
+- [docs/ICONS.md](docs/ICONS.md) — icon library and its sources
+- [docs/PORT-CHANGES.patch](docs/PORT-CHANGES.patch) — full difference to upstream
 
-Details, vollständige API-Tabelle und Sicherheitsmodell: [`docs/WEB.md`](docs/WEB.md).
+## Differences to upstream
 
-Prüfbar ohne Fernseher:
+`app/device.js` is new; `app/main.js` has a contained delta (webOS app IDs, LG labels, remote
+handling, test hooks); `app/style.css` has Chromium 79 compatibility fixes; `app/i18n.js` and
+`app/appinfo.json` are new; `app/config.xml` (Tizen packaging) is gone. Everything under
+`app/assets/` is byte-identical to the original.
 
-```sh
-python3 tools/test-web-api.py            # 16 HTTP-Prüfungen
-```
+## Tested on
 
-## Getestet
+- LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401 (`kisscurl-koli`), Chromium 79, rooted
+- Glasshouse 0.118.0 as the device bridge
+- Installed through the Glasshouse sideload path, app ID `com.blackpearl.cleanframe`
 
-* LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401 (`kisscurl-koli`), Chromium 79, gerootet
-* Glasshouse 0.118.0 als Anbindung
-* Installation über den Glasshouse-Sideload-Weg, App-ID `com.blackpearl.cleanframe`
+No promise for other models. Rooting and sideloading third-party packages can affect warranty
+and DRM features; install at your own risk.
 
-Keine Zusage für andere Modelle. Root und fremde IPKs können Garantie- und DRM-Funktionen
-beeinflussen; das Installieren erfolgt auf eigenes Risiko.
+## Licence and credits
 
-## Lizenz und Grenzen
+- Port code (webOS bridge, packaging, build scripts): MIT — see [LICENSE](LICENSE); both
+  copyright lines are in there (original and port)
+- Original CleanFrame: MIT, Nathan Clark
+- Interface and assets come from CleanFrame: MIT for code, separate terms for fonts (OFL),
+  icons (CC0/MIT) and photos (Unsplash Licence) — see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), photo sources in
+  [docs/wallpaper-SOURCES.json](docs/wallpaper-SOURCES.json)
+- Brands such as Netflix, YouTube or Disney+ belong to their owners. This project claims no
+  affiliation and no endorsement.
 
-* Eigener Code (webOS-Anbindung, Verpackung, Bau-Skripte): MIT — siehe [`LICENSE`](LICENSE),
-  dort stehen beide Copyright-Zeilen (Original und Portierung).
-* Oberfläche und Assets stammen aus CleanFrame: MIT für den Code, getrennte Bedingungen für
-  Schriften (OFL), Icons (CC0/MIT) und Fotos (Unsplash License). Alles in
-  [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), Foto-Quellen in
-  [`wallpaper-SOURCES.json`](wallpaper-SOURCES.json).
-* Marken wie Netflix, YouTube oder Disney+ gehören ihren Inhabern. Dieses Projekt behauptet
-  keine Zugehörigkeit oder Unterstützung.
+Deutsche Fassung: [README.de.md](README.de.md)

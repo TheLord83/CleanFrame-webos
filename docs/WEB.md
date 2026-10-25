@@ -126,7 +126,7 @@ header) independently of the app language; the choice is kept in the browser
 ## Tests (no television required)
 
 ```sh
-python3 tools/test-web-api.py        # 16 HTTP checks against a stub catalogue
+python3 tools/test-web-api.py        # 33 HTTP checks against a stub catalogue
 ```
 
 The UI has its own check: open `http://<host>:8484/?selftest=ui`. It clicks
