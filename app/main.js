@@ -952,6 +952,37 @@
     }
   };
   function messageContent(t) { return t.content || MSG[t.msg]; }
+
+  /* ---------- webOS-Portierung: Kontextmenue per langem OK ---------- */
+  function ctxActions(t) {
+    var id = t.app, list = [];
+    if (onHome(id)) list.push({ label: T('Remove from Home'), run: function () { homeRemove(id); } });
+    else list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
+    list.push({ label: T('Cancel'), run: function () {} });
+    return list;
+  }
+  function openCtx(id) {
+    if (!id) return;
+    push({ id: 'ctx', app: id, f: { i: 0 } });
+    render();
+  }
+  function longPressTarget() {
+    var t = top();
+    if (!t || t.id !== 'apps' || t.f.zone !== 'grid') return null;
+    return ALPHA[t.f.i] || null;
+  }
+  V.ctx = {
+    sheet: true,
+    key: function (t, k) {
+      var A = ctxActions(t), i = t.f.i || 0;
+      if (k === 'up') t.f.i = (i - 1 + A.length) % A.length;
+      else if (k === 'down') t.f.i = (i + 1) % A.length;
+      else if (k === 'back') pop();
+      else if (k === 'ok') { var act = A[i]; pop(); act.run(); }
+    },
+    point: function (t, z, i) { if (z === 'ctx') { t.f.i = i; this.key(t, 'ok'); } }
+  };
+
   V.message = {
     sheet: true,
     key: function (t, k) {
@@ -1520,6 +1551,16 @@
         + '<div class="row-cue editor-before" data-slot="otherBefore" aria-hidden="true">' + icon('up') + '</div><div class="row-cue editor-after" data-slot="otherAfter" aria-hidden="true">' + icon('down') + '</div>';
     },
     settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
+    ctx: function (t) {
+      var a = app(t.app), acts = ctxActions(t);
+      return '<h2 class="s-title">' + esc(a.name) + '</h2><div class="settings-overview" data-slot="list">'
+        + acts.map(function (x, i) {
+            return '<button type="button" tabindex="-1" class="settings-group' + (i === t.f.i ? ' is-focus' : '')
+              + '" data-z="ctx" data-i="' + i + '"><span class="settings-group-copy"><span class="settings-group-name">'
+              + esc(x.label) + '</span></span></button>';
+          }).join('')
+        + '</div>';
+    },
     message: function (t) {
       var m = messageContent(t);
       return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p><p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
@@ -1530,6 +1571,7 @@
     return '<span class="panel-content">' + appMark(a, 120, 72, 58) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
   }
   var FILLS = {
+    ctx: function (t, el) { el.list = el.list || null; },
     apps: function (t, el) {
       var f = t.f, items = appsItems(), n = items.length, rows = Math.ceil(n / COLS), vis = 3, row = Math.floor(f.i / COLS);
       setHTML(el.title, T('All apps'));
@@ -1834,16 +1876,32 @@
     if (!el || el === stage) return;
     pointAt(el);
   });
-  var heldKeys = {};
+  var heldKeys = {}, holdTimer = 0, holdFired = false;
   document.addEventListener('keydown', function (ev) {
     var code = ev.keyCode, k = KEYS[code];
     if (code === 9) { ev.preventDefault(); return; }
     if (!k || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     ev.preventDefault();
     if (k === 'ok' || k === 'back') { if (ev.repeat || heldKeys[code]) return; heldKeys[code] = true; }
+    if (k === 'ok') {
+      var target = longPressTarget();
+      if (target) {
+        holdFired = false;
+        holdTimer = setTimeout(function () {
+          holdTimer = 0; holdFired = true; openCtx(target);
+        }, 650);
+        return;
+      }
+    }
     press(k);
   });
-  document.addEventListener('keyup', function (ev) { delete heldKeys[ev.keyCode]; });
+  document.addEventListener('keyup', function (ev) {
+    delete heldKeys[ev.keyCode];
+    if (ev.keyCode === 13) {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; if (!holdFired) press('ok'); }
+      holdFired = false;
+    }
+  });
   window.addEventListener('blur', function () { heldKeys = {}; });
   window.addEventListener('focus', function () { release(); focusStage(); after(); updateClock(); });
   document.addEventListener('visibilitychange', function () {
@@ -1855,6 +1913,28 @@
 
   /* Readable browser checks use the real state and actions, without fake outcomes. */
   var NAV = { left: 'left', right: 'right', up: 'up', down: 'down', ok: 'ok', enter: 'ok', back: 'back', escape: 'back' };
+
+  /* webOS-Portierung: schmale Pruefschnittstelle fuer Pruefungen ohne Fernbedienung
+   * (Screenshots und Messungen laufen ueber CDP). Nur lesende Werte plus das
+   * Kontextmenue, keine Zustandsaenderung an Einstellungen. */
+  window.CleanFrameDebug = {
+    state: function () {
+      var t = top();
+      return {
+        view: t.id,
+        stack: S.stack.map(function (e) { return e.id; }),
+        zone: t.f && t.f.zone,
+        index: t.f && t.f.i,
+        apps: S.c.apps,
+        home: S.c.home.slice(),
+        catalog: ALPHA.slice()
+      };
+    },
+    focusStage: focusStage,
+    openCtx: openCtx,
+    longPressTarget: longPressTarget
+  };
+
   QA.state = function () {
     var out = serialise(S.c), t = top(), item = t.id === 'appearance' ? detailLocation(t).item : null;
     out.committed = S.c; out.shown = S.shown; out.pending = S.pending; out.view = t.id; out.selected = S.sel;
