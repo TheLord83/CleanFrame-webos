@@ -40,7 +40,7 @@ var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var schema = require('./lib/schema');
 
-var VERSION = '0.1.0';
+var VERSION = '0.4.9';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');

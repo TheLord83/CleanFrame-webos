@@ -40,6 +40,7 @@
   .panel-check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   .panel-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
   .panel-keys button { font-size: 13px; padding: 8px 6px; }
+  .stale { display: inline-block; margin-left: 12px; padding: 4px 10px; border-radius: 8px; background: #7a3b00; color: #ffd8a8; font-size: 13px; }
   .card-block { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .card-block h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
   .card-block .hint { margin: 0 0 10px; }
@@ -150,6 +151,7 @@
 <header>
   <h1>CleanFrame — <span data-t="setup">Einrichtung</span></h1>
   <span class="ver" id="ver">…</span>
+  <span id="uiStale" class="stale" hidden>Neue Fassung verfügbar — mit Strg+F5 neu laden</span>
   <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
     <button class="ghost" id="uiLang" title="Sprache der Oberfläche">DE</button>
   </span>
@@ -602,7 +604,11 @@
    * gesendet. Sonst koennten Antworten aeltere Klicks ueberschreiben. */
   var saveBusy = false, saveDirty = false, saveNext = null;
 
-  function save(payload, statusEl, okMsg) {
+  /* Bau-Stempel dieser Seite — weicht er von der Serverversion ab, laeuft im
+   * Browser noch eine alte Fassung (häufigste Ursache für "geht nicht"). */
+  var UI_BUILD = '0.4.9';
+
+  function save(payload, statusEl, okMsg, retried) {
     if (saveBusy) {
       saveDirty = true;
       saveNext = { statusEl: statusEl, okMsg: okMsg };
@@ -614,10 +620,17 @@
        * ueberschreiben, sonst gehen Klicks waehrend des Speicherns verloren. */
       if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
       var zeit = r && r.updatedAt ? new Date(r.updatedAt).toLocaleTimeString() : '';
-      note(statusEl, okMsg + (zeit ? ' (gespeichert ' + zeit + ')' : ''), true);
+      note(statusEl, okMsg + ' · Stand ' + (state.cfg.rev || '?') + (zeit ? ' · ' + zeit : ''), true);
     }).catch(function (e) {
-      if (e && e.status === 409) { reloadConfig(); return; }
-      note(statusEl, 'Fehler: ' + e.message, false);
+      /* 409: jemand (z.B. die App) hat zwischenzeitlich geschrieben. Nicht die
+       * Aenderung wegwerfen, sondern mit der neuen Revisionsnummer erneut senden. */
+      if (e && e.status === 409 && !retried) {
+        return api('GET', '/api/config').then(function (r2) {
+          state.cfg.rev = r2.config.rev;
+          return save(state.cfg, statusEl, okMsg, true);
+        });
+      }
+      note(statusEl, 'Fehler: ' + e.message + (e.status === 409 ? ' (erneut versucht)' : ''), false);
     }).then(function () {
       saveBusy = false;
       if (saveDirty) {
@@ -628,6 +641,16 @@
       }
     });
   }
+
+  /* Laeuft im Browser eine aeltere Fassung als auf dem Server? */
+  function checkBuild(serverVersion) {
+    var stale = document.getElementById('uiStale');
+    if (!stale) return;
+    stale.hidden = !serverVersion || String(serverVersion) === UI_BUILD;
+  }
+  setInterval(function () {
+    api('GET', '/api/health').then(function (h) { checkBuild(h.version); }).catch(function () {});
+  }, 30000);
 
   /* Nach einem Konflikt (jemand anders hat gespeichert) den neuesten Stand holen. */
   function reloadConfig() {
@@ -661,7 +684,8 @@
         state.apps = res[1].apps || [];
         state.schema = res[3].schema || {};
         state.icons = res[4].groups || [];
-        $('ver').textContent = 'v' + res[2].version + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
+        $('ver').textContent = 'v' + UI_BUILD + ' · ' + (res[1].ok ? 'Katalog von Glasshouse' : 'Katalog eingeschränkt');
+        checkBuild(res[2].version);
         renderCatalog(); renderTiles(); fillForm(); renderChosen();
       })
       .catch(function (e) {
