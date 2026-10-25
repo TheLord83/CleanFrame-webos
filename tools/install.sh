@@ -80,10 +80,13 @@ t() {
       root_check)    echo "==> Root pruefen" ;;
       root_ok)       echo "    root: ja, SSH antwortet" ;;
       root_missing)  echo "    root: nein, es antwortet keine Root-Shell" ;;
-      root_offer)    echo "Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]" ;;
+      root_offer)    echo "Jetzt rooten? Auf einem unveraenderten Fernseher laesst sich ohne root gar nichts installieren - der App-Installer braucht es. Danach laeuft der Launcher ohne root, der Hub nicht. [J/n]" ;;
       root_declined) echo "    ohne root: Hub wird uebersprungen, Launcher wird installiert" ;;
       root_no_root)  echo "    --no-root gesetzt: Hub wird uebersprungen" ;;
       root_no_tty)   echo "    keine Eingabe moeglich: Hub wird uebersprungen. Mit --root wird vorher gerootet." ;;
+      glass_ok_install) echo "    Glasshouse antwortet auf Port 8080: installieren geht auch ohne root-Shell" ;;
+      nothing_without_root) echo "FEHLER: ohne root laesst sich nichts installieren - keine Root-Shell (22) und kein Glasshouse (8080). Mit --root neu starten." ;;
+      plan_build)    echo "    den Launcher als IPK bauen: dist/cleanframe_all.ipk" ;;
       key_missing)   echo "FEHLER: oeffentlicher Schluessel fehlt: %s (mit --ssh-key angeben)" ;;
       detect)        echo "==> Fernseher suchen" ;;
       tv_off)        echo "    Port 22 zu. Fernseher im Standby? Mit --wake wecken." ;;
@@ -131,10 +134,13 @@ t() {
       root_check)    echo "==> Checking root" ;;
       root_ok)       echo "    root: yes, SSH answers" ;;
       root_missing)  echo "    root: no, no root shell answers" ;;
-      root_offer)    echo "Root it now? The launcher works without root, the hub needs it. [Y/n]" ;;
+      root_offer)    echo "Root it now? On a stock TV nothing can be installed without root - the app installer needs it. Afterwards the launcher runs without root, the hub does not. [Y/n]" ;;
       root_declined) echo "    without root: hub skipped, launcher only" ;;
       root_no_root)  echo "    --no-root given: hub skipped" ;;
       root_no_tty)   echo "    no terminal to ask: hub skipped. Pass --root to root first." ;;
+      glass_ok_install) echo "    Glasshouse answers on port 8080: installing works without a root shell" ;;
+      nothing_without_root) echo "ERROR: without root nothing can be installed - no root shell (22) and no Glasshouse (8080). Start again with --root." ;;
+      plan_build)    echo "    build the launcher IPK: dist/cleanframe_all.ipk" ;;
       key_missing)   echo "ERROR: public key not found: %s (pass --ssh-key)" ;;
       detect)        echo "==> Looking for the TV" ;;
       tv_off)        echo "    port 22 closed. TV in standby? Use --wake." ;;
@@ -219,6 +225,8 @@ echo "rooted:  yes"; true' 2>/dev/null || true
   else
     say "$(printf "$(t info_root)" "no")"
   fi
+  # --info is a report, not a step: never fall through into the install
+  exit 0
 fi
 
 # ---- root: check first, offer to root only when it is missing ---------------
@@ -257,6 +265,15 @@ else
     n|N|no|nein) say "$(t root_declined)"; DO_HUB=0 ;;
     *) say "$(t root_no_tty)"; DO_HUB=0 ;;
   esac
+  if [ "$ROOT_IT" = "0" ]; then
+    # Without root the only way in is an already installed Glasshouse. If that does not
+    # answer either, there is nothing to install - say it now instead of after a 16 MB build.
+    if curl -sS -m 6 "http://$TV:8080/api/apps" 2>/dev/null | head -c 40 | grep -q installed; then
+      say "$(t glass_ok_install)"
+    else
+      fail "$(t nothing_without_root)"
+    fi
+  fi
 fi
 
 if [ "$ROOT_IT" = "1" ]; then
@@ -299,21 +316,6 @@ if [ "$ROOT_IT" = "1" ]; then
   fi
 fi
 
-if [ -z "$IPK" ]; then
-  for kandidat in "$ROOT/dist/cleanframe_all.ipk" "$ROOT/ipk/cleanframe_all.ipk"; do
-    [ -f "$kandidat" ] && IPK="$kandidat" && break
-  done
-  if [ -z "$IPK" ] && command -v python3 >/dev/null && [ -d "$ROOT/app" ]; then
-    IPK="$ROOT/dist/cleanframe_all.ipk"
-    if [ "$DRY" -eq 0 ]; then
-      say "==> Building the IPK (dist/cleanframe_all.ipk)"
-      mkdir -p "$ROOT/dist"
-      python3 "$ROOT/tools/build-ipk.py" "$ROOT/app" "$IPK" || fail "IPK build failed"
-    fi
-  fi
-fi
-[ "$DO_LAUNCHER" -eq 1 ] && [ -z "$IPK" ] && fail "no IPK: pass --ipk <file> or build one with tools/build-ipk.py"
-
 # ---- 1. detect ---------------------------------------------------------------
 say "$(t detect)"
 if ! tcp 22; then
@@ -344,7 +346,9 @@ say "$(printf "$(t glass_ok)" "$TV:8080")"
 
 # ---- 3. plan -----------------------------------------------------------------
 say "$(t plan)"
-[ "$DO_LAUNCHER" -eq 1 ] && say "$(printf "$(t plan_launcher)" "$IPK")"
+if [ "$DO_LAUNCHER" -eq 1 ]; then
+  if [ -n "$IPK" ]; then say "$(printf "$(t plan_launcher)" "$IPK")"; else say "$(t plan_build)"; fi
+fi
 [ "$DO_HUB" -eq 1 ] && say "$(t plan_hub)"
 
 if [ "$DRY" -eq 1 ]; then
@@ -359,6 +363,20 @@ if [ "$YES" -eq 0 ]; then
   read -r antwort </dev/tty || antwort="y"
   case "$antwort" in n|N|no|nein) say "$(t aborted)"; exit 0 ;; esac
 fi
+
+# ---- build the IPK right before installing (never build what we do not install) --
+if [ "$DO_LAUNCHER" -eq 1 ] && [ -z "$IPK" ]; then
+  for kandidat in "$ROOT/dist/cleanframe_all.ipk" "$ROOT/ipk/cleanframe_all.ipk"; do
+    [ -f "$kandidat" ] && IPK="$kandidat" && break
+  done
+  if [ -z "$IPK" ] && command -v python3 >/dev/null && [ -d "$ROOT/app" ]; then
+    IPK="$ROOT/dist/cleanframe_all.ipk"
+    say "==> Building the IPK (dist/cleanframe_all.ipk)"
+    mkdir -p "$ROOT/dist"
+    python3 "$ROOT/tools/build-ipk.py" "$ROOT/app" "$IPK" || fail "IPK build failed"
+  fi
+fi
+[ "$DO_LAUNCHER" -eq 1 ] && [ -z "$IPK" ] && fail "no IPK: pass --ipk <file> or build one with tools/build-ipk.py"
 
 # ---- 5. install --------------------------------------------------------------
 if [ "$DO_LAUNCHER" -eq 1 ]; then

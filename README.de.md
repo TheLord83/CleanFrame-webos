@@ -33,7 +33,9 @@ dem Bildschirm, ohne Neustart und ohne Neuinstallation.
 
 ## Warum Root?
 
-Der **Launcher** ist eine normale webOS-App und läuft ohne Root. Der **Hub** nicht: er liegt in
+Auf einem unveränderten Fernseher braucht das Installieren einmal Root — der App-Installer ist
+nur darüber erreichbar. Danach läuft der **Launcher** als normale webOS-App ohne Root. Der
+**Hub** nicht: er liegt in
 `/var/lib/cleanframe`, startet sich beim Booten selbst und installiert das Launcher-IPK — dafür
 braucht es eine Root-Shell. Root ist außerdem die Voraussetzung dafür, dass der Fernseher keine
 Updates mehr zieht, und für das Live-Bild.

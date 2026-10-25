@@ -181,14 +181,18 @@ The first thing the installer does is ask the TV whether it already has a root s
 (`ssh root@<tv> id -u`). Then:
 
 - **root works** → it says so and goes on.
-- **no root** → it offers to root the TV (`Root it now? [Y/n]`), because the launcher runs
-  without root but the hub does not. Answer `n` (or pass `--no-root` / `-NoRoot`) and it
-  installs the launcher only and says that the hub was skipped.
-- **no terminal to ask** (cron, CI, `docker run` without `-t`) → it never roots on its own.
-  It says so and installs the launcher only; pass `--root` / `-Root` to root in scripts.
+- **no root** → it offers to root the TV (`Root it now? [Y/n]`). On a stock TV this is the
+  only way in: the app installer (`appInstallService`) is reachable through the root shell
+  only, so **nothing can be installed without root**. Answer `n` and it stops with that
+  reason — unless a Glasshouse already answers on port 8080, which is the one path that can
+  install without SSH; then it installs the launcher only and skips the hub.
+- **no terminal to ask** (cron, CI, `docker run` without `-t`) → it never roots on its own,
+  and because nothing can be installed without root it stops with the same message. Pass
+  `--root` / `-Root` when running unattended.
 
 Rooting changes the TV, so "yes" has to come from a person or from an explicit switch — the
-installer never assumes it.
+installer never assumes it. And nothing is built before the question is answered: the IPK is
+built right before the install step, not at the start of a run that cannot finish.
 
 ### TV in another network?
 

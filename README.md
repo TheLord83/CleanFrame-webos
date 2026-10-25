@@ -32,7 +32,8 @@ reinstall.
 
 ## Why root?
 
-The **launcher** is a normal webOS app and runs without root. The **hub** does not: it lives
+Installing anything on a stock TV needs root once - the app installer is only reachable through
+it. Afterwards the **launcher** runs as a normal webOS app without root. The **hub** does not: it lives
 in `/var/lib/cleanframe`, starts itself at boot and installs the launcher IPK, all of which
 needs a root shell. Root is also what lets the TV stay offline-update-free and what makes the
 live picture possible.

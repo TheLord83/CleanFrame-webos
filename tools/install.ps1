@@ -77,10 +77,12 @@ $Text = @{
     root_check    = '==> Checking root'
     root_ok       = '    root: yes, SSH answers'
     root_missing  = '    root: no, no root shell answers'
-    root_offer    = 'Root it now? The launcher works without root, the hub needs it. [Y/n]'
+    root_offer    = 'Root it now? On a stock TV nothing can be installed without root - the app installer needs it. Afterwards the launcher runs without root, the hub does not. [Y/n]'
     root_declined = '    without root: hub skipped, launcher only'
     root_no_root  = '    -NoRoot given: hub skipped'
     root_no_tty   = '    no terminal to ask: hub skipped. Pass -Root to root first.'
+    glass_ok_install = '    Glasshouse answers on port 8080: installing works without a root shell'
+    nothing_without_root = 'ERROR: without root nothing can be installed - no root shell (22) and no Glasshouse (8080). Start again with -Root.'
     root_stage    = '==> Rooting (SlopBro)'
     root_skip     = '    already rooted, SSH works'
     root_pair     = '    A pairing prompt will appear on the TV - accept it with the remote.'
@@ -125,10 +127,12 @@ $Text = @{
     root_check    = '==> Root pruefen'
     root_ok       = '    root: ja, SSH antwortet'
     root_missing  = '    root: nein, es antwortet keine Root-Shell'
-    root_offer    = 'Jetzt rooten? Der Launcher laeuft auch ohne, der Hub braucht root. [J/n]'
+    root_offer    = 'Jetzt rooten? Auf einem unveraenderten Fernseher laesst sich ohne root gar nichts installieren - der App-Installer braucht es. Danach laeuft der Launcher ohne root, der Hub nicht. [J/n]'
     root_declined = '    ohne root: Hub wird uebersprungen, Launcher wird installiert'
     root_no_root  = '    -NoRoot gesetzt: Hub wird uebersprungen'
     root_no_tty   = '    keine Eingabe moeglich: Hub wird uebersprungen. Mit -Root wird vorher gerootet.'
+    glass_ok_install = '    Glasshouse antwortet auf Port 8080: installieren geht auch ohne root-Shell'
+    nothing_without_root = 'FEHLER: ohne root laesst sich nichts installieren - keine Root-Shell (22) und kein Glasshouse (8080). Mit -Root neu starten.'
     root_stage    = '==> Rooten (SlopBro)'
     root_skip     = '    schon gerootet, SSH funktioniert'
     root_pair     = '    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen.'
@@ -207,6 +211,7 @@ if ($Info) {
   } else {
     Say ("    rooted: no")
   }
+  exit 0
 }
 
 Say (T 'root_check')
@@ -278,6 +283,17 @@ if ($rooted) {
     & $Python @argv
     if ($LASTEXITCODE -ne 0) { Fail 'SSH key or Telnet step failed' }
   }
+}
+
+# Without root the only way in is an already installed Glasshouse. If that does not
+# answer either, there is nothing to install.
+if (-not $rooted -and -not $rootNow) {
+  $glass = $false
+  try {
+    $resp = Invoke-WebRequest -Uri "http://$($Tv):8080/api/apps" -TimeoutSec 6 -UseBasicParsing
+    if ($resp.Content -match 'installed') { $glass = $true }
+  } catch { }
+  if ($glass) { Say (T 'glass_ok_install') } else { Fail (T 'nothing_without_root') }
 }
 
 # ---- IPK ---------------------------------------------------------------------
