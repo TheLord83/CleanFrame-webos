@@ -19,6 +19,13 @@ Einstellungen
 Neuere Versionen nennen den letzten Punkt **Info zu diesem TV**. Gleicher Bildschirm, gleiche
 Zahlen.
 
+![Der Bereich Allgemein in den Einstellungen mit der Liste rechts](img/firmware-menu-allgemein.png)
+
+Am schnellsten steht die Zahl unter **Support → Software-Update** — derselbe Wert, ein Klick
+weniger:
+
+![Software-Update mit der Softwareversion 03.51.16](img/firmware-software-update.png)
+
 ## Was der Bildschirm zeigt
 
 | Was dasteht | Sieht aus wie | Wofür |

@@ -17,6 +17,13 @@ Settings
 
 Newer builds name the last entry **About This TV**. Same screen, same numbers.
 
+![The General section of the TV settings, list on the right](img/firmware-menu-allgemein.png)
+
+The quickest number is under **Support → Software Update** — same value, one click less (the
+screenshots show the German menu, the English one reads *Support → Software Update*):
+
+![Software Update showing software version 03.51.16](img/firmware-software-update.png)
+
 ## What the screen shows
 
 | On screen | Looks like | Needed for |
