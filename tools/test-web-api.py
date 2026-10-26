@@ -42,10 +42,42 @@ FAKE_STATES = [
 
 
 class FakeHA(BaseHTTPRequestHandler):
-    """Minimal Home Assistant stand-in: /api/ and /api/states."""
+    """Minimal Home Assistant stand-in: /api/, /api/states and service calls."""
+
+    calls = []
 
     def log_message(self, *args):
         pass
+
+    def do_POST(self):
+        """Service calls. The answer is the list of changed states, as Home
+        Assistant does it, so the hub can show the new value at once."""
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            payload = json.loads(raw or "{}")
+        except Exception:  # noqa: BLE001
+            payload = {}
+        parts = self.path.strip("/").split("/")
+        if len(parts) < 4 or parts[0] != "api" or parts[1] != "services":
+            self.send_response(404)
+            self.end_headers()
+            return
+        domain, service = parts[2], parts[3]
+        entity_id = payload.get("entity_id", "")
+        FakeHA.calls.append({"domain": domain, "service": service, "entity_id": entity_id,
+                             "auth": self.headers.get("Authorization")})
+        changed = []
+        for st in FAKE_STATES:
+            if st["entity_id"] == entity_id:
+                st["state"] = "off" if st["state"] == "on" else "on"
+                changed.append({"entity_id": st["entity_id"], "state": st["state"]})
+        raw_out = json.dumps(changed).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw_out)))
+        self.end_headers()
+        self.wfile.write(raw_out)
 
     def do_GET(self):
         if self.path.rstrip("/") in ("/api", ""):
@@ -417,6 +449,31 @@ def main():
             assert by["light.wohnzimmer_decke"]["state"] == "on"
             assert by["unbekannt.x"]["state"] == "unknown", "an unknown entity must not be missing"
 
+        def t_ha_toggle():
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            cfg["integrations"]["ha"] = {"url": f"http://127.0.0.1:{ha_port}", "token": "testtoken",
+                                         "entities": [{"id": "light.wohnzimmer_decke", "label": ""}]}
+            req("PUT", "/api/config", {"config": cfg})
+            FakeHA.calls.clear()
+            st, d, _ = req("POST", "/api/ha/toggle", {"entity_id": "light.wohnzimmer_decke"})
+            assert st == 200, (st, d)
+            assert d["ok"] is True, d
+            assert d["state"] == "off", d
+            assert FakeHA.calls and FakeHA.calls[0]["domain"] == "light", FakeHA.calls
+            assert FakeHA.calls[0]["service"] == "toggle", FakeHA.calls
+            assert FakeHA.calls[0]["entity_id"] == "light.wohnzimmer_decke", FakeHA.calls
+            assert FakeHA.calls[0]["auth"] == "Bearer testtoken", "the stored token must be used"
+
+        def t_ha_toggle_refused():
+            FakeHA.calls.clear()
+            st, d, _ = req("POST", "/api/ha/toggle", {"entity_id": "cover.rollladen"})
+            assert st == 400, (st, d)
+            assert d["ok"] is False and "nicht schalten" in d["error"], d
+            st, d, _ = req("POST", "/api/ha/toggle", {})
+            assert st == 400, (st, d)
+            assert not FakeHA.calls, "a refused entity must not reach Home Assistant"
+
         def t_ha_wrong_token():
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
@@ -531,6 +588,8 @@ def main():
             ("Home Assistant connection is checked", t_ha_check),
             ("HA entities are filtered and translated", t_ha_entities),
             ("HA values for the tile", t_ha_values),
+            ("HA toggle switches exactly the chosen entity", t_ha_toggle),
+            ("HA toggle refuses what needs more than a button", t_ha_toggle_refused),
             ("wrong HA token is reported", t_ha_wrong_token),
             ("screensaver limits and entity selection", t_config_screensaver_and_entities),
             ("senior mode, text size and wizard state", t_config_ui_and_onboarding),

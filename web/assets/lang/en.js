@@ -118,7 +118,7 @@ window.CF_LANG.en = {
   "int.ha.loaded": "{n} entities loaded",
 
   "int.ent.title": "Values on the start page",
-  "int.ent.hint": "Up to 12 values, shown as a strip above the app bar. The name can be shortened here; only the selection is stored, the token stays on the TV.",
+  "int.ent.hint": "Up to 12 values, shown as a strip above the app bar. Light, switch, fan and helper entities can be toggled on the TV with OK; everything else only displays. The name can be shortened here; only the selection is stored, the token stays on the TV.",
   "int.ent.filter": "Filter (e.g. temperature, living room)",
   "int.ent.none": "no entity chosen yet",
   "int.ent.remove": "remove",

@@ -48,6 +48,7 @@ content type is delivered by the browser without a preflight.
 | POST | `/api/ha/check` | verify a Home Assistant URL/token against `/api/` |
 | GET | `/api/ha/entities` | entities that make sense on a tile (sensor, light, climate, …) |
 | GET | `/api/ha/values` | current values for the selected entities (`?entities=a.b,c.d`) |
+| POST | `/api/ha/toggle` | switch one selected light/switch/helper (`{"entity_id": "…"}`) |
 | GET | `/api/backup` | configuration as a download (`cleanframe-backup-<date>.json`) |
 | POST | `/api/backup` | import such a file |
 | GET | `/api/selftest` | built-in assertions about validation, redaction, storage |
@@ -84,6 +85,19 @@ duplicate `appId`s are removed.
 `label`); `/api/ha/values` returns name, state and unit for exactly those, which
 is what the status strip renders. Only display-worthy domains are offered —
 `automation.*`, `zone.*` and similar are filtered out on the server.
+
+### Switching from the strip
+
+`POST /api/ha/toggle` with `{"entity_id": "light.wohnzimmer"}` calls
+`/api/services/<domain>/toggle` in Home Assistant and returns the new state from
+the answer. Only `light`, `switch`, `input_boolean` and `fan` are accepted —
+anything else answers 400 and never reaches Home Assistant, because a cover needs
+up/stop/down and a lock needs a question.
+
+On the TV, `down` from the dock moves focus into the strip, `left`/`right` picks a
+chip, `OK` switches. The chip flips as soon as the answer arrives and a refused
+switch shows a red edge for four seconds. The list layout has no free direction
+for a fourth zone, so there the chips only display.
 
 ### Status strip on the home screen
 

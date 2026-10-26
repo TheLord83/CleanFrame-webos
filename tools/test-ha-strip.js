@@ -81,7 +81,36 @@ var haStates = [
   { entity_id: 'sensor.kaputt', state: 'unavailable', attributes: { friendly_name: 'Kaputter Sensor', unit_of_measurement: '°C' } }
 ];
 
+var haCalls = [];
+
+function haFind(id) {
+  var hit = null;
+  haStates.forEach(function (s) { if (s.entity_id === id) hit = s; });
+  return hit;
+}
+
 var haServer = http.createServer(function (req, res) {
+  if (req.url.indexOf('/api/services/') === 0) {
+    var raw = '';
+    req.on('data', function (c) { raw += c; });
+    req.on('end', function () {
+      var payload = {};
+      try { payload = JSON.parse(raw || '{}'); } catch (e) {}
+      var domain = req.url.split('/')[3];
+      haCalls.push({ path: req.url, domain: domain, entity_id: payload.entity_id || '' });
+      var target = haFind(payload.entity_id);
+      var next = null;
+      if (target) {
+        next = target.state === 'on' ? 'off' : 'on';
+        target.state = next;
+      }
+      var answer = target ? [{ entity_id: target.entity_id, state: target.state }] : [];
+      var out = JSON.stringify(answer);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(out);
+    });
+    return;
+  }
   if (req.url.indexOf('/api/states') !== 0) { res.writeHead(404); res.end('{}'); return; }
   var body = JSON.stringify(haStates);
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -249,6 +278,20 @@ function run(wsUrl, haPort) {
     });
   }
   function wait(ms, cb) { setTimeout(cb, ms); }
+  /* Real key presses over CDP, the same path as the remote on the TV. The stage
+   * only sees them while the window has focus. */
+  var KEYS = { up: [38, 'ArrowUp'], down: [40, 'ArrowDown'], left: [37, 'ArrowLeft'], right: [39, 'ArrowRight'], ok: [13, 'Enter'] };
+  function key(name, cb) {
+    var k = KEYS[name];
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: k[1], code: k[1], windowsVirtualKeyCode: k[0],
+      nativeVirtualKeyCode: k[0], text: name === 'ok' ? '\r' : undefined
+    }, function () {
+      send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: k[1], code: k[1], windowsVirtualKeyCode: k[0], nativeVirtualKeyCode: k[0]
+      }, function () { setTimeout(cb, 350); });
+    });
+  }
   function waitFor(expr, cb) {
     var start = Date.now();
     (function poll() {
@@ -314,7 +357,32 @@ function run(wsUrl, haPort) {
       var o = {};
       try { o = JSON.parse(String(v)); } catch (e) {}
       check('strip ends above the dock', o.sBottom <= o.dTop, JSON.stringify(o));
-      stepValueChange();
+      stepToggle();
+    });
+  }
+
+  /* 2b. The chip can be reached with the remote and switches the entity. */
+  function stepToggle() {
+    evalJs('window.focus(), 1', function () {
+      key('down', function () {
+        evalJs("(function(){var b=document.querySelector('#haStrip .ha-chip.is-focus');return b?b.textContent:'keiner';})()", function (focused) {
+          check('down from the dock focuses a chip', String(focused).indexOf('Wohnzimmer Decke') >= 0, focused);
+          key('ok', function () {
+            waitFor(chipsExpr() + ".indexOf('Wohnzimmer Decke=Aus') >= 0", function (ok, v) {
+              check('OK switches the light off', ok, String(v));
+              var call = null;
+              haCalls.forEach(function (c) { if (c.entity_id === 'light.wohnzimmer_decke') call = c; });
+              check('the hub called the light service', !!call && call.domain === 'light' && call.path.indexOf('/toggle') > 0, call && call.path);
+              key('up', function () {
+                evalJs("document.querySelectorAll('#haStrip .ha-chip.is-focus').length", function (left) {
+                  check('up leaves the strip again', String(left) === '0', String(left));
+                  stepValueChange();
+                });
+              });
+            });
+          });
+        });
+      });
     });
   }
 

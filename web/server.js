@@ -16,6 +16,7 @@
  *   GET  /api/backup              configuration as download
  *   POST /api/backup              import configuration
  *   GET  /api/selftest            internal checks (for tests without a TV)
+ *   POST /api/ha/toggle           switch one chosen entity on or off
  *   POST /api/system/restart      restart the service (root only)
  *   GET  /api/schema              all selectable options (wallpapers, fonts, ...)
  *   GET  /api/wall/<id>           preview image of a wallpaper
@@ -46,7 +47,7 @@ var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.37';
+var VERSION = '0.4.38';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -349,6 +350,17 @@ function handle(req, res) {
   if (req.method === 'GET' && p === '/api/ha/entities') {
     var conf = store.read();
     return ha.entities(conf.integrations.ha, function (r) { json(res, 200, r); });
+  }
+
+  if (req.method === 'POST' && p === '/api/ha/toggle') {
+    if (!postGuard(req, res)) return;
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var conf3 = store.read();
+      return ha.toggle(conf3.integrations.ha, body && body.entity_id, function (r) {
+        json(res, r.ok ? 200 : 400, r);
+      });
+    });
   }
 
   if (req.method === 'GET' && p === '/api/ha/values') {

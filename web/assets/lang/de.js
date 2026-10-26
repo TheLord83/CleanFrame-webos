@@ -121,7 +121,7 @@ window.CF_LANG.de = {
   "int.ha.loaded": "{n} Entitäten geladen",
 
   "int.ent.title": "Werte auf der Startseite",
-  "int.ent.hint": "Bis zu 12 Werte, die als Leiste über der App-Leiste stehen. Der Name lässt sich hier kürzen; gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.",
+  "int.ent.hint": "Bis zu 12 Werte, die als Leiste über der App-Leiste stehen. Lampe, Schalter, Ventilator und Helfer lassen sich am Fernseher mit OK umschalten, alles andere zeigt nur an. Der Name lässt sich hier kürzen; gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.",
   "int.ent.filter": "Filter (z. B. Temperatur, Wohnzimmer)",
   "int.ent.none": "noch keine Entität gewählt",
   "int.ent.remove": "entfernen",

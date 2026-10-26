@@ -1,9 +1,11 @@
 /*
  * Home Assistant integration for tiles and status values.
  *
- * Read-only: the entities the user picks in the web interface are fetched over
- * the Home Assistant REST API and prepared for the tile. The token stays on the
- * TV; here it is only used for requests.
+ * Reading and switching: the entities the user picks in the web interface are
+ * fetched over the Home Assistant REST API, and the ones with a simple on/off
+ * can be toggled from the strip. Everything else stays display-only - a cover
+ * needs up/stop/down and a lock needs a question, neither fits a single button.
+ * The token stays on the TV; here it is only used for requests.
  */
 'use strict';
 
@@ -114,4 +116,24 @@ function values(cfg, ids, cb) {
   });
 }
 
-module.exports = { entities: entities, values: values, request: request, USEFUL: USEFUL };
+/* Domains where one button is enough: the tile switches, nothing else. */
+var SWITCHABLE = { light: 'Licht', switch: 'Schalter', input_boolean: 'Schalter', fan: 'Ventilator' };
+
+/* Switch an entity. cb gets {ok, entity_id, state} - the state comes from Home
+ * Assistant's answer, so the strip can show the new value without asking twice. */
+function toggle(cfg, entityId, cb) {
+  var id = String(entityId || '').trim();
+  var domain = id.split('.')[0];
+  if (id.indexOf('.') < 1) return cb({ ok: false, error: 'keine Entitaet angegeben' });
+  if (!Object.prototype.hasOwnProperty.call(SWITCHABLE, domain)) {
+    return cb({ ok: false, error: 'diese Entitaet laesst sich hier nicht schalten (' + domain + ')' });
+  }
+  request(cfg, 'POST', '/api/services/' + domain + '/toggle', { entity_id: id }, 6000, function (r) {
+    if (!r.ok) return cb({ ok: false, error: r.error || ('HTTP ' + r.status) });
+    var changed = Array.isArray(r.data) ? r.data : [];
+    var hit = changed.filter(function (s) { return s && s.entity_id === id; })[0] || changed[0] || null;
+    cb({ ok: true, entity_id: id, state: hit ? hit.state : null });
+  });
+}
+
+module.exports = { entities: entities, values: values, toggle: toggle, request: request, USEFUL: USEFUL, SWITCHABLE: SWITCHABLE };

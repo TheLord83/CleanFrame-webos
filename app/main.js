@@ -680,8 +680,21 @@
         S.lastUtil = f.u;
         return;
       }
+      /* The chips sit between the apps and the utilities: down from the dock
+       * enters the strip, up leaves it again. */
+      if (f.zone === 'ha') {
+        var n = haToggleChips().length;
+        if (!n) { f.zone = 'apps'; return; }
+        f.h = clamp(f.h || 0, 0, n - 1);
+        if (k === x.prev && f.h > 0) f.h--;
+        else if (k === x.next && f.h < n - 1) f.h++;
+        else if (k === x.out || k === 'back') f.zone = 'apps';
+        else if (k === 'ok') haToggle(haToggleChips()[f.h] && haToggleChips()[f.h].id);
+        return;
+      }
       f.zone = 'apps';
-      if (k === x.out) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
+      if (k === x.inn && haToggleChips().length) { f.zone = 'ha'; f.h = clamp(f.h || 0, 0, haToggleChips().length - 1); }
+      else if (k === x.out) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
       else if (k === 'back') openMessage('leave');
       else if (!h.length) { if (k === 'ok') addAppsRoute(); }
       else if (k === x.prev && i > 0) setSel(h[i - 1]);
@@ -691,7 +704,8 @@
     point: function (t, z, i) {
       if (z === 'util') { t.f.zone = 'util'; t.f.u = i; S.lastUtil = i; }
       else if (z === 'app') { t.f.zone = 'apps'; setSel(S.c.home[i]); }
-      else if (z === 'empty') t.f.zone = 'apps';
+      else if (z === 'empty') { t.f.zone = 'apps'; }
+      else if (z === 'ha') { haToggle(haToggleChips()[i] && haToggleChips()[i].id); return; }
       else return;
       this.key(t, 'ok');
     }
@@ -1327,7 +1341,7 @@
     renderUtils(hs);
     if (S.c.layout === 'list') renderList(hs);
     else { photoMode = null; renderDock(hs); }
-    renderHaStrip();
+    renderHaStrip(t);
     renderAppFocusName(hs);
   }
 
@@ -1427,7 +1441,7 @@
 
   function loadHaValues() {
     var picked = haPicked();
-    if (!picked.length || !window.FrameDevice || !FrameDevice.api) { haValues = null; renderHaStrip(); return; }
+    if (!picked.length || !window.FrameDevice || !FrameDevice.api) { haValues = null; renderHaStrip(top()); return; }
     if (haBusy) return;
     haBusy = true;
     var ids = picked.map(function (e) { return e.id; }).join(',');
@@ -1436,7 +1450,7 @@
       /* Keep the last known values on an error: a stale value beats a flickering
        * block. Only an empty answer clears the strip. */
       if (!err && data && data.values) haValues = data.values;
-      renderHaStrip();
+      renderHaStrip(top());
     });
   }
 
@@ -1480,24 +1494,80 @@
     return key ? T(key) : s;
   }
 
-  function renderHaStrip() {
-    if (!haStrip) return;
-    var picked = haPicked(), vals = haValues, html = '', i, v, text, unit, key;
-    if (!picked.length || !vals || !vals.length) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
-    var byId = {};
+  /* Domains where a single button is enough. A cover needs up/stop/down and a
+   * lock needs a question - those stay display-only. */
+  var HA_SWITCHABLE = { light: 1, switch: 1, input_boolean: 1, fan: 1 };
+
+  function haChips() {
+    var picked = haPicked(), vals = haValues || [], byId = {}, out = [];
     vals.forEach(function (x) { if (x && x.id) byId[x.id] = x; });
-    for (i = 0; i < picked.length; i++) {
-      v = byId[picked[i].id];
-      if (!v) continue;
-      text = haStateText(v.state, v.domain);
-      /* No reading, no unit: "Nicht verfügbar °C" reads like a broken sensor. */
-      var raw = String(v.state === undefined || v.state === null ? '' : v.state).toLowerCase();
-      unit = (v.unit && raw !== 'unavailable' && raw !== 'unknown') ? ' ' + v.unit : '';
-      html += '<div class="ha-chip"><span class="ha-chip-name">' + esc(haLabel(v.id, v.name)) + '</span>'
-        + '<span class="ha-chip-value">' + esc(text) + esc(unit) + '</span></div>';
+    picked.forEach(function (p) {
+      var v = byId[p.id], domain;
+      if (!v) return;
+      domain = v.domain || String(v.id).split('.')[0];
+      out.push({
+        id: v.id, name: haLabel(v.id, v.name), state: v.state, unit: v.unit, domain: domain,
+        /* The list layout has no free direction for a fourth zone, so the chips
+         * are display-only there. */
+        switchable: !!HA_SWITCHABLE[domain] && S.c.layout !== 'list'
+      });
+    });
+    return out;
+  }
+
+  function haToggleChips() {
+    return haChips().filter(function (c) { return c.switchable; });
+  }
+
+  /* Switch an entity. The answer from the hub carries the new state, so the chip
+   * flips immediately and the full refresh only confirms it. */
+  function haToggle(id) {
+    if (!id || S.haPending) return;
+    S.haPending = true;
+    S.haError = null;
+    FrameDevice.api('POST', '/api/ha/toggle', { entity_id: id }, function (err, data) {
+      S.haPending = false;
+      if (!err && data && data.ok) {
+        if (haValues && data.state) {
+          haValues.forEach(function (v) { if (v.id === id) v.state = data.state; });
+        }
+        renderHaStrip(top());
+        loadHaValues();
+        return;
+      }
+      /* A refused switch has to be visible: the chip gets a red edge and the
+       * reason for a few seconds instead of silently doing nothing. */
+      S.haError = { id: id, text: (data && data.error) || err || 'unbekannter Fehler' };
+      renderHaStrip(top());
+      setTimeout(function () {
+        if (S.haError && S.haError.id === id) { S.haError = null; renderHaStrip(top()); }
+      }, 4000);
+    }, 'text/plain;charset=UTF-8');
+  }
+
+  function renderHaStrip(t) {
+    if (!haStrip) return;
+    var chips = haChips(), html = '', i, c, text, unit, raw, key, focus = -1, si = 0, on;
+    if (!chips.length) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
+    if (t && t.id === 'home' && t.f && t.f.zone === 'ha') focus = clamp(t.f.h || 0, 0, Math.max(0, haToggleChips().length - 1));
+    for (i = 0; i < chips.length; i++) {
+      c = chips[i];
+      text = haStateText(c.state, c.domain);
+      raw = String(c.state === undefined || c.state === null ? '' : c.state).toLowerCase();
+      /* No reading, no unit: "Nicht verfuegbar °C" reads like a broken sensor. */
+      unit = (c.unit && raw !== 'unavailable' && raw !== 'unknown') ? ' ' + c.unit : '';
+      on = raw === 'on';
+      html += '<' + (c.switchable ? 'button type="button" tabindex="-1"' : 'div') +
+        ' class="ha-chip' + (c.switchable ? ' is-switch' : ' is-static') + (on ? ' is-on' : '') +
+        (S.haError && S.haError.id === c.id ? ' is-error' : '') +
+        (c.switchable && si === focus ? ' is-focus' : '') + '"' +
+        (c.switchable ? ' data-z="ha" data-i="' + si + '" data-action="ha.toggle.' + esc(c.id) + '" aria-label="' + esc(c.name) + ': ' + esc(text + unit) + '"' : '') + '>' +
+        '<span class="ha-chip-name">' + (c.switchable ? '<span class="ha-dot"></span>' : '') + esc(c.name) + '</span>' +
+        '<span class="ha-chip-value">' + esc(text) + esc(unit) + '</span>' +
+        '</' + (c.switchable ? 'button' : 'div') + '>';
+      if (c.switchable) si++;
     }
-    if (!html) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
-    key = html + '|' + S.c.bg + '|' + S.c.layout;
+    key = html + '|' + S.c.layout;
     if (key !== haKey) { setHTML(haStrip, html); haKey = key; }
     haStrip.hidden = false;
     /* Sit right above the dock; the dock geometry comes from the current layout,
