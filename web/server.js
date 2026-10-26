@@ -41,10 +41,11 @@ var appCatalog = require('./lib/apps');
 var diag = require('./lib/diag');
 var ha = require('./lib/ha');
 var remote = require('./lib/remote');
+var systemkey = require('./lib/systemkey');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.20';
+var VERSION = '0.4.21';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -487,8 +488,13 @@ function handle(req, res) {
   }
   if (req.method === 'GET' && (p === '/api/tv/screenshot.png' || p === '/api/tv/screenshot.jpg')) {
     var wantsJpg = p.indexOf('.jpg') > 0;
+    var q = url.parse(req.url, true).query || {};
+    /* Small sizes for the live view in the interface: the capture service scales itself. */
+    var w = parseInt(q.width, 10) || 0;
+    var h = parseInt(q.height, 10) || 0;
     return (function () {
-      screen.capture({ format: wantsJpg ? 'JPG' : 'PNG' }, function (e2, info) {
+      screen.capture({ format: wantsJpg ? 'JPG' : 'PNG', width: w || undefined,
+        height: h || undefined }, function (e2, info) {
         if (e2) return json(res, 502, { ok: false, error: String(e2.message || e2) });
         var stream;
         try {
@@ -520,9 +526,24 @@ function handle(req, res) {
        * opens a connection to the device and answers 503 instead of 400. */
       var known = keys.filter(function (k) { return remote.KEYS[k] !== undefined || /^[0-9]+$/.test(String(k)); });
       if (!known.length) return json(res, 400, { ok: false, error: 'unbekannte Tasten: ' + keys.join(', ') });
+      /* First try the launcher (DevTools, ~90 ms). If it is not running, the keys go to
+       * the TV itself through Home Assistant's paired webostv integration - that also
+       * reaches LG's own menus. */
       remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
-        if (e2) return json(res, 503, { ok: false, error: String(e2) });
-        json(res, 200, { ok: true, sent: sent });
+        if (!e2) return json(res, 200, { ok: true, via: 'launcher', sent: sent });
+        var conf = store.read() || {};
+        var cfg = conf.integrations || {};
+        systemkey.press(keys, cfg.ha, function (e3, reply) {
+          if (e3) {
+            return json(res, 503, {
+              ok: false,
+              error: String(e2),
+              errorSystem: String(e3),
+              hint: 'Launcher nicht im Vordergrund und Home Assistant nicht erreichbar'
+            });
+          }
+          json(res, 200, { ok: true, via: 'homeassistant', sent: reply.pressed, entity: reply.entity });
+        });
       });
     });
   }

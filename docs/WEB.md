@@ -179,7 +179,11 @@ control. Both use two endpoints of the server:
   `format=png`), returned as image data, not JSON.
 - `GET /api/tv/keys` — allowed key names.
 - `POST /api/tv/key` with `{"keys": ["down", "ok"]}` — up to 12 keys, optionally
-  `holdMs` for a long press.
+  `holdMs` for a long press. The answer says which path was used: `via: "launcher"`
+  (fast, DevTools) or `via: "homeassistant"` (the whole TV, see below).
+- `GET /api/tv/screenshot.png` / `.jpg`, optional `?width=960&height=540` — the whole
+  screen through the TV's capture service; the interface uses the small JPEG for the
+  live picture (about 90 KB instead of 1.3 MB).
 
 How it works: the launcher is a Chromium web app whose DevTools console listens on
 `127.0.0.1:9998`. To the outside the port is blocked with iptables
@@ -193,6 +197,26 @@ no package needed):
 Two things to keep in mind for node 8 on the TV: no `readBigUInt64BE` (the 64-bit
 lengths are assembled by hand), and the DevTools console keeps HTTP connections open —
 so the answer has to be read via `Content-Length`, not via the connection ending.
+
+### Keys reach the whole TV — through Home Assistant
+
+DevTools keys only move our own launcher: LG's home screen and settings are a different
+process and answer `ECONNREFUSED 127.0.0.1:9998` as soon as our app is not in front. The
+documented way for the rest of the TV is the SSAP pointer socket
+(`ssap://com.webos.service.networkinput/getPointerInputSocket`), which needs a client key
+paired with `CONTROL_MOUSE_AND_KEYBOARD`. This firmware grants that only during pairing and
+shows no pairing prompt at all, so the server takes the second path: Home Assistant is
+already paired with this TV, and its `webostv.button` service presses the same buttons.
+
+- The server asks Home Assistant for the entity only once per five minutes and takes the
+  reachable LG `media_player` (an old registration often stays as `unavailable` forever and
+  would swallow every press).
+- Key names are translated (`ok` → `ENTER`, `back` → `BACK`, `volup` → `VOLUMEUP`, digits
+  to `0`…`9`); the fixed list is in `web/lib/systemkey.js`.
+- `integrations.ha.tvEntity` in the configuration pins the entity when discovery picks the
+  wrong one.
+- Measured on the device: `down` moved the selection, `ok` started an app (about 0.6 and
+  1.5 million changed pixels against a screenshot taken before), `back` returned home.
 
 If the app is closed on the TV, the endpoint answers 503 with a plain-text message and
 the interface shows "no picture". Starting it again:

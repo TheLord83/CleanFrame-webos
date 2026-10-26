@@ -43,6 +43,23 @@
   .panel-dot.ok { background: var(--ok); }
   .panel-dot.bad { background: var(--bad); }
   .panel-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  /* Phone and tablet: the panel is not a sidebar, it is the page. Picture and keys first,
+     the settings below it — that is the order you need when you sit on the sofa with a phone. */
+  @media (max-width: 900px) {
+    #shell { flex-direction: column; padding: 0 12px 24px; gap: 12px; }
+    #tvPanel { flex: 1 1 auto; width: auto; position: static; max-height: none; order: -1; }
+    #tvPanel.collapsed { flex-basis: auto; width: auto; }
+    #tvPanel.collapsed #tvShot { display: block; }
+    #tvPanel img { max-height: 46vh; object-fit: contain; }
+    .remote-pad button, .panel-keys button { min-height: 46px; font-size: 15px; }
+    .panel-keys { grid-template-columns: 1fr 1fr; }
+    main { padding: 0 12px 32px; }
+    header, nav { padding-left: 12px; padding-right: 12px; }
+    section { padding: 14px; }
+  }
+  @media (max-width: 420px) {
+    .panel-keys { grid-template-columns: 1fr; }
+  }
   .panel-check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   .panel-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
   .panel-keys button { font-size: 13px; padding: 8px 6px; }
@@ -849,7 +866,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.20';
+  var UI_BUILD = '0.4.21';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -974,18 +991,44 @@
     d.className = 'panel-dot' + (state ? ' ' + state : '');
   }
 
+  /* Two sources, in this order:
+   *  1. /api/tv/snapshot  - the launcher window through DevTools: crisp, fast, but only while
+   *     the launcher is in the foreground.
+   *  2. /api/tv/screenshot.jpg?width=... - the whole screen through the TV's capture service:
+   *     works always, also on LG's own screens, ~1.5 s per picture.
+   * The status line says which one you are looking at. */
   function loadShot() {
     if (shotBusy || document.hidden) return;
     shotBusy = true;
     spin(true);
     var q = $('shotQuality') ? $('shotQuality').value : '65';
-    var url = '/api/tv/snapshot?format=jpeg&quality=' + encodeURIComponent(q) + '&t=' + Date.now();
     var img = $('tvShot');
     var probe = new Image();
     probe.onload = function () {
-      img.src = url;
+      img.src = probe.src;
       setDot('ok');
       note($('tvStatus'), 'tv.img.ok', { time: timeString(new Date()), w: probe.naturalWidth, h: probe.naturalHeight }, true);
+      shotBusy = false;
+      spinNachlauf(600);
+    };
+    probe.onerror = function () { loadScreenShot(q); };
+    probe.src = '/api/tv/snapshot?format=jpeg&quality=' + encodeURIComponent(q) + '&t=' + Date.now();
+  }
+
+  /* Whole screen: the width is capped so a phone on mobile data does not pull 1.3 MB per frame. */
+  function screenShotSize() {
+    var w = window.innerWidth < 700 ? 720 : (window.innerWidth < 1100 ? 960 : 1280);
+    return { w: w, h: Math.round(w * 9 / 16) };
+  }
+
+  function loadScreenShot(quality) {
+    var size = screenShotSize();
+    var img = $('tvShot');
+    var probe = new Image();
+    probe.onload = function () {
+      img.src = probe.src;
+      setDot('ok');
+      note($('tvStatus'), 'tv.img.screen', { time: timeString(new Date()), w: probe.naturalWidth, h: probe.naturalHeight }, true);
       shotBusy = false;
       spinNachlauf(600);
     };
@@ -995,7 +1038,14 @@
       shotBusy = false;
       spinNachlauf(600);
     };
-    probe.src = url;
+    probe.src = '/api/tv/screenshot.jpg?width=' + size.w + '&height=' + size.h +
+      '&t=' + Date.now();
+  }
+
+  function setDot(state) {
+    var d = $('tvDot');
+    if (!d) return;
+    d.className = 'panel-dot' + (state ? ' ' + state : '');
   }
 
   function sendKey(name, holdMs) {
@@ -1006,6 +1056,7 @@
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.ok) {
         note($('tvStatus'), 'tv.key.fail', { err: j.error || t('err.unknown') }, false);
+        setTimeout(function () { note($('tvStatus'), 'tv.key.onlylauncher', null, false); }, 1200);
         return;
       }
       /* After each key press wait briefly, then fetch a fresh image — that way
@@ -1018,7 +1069,8 @@
 
   function startLive() {
     if (shotTimer) clearInterval(shotTimer);
-    shotTimer = setInterval(loadShot, 3000);
+    /* Every 3 s on a PC, every 6 s on a phone: each frame is a real capture on the TV. */
+    shotTimer = setInterval(loadShot, window.innerWidth < 700 ? 6000 : 3000);
   }
 
   document.querySelectorAll('[data-key]').forEach(function (b) {

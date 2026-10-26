@@ -276,4 +276,6 @@ window.CF_LANG.en = {
   "sys.shot.running": "Capturing …",
   "sys.shot.done": "Done, %s — picture below.",
   "sys.shot.failed": "Capture failed:",
+  "tv.img.screen": "Whole screen from the TV {time} — {w}×{h}",
+  "tv.key.onlylauncher": "The keys go to the TV through Home Assistant — including LG's own menus. Only the fast launcher keys need the app running.",
 };

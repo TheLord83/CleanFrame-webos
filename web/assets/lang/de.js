@@ -279,4 +279,6 @@ window.CF_LANG.de = {
   "sys.shot.running": "Wird aufgenommen …",
   "sys.shot.done": "Fertig, %s — Bild unten.",
   "sys.shot.failed": "Aufnahme fehlgeschlagen:",
+  "tv.img.screen": "Bildschirmfoto vom ganzen Fernseher {time} — {w}×{h}",
+  "tv.key.onlylauncher": "Die Tasten gehen über Home Assistant an den Fernseher — auch LGs eigene Menüs. Nur die Launcher-Tasten (schnell) brauchen die laufende App.",
 };
