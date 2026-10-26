@@ -498,7 +498,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .setting-choice.is-disabled{color:var(--faint)}
 .setting-choice.is-disabled.is-focus{color:var(--solid-mute)}
 .setting-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
-.setting-name{display:block;white-space:nowrap}
+.setting-name{display:block;white-space:nowrap;line-height:1.25}
 .setting-tick{display:flex;align-items:center;justify-content:center;flex:none;width:30px;height:32px;margin-left:0}
 .setting-tick .ico{width:30px;height:30px;stroke-width:2.2}
 .setting-forward{width:28px;height:28px;margin-left:auto;flex:none}
@@ -507,8 +507,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .swatch-light{background:#f2efe8;box-shadow:inset 0 0 0 1px rgba(29,26,22,.12)}
 .swatch-dark{background:#0d0d0d;box-shadow:inset 0 0 0 1px rgba(246,241,231,.15)}
 .setting-reason{margin-top:16px;font-size:26px;line-height:36px;color:var(--mute)}
-.is-horizontal .setting-options{flex-direction:row;gap:12px}
-.is-horizontal .setting-choice{flex:1;min-width:0;min-height:92px;padding:12px 20px;gap:16px;font-size:36px}
+.is-horizontal .setting-options{flex-direction:row;flex-wrap:wrap;row-gap:8px;gap:12px;--cf-scale:1}
+/* The label keeps a single line while the factor grows: without a floor per row the
+ * longest text ("Like the TV") is clipped and the neighbours sit on top of each other. */
+.is-horizontal .setting-name{white-space:nowrap;font-size:calc(36px * var(--cf-scale, 1));line-height:1.25}
+/* The label must be able to grow: inside a flex column it was squeezed to its share and
+ * clipped, and at 160 % the words ran over the neighbour. */
+.is-horizontal .setting-name,.is-horizontal .setting-copy{flex:none;min-width:max-content;max-width:none}
+.is-horizontal .setting-ready{font-size:calc(26px * var(--cf-scale, 1))}
+/* Columns grow with the factor: a fixed share of the row clipped "Like the TV" and the
+ * labels landed on top of each other at 160 %. */
+.is-horizontal .setting-choice{flex:0 1 auto;min-width:0}
+.is-horizontal .setting-choice{min-height:calc(72px * var(--cf-scale, 1));padding:12px 20px;gap:16px;font-size:calc(36px * var(--cf-scale, 1));white-space:nowrap}
 .is-horizontal .setting-tick{width:26px;margin-left:0}
 .is-horizontal .setting-tick .ico{width:26px;height:26px}
 .section-material .setting-choice:last-child{flex:1.4}

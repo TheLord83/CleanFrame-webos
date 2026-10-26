@@ -2422,6 +2422,10 @@
       uiScale = isFinite(scale) && scale > 0 ? scale / 100 : 1;
       if (uiScale !== 1) stage.style.setProperty('--cf-scale', String(uiScale));
       else stage.style.removeProperty('--cf-scale');
+      /* The section on the right must know the factor as well: the rows there stack
+       * labels of different length side by side, and a raised factor used to push them
+       * into each other (Deutsch/English sat exactly one row apart and overlapped). */
+      document.documentElement.style.setProperty('--cf-scale', String(uiScale));
     }
 
     S.cfgScreensaver = cfg.screensaver || null;
