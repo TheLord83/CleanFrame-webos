@@ -45,7 +45,8 @@ settings, the info panel), not only the browser:
 ./tools/screenshot.py --format JPG --width 1280 --height 720
 ```
 
-Under the hood it is one Luna call on the TV:
+The same thing as a button lives in the hub: **System → Screenshot** (`POST /api/tv/screenshot`,
+`GET /api/tv/screenshot.png`). Under the hood it is one Luna call on the TV:
 
 ```sh
 luna-send -n 1 -f luna://com.webos.service.capture/executeOneShot \

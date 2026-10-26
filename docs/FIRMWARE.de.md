@@ -47,7 +47,8 @@ Mit root gibt es einen Aufnahme-Dienst — und ja, er nimmt auch LGs eigene Bild
 ./tools/screenshot.py --format JPG --width 1280 --height 720
 ```
 
-Darunter steckt genau ein Luna-Aufruf auf dem Fernseher:
+Dasselbe als Knopf gibt es im Hub: **System → Bildschirmfoto** (`POST /api/tv/screenshot`,
+`GET /api/tv/screenshot.png`). Darunter steckt genau ein Luna-Aufruf auf dem Fernseher:
 
 ```sh
 luna-send -n 1 -f luna://com.webos.service.capture/executeOneShot \

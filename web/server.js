@@ -23,6 +23,8 @@
  *   GET  /api/tv/snapshot         screenshot of the launcher (PNG, base64)
  *   GET  /api/tv/keys             allowed key names
  *   POST /api/tv/key              send key presses {keys: ["down","ok"]}
+ *   POST /api/tv/screenshot       whole screen (also LG's own screens) as a file on the TV
+ *   GET  /api/tv/screenshot.png   the same as a picture (screenshot.jpg for JPEG)
  *
  * Auth as with Glasshouse: without a configured token everything is allowed,
  * requests from 127.0.0.1 are always allowed (the launcher runs there).
@@ -39,9 +41,10 @@ var appCatalog = require('./lib/apps');
 var diag = require('./lib/diag');
 var ha = require('./lib/ha');
 var remote = require('./lib/remote');
+var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.19';
+var VERSION = '0.4.20';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -465,6 +468,45 @@ function handle(req, res) {
       res.writeHead(200, { 'Content-Type': mime, 'Content-Length': img.length, 'Cache-Control': 'no-store' });
       res.end(img);
     });
+  }
+  if (req.method === 'POST' && p === '/api/tv/screenshot') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      screen.capture({ format: body && body.format, width: body && body.width,
+        height: body && body.height }, function (e2, info) {
+        if (e2) return json(res, 502, { ok: false, error: String(e2.message || e2) });
+        /* Keep the file: the interface fetches it right afterwards and it is gone from /tmp then. */
+        json(res, 200, { ok: true, file: info.file, bytes: info.bytes, width: info.width,
+          height: info.height, service: info.service, tookMs: info.tookMs });
+        /* The file is only a by-product: whoever wants the picture fetches
+         * /api/tv/screenshot.png. Without this /tmp fills up. */
+        setTimeout(function () { screen.forget(info.file); },
+          (body && body.keep) ? 3600000 : 5000);
+      });
+    });
+  }
+  if (req.method === 'GET' && (p === '/api/tv/screenshot.png' || p === '/api/tv/screenshot.jpg')) {
+    var wantsJpg = p.indexOf('.jpg') > 0;
+    return (function () {
+      screen.capture({ format: wantsJpg ? 'JPG' : 'PNG' }, function (e2, info) {
+        if (e2) return json(res, 502, { ok: false, error: String(e2.message || e2) });
+        var stream;
+        try {
+          stream = fs.createReadStream(info.file);
+        } catch (e3) {
+          return json(res, 500, { ok: false, error: String(e3.message || e3) });
+        }
+        res.writeHead(200, {
+          'Content-Type': wantsJpg ? 'image/jpeg' : 'image/png',
+          'Content-Length': info.bytes,
+          'Cache-Control': 'no-store',
+          'X-Capture-Service': info.service
+        });
+        stream.pipe(res);
+        stream.on('end', function () { screen.forget(info.file); });
+        stream.on('error', function () { screen.forget(info.file); });
+      });
+    })();
   }
   if (req.method === 'GET' && p === '/api/tv/keys') {
     return json(res, 200, { ok: true, keys: Object.keys(remote.KEYS) });

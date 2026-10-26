@@ -258,6 +258,15 @@
     </table>
     <div class="status" id="devStatus"></div>
 
+    <h3 style="margin-top:22px"><span data-t="sys.shot.title">Bildschirmfoto</span></h3>
+    <p class="hint" data-t="sys.shot.hint">Nimmt den ganzen Bildschirm auf, auch LGs eigene Seiten wie Einstellungen. Nichts auswählen nötig: was gerade zu sehen ist, wird fotografiert.</p>
+    <div class="row">
+      <button class="action" id="btnShot" data-t="sys.shot.take">Aufnehmen</button>
+      <a class="ghost" id="lnkShot" style="display:none" download="fernseher.png" data-t="sys.shot.save">Herunterladen</a>
+    </div>
+    <div class="status" id="shotStatus"></div>
+    <img id="shotImg" alt="" style="display:none;max-width:100%;margin-top:12px;border-radius:8px;border:1px solid #2f333c">
+
     <h2><span data-t="sys.backup.title">Sicherung</span><button class="showtv" type="button" data-view="settings" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
     <p class="hint" data-t="sys.backup.hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
     <div class="row">
@@ -768,6 +777,22 @@
     if (el) el.textContent = value || t('sys.dev.unknown');
   }
 
+  function takeShot() {
+    var st = document.getElementById('shotStatus');
+    var img = document.getElementById('shotImg');
+    var link = document.getElementById('lnkShot');
+    var btn = document.getElementById('btnShot');
+    btn.disabled = true;
+    st.textContent = t('sys.shot.running');
+    api('POST', '/api/tv/screenshot', { format: 'PNG', width: 1920, height: 1080 }).then(function (d) {
+      st.textContent = t('sys.shot.done').replace('%s', Math.round(d.bytes / 1024) + ' KB');
+      var url = '/api/tv/screenshot.png?t=' + Date.now();
+      img.src = url; img.style.display = '';
+      link.href = url; link.download = 'fernseher-' + Date.now() + '.png'; link.style.display = '';
+    }).catch(function (e) {
+      st.textContent = t('sys.shot.failed') + ' ' + (e.message || e);
+    }).then(function () { btn.disabled = false; });
+  }
   function loadDevice() {
     return api('GET', '/api/tv/info').then(function (d) {
       put('devModel', d.modelName || d.modelNumber);
@@ -824,7 +849,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.19';
+  var UI_BUILD = '0.4.20';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -1264,6 +1289,9 @@
     if (!state.haEntities) return;
     renderEntities(filteredEntities());
   };
+
+  var shotBtn = document.getElementById('btnShot');
+  if (shotBtn) shotBtn.onclick = takeShot;
 
   $('btnExport').onclick = function () { window.location.href = '/api/backup'; };
 

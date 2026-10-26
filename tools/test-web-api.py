@@ -119,6 +119,7 @@ def main():
         # path, not hit some forwarding that happens to run on the machine.
         "CF_OS_INFO": OSINFO,
         "CF_DEVICE_INFO": DEVINFO,
+        "CF_SCREENSHOT_STUB": "1",
         "CF_DEVTOOLS_PORT": str(free_port()),
     })
     ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
@@ -219,6 +220,21 @@ def main():
             assert d["serial"] == "000MANJ00000", d
             assert d["hardwareId"] == "HE_DTV_W21A_AFADATAA", d
             assert d["hub"] and d["node"], d
+
+        def t_tv_screenshot():
+            st, d, _ = req("POST", "/api/tv/screenshot", {"format": "PNG", "width": 1920, "height": 1080})
+            assert st == 200, (st, d)
+            assert d["ok"] is True, d
+            assert d["bytes"] > 0, d
+            assert d["width"] == 1920 and d["height"] == 1080, d
+            assert d["file"].endswith(".png"), d
+
+        def t_tv_screenshot_png():
+            st, body, hdrs = req("GET", "/api/tv/screenshot.png", raw=True)
+            assert st == 200, st
+            assert "image/png" in hdrs.get("Content-Type", ""), hdrs
+            assert "PNG" in body[:8], body[:8]
+            assert len(body) > 50, len(body)
 
         def t_health():
             st, d, _ = req("GET", "/api/health")
@@ -496,6 +512,8 @@ def main():
             ("invalid keys are rejected", t_tv_key_invalid),
             ("screenshot without a device reports an error", t_tv_snapshot_without_tv),
             ("/api/tv/info returns model, webOS and firmware", t_tv_info),
+            ("POST /api/tv/screenshot captures the whole screen", t_tv_screenshot),
+            ("GET /api/tv/screenshot.png delivers the picture", t_tv_screenshot_png),
             ("default configuration is empty and valid", t_config_default),
             ("catalog comes from the stub and contains system apps", t_catalog),
             ("PUT /api/config saves, redacts token, removes duplicates", t_put_config),
