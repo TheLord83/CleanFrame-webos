@@ -161,11 +161,26 @@ var CHOSEN = [
   { id: 'sensor.kaputt', label: '' }
 ];
 
+/* The first write after the previous stage can still hit a server that is
+ * restarting; a short retry beats a red run for a timing reason. */
+function putFixture(haPort, entities, tries, cb) {
+  req('PUT', SERVER + '/api/config', { config: baseFixture(haPort, entities) }, function (err, code) {
+    if (code === 200) return cb(null, code);
+    if (tries > 1) return setTimeout(function () { putFixture(haPort, entities, tries - 1, cb); }, 700);
+    cb(err || ('HTTP ' + code), code);
+  });
+}
+
 function main(haPort) {
-  req('PUT', SERVER + '/api/config', { config: baseFixture(haPort, CHOSEN) }, function (err, code) {
+  putFixture(haPort, CHOSEN, 4, function (err, code) {
     if (code !== 200) {
-      console.log('FAIL: test server does not accept the initial configuration (HTTP ' + code + ')');
-      process.exit(1);
+      console.log('FAIL: test server does not accept the initial configuration (' + (err && (err.code || err.message) || err) + ', HTTP ' + code + ')');
+      console.log('      server: ' + SERVER);
+      req('GET', SERVER + '/api/health', null, function (e2, c2) {
+        console.log('      health: ' + (e2 ? (e2.code || e2.message) : ('HTTP ' + c2)));
+        process.exit(1);
+      });
+      return;
     }
     req('GET', 'http://127.0.0.1:' + PORT + '/json/list', null, function (err2, c2, list) {
       if (err2) { console.log('FAIL: no Chrome on port ' + PORT); process.exit(1); }
