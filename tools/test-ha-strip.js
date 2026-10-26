@@ -32,8 +32,39 @@ function arg(name, fallback) {
 }
 
 var PORT = parseInt(arg('port', '9333'), 10);
-var SERVER = arg('server', 'http://127.0.0.1:8484').replace(/\/$/, '');
 var WAIT_MS = parseInt(arg('wait', '12000'), 10);
+
+/* The launcher app talks to a fixed address (device.js: 127.0.0.1:8484), so the
+ * test has to use that port too. If nothing answers there, the test starts its
+ * own server with a temporary configuration and stops it afterwards — a stage
+ * that silently measures against a dead port is worthless. */
+var REPO = path.resolve(__dirname, '..');
+var SERVER = 'http://127.0.0.1:8484';
+var serverProc = null;
+
+function ensureServer(cb) {
+  req('GET', SERVER + '/api/health', null, function (err, code) {
+    if (code === 200) { console.log('    using the running config server on 8484'); return cb(true); }
+    var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'cf-strip-'));
+    var env = Object.assign({}, process.env, {
+      CF_PORT: '8484',
+      CF_CONFIG: path.join(tmp, 'config.json'),
+      CF_CLIENT_LOG: path.join(tmp, 'client.log'),
+      CF_STUB_APPS: path.join(REPO, 'web', 'test', 'fixtures', 'apps-stub.json'),
+      CF_WALL_DIR: path.join(REPO, 'app', 'assets', 'wallpapers'),
+      CF_GLASSHOUSE: 'http://127.0.0.1:9'
+    });
+    serverProc = require('child_process').spawn('node', ['server.js'], { cwd: path.join(REPO, 'web'), env: env, stdio: 'ignore' });
+    var start = Date.now();
+    (function poll() {
+      req('GET', SERVER + '/api/health', null, function (e2, c2) {
+        if (c2 === 200) { console.log('    started an own config server on 8484'); return cb(true); }
+        if (Date.now() - start > 15000) return cb(false);
+        setTimeout(poll, 200);
+      });
+    })();
+  });
+}
 
 function appPath() {
   var alt = path.resolve(__dirname, '..', 'app', 'index.html');
@@ -172,6 +203,16 @@ function putFixture(haPort, entities, tries, cb) {
 }
 
 function main(haPort) {
+  ensureServer(function (up) {
+    if (!up) {
+      console.log('FAIL: the configuration server did not come up');
+      process.exit(1);
+    }
+    runWithRetry(haPort);
+  });
+}
+
+function runWithRetry(haPort) {
   putFixture(haPort, CHOSEN, 4, function (err, code) {
     if (code !== 200) {
       console.log('FAIL: test server does not accept the initial configuration (' + (err && (err.code || err.message) || err) + ', HTTP ' + code + ')');
@@ -229,6 +270,7 @@ function run(wsUrl, haPort) {
     var failed = results.filter(function (r) { return !r.ok; }).length;
     if (ws) ws.close();
     haServer.close();
+    if (serverProc) { try { serverProc.kill(); } catch (e) {} }
     console.log('\nRESULT ' + (results.length - failed) + '/' + results.length);
     process.exit(failed ? 1 : 0);
   }

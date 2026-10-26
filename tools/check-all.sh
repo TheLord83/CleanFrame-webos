@@ -139,7 +139,7 @@ fi
 # --------------------------------------- Home Assistant status strip
 step "7/12 status strip (chosen entities on the home screen)"
 if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
-  run "status strip" node tools/test-ha-strip.js --port "$PORT_DEBUG" --server "http://127.0.0.1:$PORT_SERVER"
+  run "status strip" node tools/test-ha-strip.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)
