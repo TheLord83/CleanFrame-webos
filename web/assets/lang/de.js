@@ -120,8 +120,8 @@ window.CF_LANG.de = {
   "int.ha.loading": "Lade Entitäten …",
   "int.ha.loaded": "{n} Entitäten geladen",
 
-  "int.ent.title": "Entitäten auf der Kachel",
-  "int.ent.hint": "Bis zu 12 Werte. Gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.",
+  "int.ent.title": "Werte auf der Startseite",
+  "int.ent.hint": "Bis zu 12 Werte, die als Leiste über der App-Leiste stehen. Der Name lässt sich hier kürzen; gespeichert wird nur die Auswahl, das Token bleibt auf dem Fernseher.",
   "int.ent.filter": "Filter (z. B. Temperatur, Wohnzimmer)",
   "int.ent.none": "noch keine Entität gewählt",
   "int.ent.remove": "entfernen",
