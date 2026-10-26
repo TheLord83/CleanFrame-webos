@@ -214,7 +214,7 @@ last word: if the firmware is patched, it fails and says so. Nothing is guessed.
 
 ### The firmware decides — so the installer asks for it
 
-Where to find that number on the TV (with pictures for both ways): **[FIRMWARE.md](FIRMWARE.md)**.
+Where to find that number on the TV, with pictures: **[FIRMWARE.md](FIRMWARE.md)** (German: [FIRMWARE.de.md](FIRMWARE.de.md)).
 
 The one thing an unrooted TV will not tell us is its firmware. Instead of guessing, the
 installer asks (or takes `--firmware`), then judges the answer with `tools/rootaly.py`:

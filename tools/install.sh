@@ -80,7 +80,7 @@ t() {
       info_noroot)   echo "    ohne root gibt der Fernseher nur das Modell heraus; webOS und Firmware stehen im Hub unter System" ;;
       probe)         echo "==> Was der Fernseher ohne root ueber sich verraet (SSAP getSystemInfo)" ;;
       probe_root)    echo "    aus der Root-Shell gelesen (os_info.json)" ;;
-      ask_fw)        echo "Firmware-Version vom Fernseher - dreimal MUTE oder Einstellungen > Allgemein > Geraete > TV-Informationen (docs/FIRMWARE.md), leer = ueberspringen:" ;;
+      ask_fw)        echo "Firmware-Version vom Fernseher - Einstellungen > Alle Einstellungen > Allgemein > Geraete > TV-Management > TV-Informationen (docs/FIRMWARE.de.md), leer = ueberspringen:" ;;
       fw_bad)        echo "    Das sieht nicht wie eine Firmware-Version aus (Beispiel: 03.51.16) - ignoriert." ;;
       fw_link)       echo "    direkter Link: %s" ;;
       root_refused)  echo "FEHLER: nach den veroeffentlichten Regeln ist diese Firmware gepatcht - ich roote nicht. Mit --force-root trotzdem versuchen." ;;
@@ -146,7 +146,7 @@ t() {
       info_noroot)   echo "    without root the TV only reveals its model; webOS and firmware are in the hub under System" ;;
       probe)         echo "==> What the TV tells about itself without root (SSAP getSystemInfo)" ;;
       probe_root)    echo "    read from the root shell (os_info.json)" ;;
-      ask_fw)        echo "Firmware version from the TV - press MUTE three times, or Settings > General > Devices > TV Information (docs/FIRMWARE.md), empty = skip:" ;;
+      ask_fw)        echo "Firmware version from the TV - Settings > All Settings > General > Devices > TV Management > TV Information (docs/FIRMWARE.md), empty = skip:" ;;
       fw_bad)        echo "    That does not look like a firmware version (example: 03.51.16) - ignored." ;;
       fw_link)       echo "    direct link: %s" ;;
       root_refused)  echo "ERROR: by the published rules this firmware is patched - not rooting. Use --force-root to try anyway." ;;

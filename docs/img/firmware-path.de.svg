@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img"
+     aria-label="Wo die TV-Informationen stehen: Einstellungen, Alle Einstellungen, Allgemein, Geräte, TV-Management, TV-Informationen. Der Stummtasten-Kurztipp funktioniert bei diesem Modell nicht">
+  <style>
+    .bg { fill: #14161a; }
+    .card { fill: #1e2128; stroke: #2f333c; stroke-width: 2; }
+    .lbl { fill: #e8eaee; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 26px; font-weight: 700; }
+    .small { fill: #9aa1ad; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 20px; }
+    .step { fill: #c8ccd4; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 22px; }
+    .key { fill: #23272f; stroke: #3a3f4a; stroke-width: 2; }
+    .hot { fill: #b3252a; stroke: #e04b52; stroke-width: 3; }
+    .dead { fill: #1a1d22; stroke: #3a3f4a; stroke-width: 2; stroke-dasharray: 6 5; }
+    .deadtext { fill: #6b7280; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 21px; }
+    .warn { fill: #e0a03f; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 21px; font-weight: 700; }
+    .arrow { stroke: #e04b52; stroke-width: 4; fill: none; }
+  </style>
+
+  <rect class="bg" width="1200" height="720" rx="22"/>
+
+  <!-- left: the shortcut that does not work -->
+  <rect class="card" x="40" y="60" width="320" height="600" rx="28"/>
+  <text class="lbl" x="200" y="112" text-anchor="middle">Funktioniert nicht</text>
+  <text class="small" x="200" y="146" text-anchor="middle">Dreimal STUMM</text>
+  <text class="small" x="200" y="172" text-anchor="middle">steht überall im Netz</text>
+
+  <circle class="dead" cx="200" cy="250" r="40"/>
+  <text class="deadtext" x="200" y="258" text-anchor="middle" font-size="26">🔇</text>
+  <path d="M172 222 L228 278" stroke="#b3252a" stroke-width="5"/>
+  <path d="M228 222 L172 278" stroke="#b3252a" stroke-width="5"/>
+  <text class="warn" x="200" y="320" text-anchor="middle">es passiert nichts</text>
+
+  <text class="small" x="200" y="392" text-anchor="middle">Getestet am 43NANO779PA,</text>
+  <text class="small" x="200" y="420" text-anchor="middle">webOS 6.5: kein Panel.</text>
+  <text class="small" x="200" y="470" text-anchor="middle">Nimm das Menü rechts,</text>
+  <text class="small" x="200" y="498" text-anchor="middle">oder die Werkzeuge hier im Repo.</text>
+
+  <!-- right: the menu -->
+  <rect class="card" x="410" y="60" width="750" height="600" rx="28"/>
+  <text class="lbl" x="450" y="112">Der Weg, der geht</text>
+
+  <rect class="key" x="450" y="146" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="182">⚙  Einstellungen</text>
+
+  <rect class="key" x="450" y="224" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="260">⌄  Alle Einstellungen</text>
+
+  <rect class="key" x="450" y="302" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="338">▸  Allgemein</text>
+
+  <rect class="key" x="450" y="380" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="416">▸  Geräte</text>
+
+  <rect class="key" x="450" y="458" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="494">▸  TV-Management</text>
+
+  <rect class="hot" x="450" y="536" width="670" height="56" rx="12"/>
+  <text class="step" x="474" y="572" style="fill:#fff;font-weight:700">★  TV-Informationen</text>
+
+  <path class="arrow" d="M785 202 L785 222" marker-end="url(#a)"/>
+  <path class="arrow" d="M785 280 L785 300" marker-end="url(#a)"/>
+  <path class="arrow" d="M785 358 L785 378" marker-end="url(#a)"/>
+  <path class="arrow" d="M785 436 L785 456" marker-end="url(#a)"/>
+  <path class="arrow" d="M785 514 L785 534" marker-end="url(#a)"/>
+
+  <text class="small" x="450" y="626">Neuere Versionen nennen den letzten Punkt „Info zu diesem TV“. Gleicher Bildschirm.</text>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04b52"/>
+    </marker>
+  </defs>
+</svg>
