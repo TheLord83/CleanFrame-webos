@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" role="img"
+     aria-label="Two ways to the TV information screen: three presses of the mute button, or Settings - All Settings - General - Devices - TV Management - TV Information">
+  <style>
+    .bg { fill: #14161a; }
+    .card { fill: #1e2128; stroke: #2f333c; stroke-width: 2; rx: 18; }
+    .lbl { fill: #e8eaee; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 26px; }
+    .small { fill: #9aa1ad; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 20px; }
+    .step { fill: #c8ccd4; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 22px; }
+    .key { fill: #23272f; stroke: #3a3f4a; stroke-width: 2; }
+    .hot { fill: #b3252a; stroke: #e04b52; stroke-width: 3; }
+    .accent { fill: #e04b52; font-family: Manrope, Helvetica, Arial, sans-serif; font-weight: 700; }
+    .dash { stroke: #4a505c; stroke-width: 3; stroke-dasharray: 8 8; fill: none; }
+    .arrow { stroke: #e04b52; stroke-width: 4; fill: none; }
+  </style>
+
+  <rect class="bg" width="1200" height="760" rx="22"/>
+
+  <!-- Left: the remote -->
+  <rect class="card" x="40" y="60" width="300" height="640" rx="40"/>
+  <text class="lbl" x="190" y="115" text-anchor="middle" style="font-weight:700">Fastest</text>
+  <text class="small" x="190" y="145" text-anchor="middle">press the mute button 3×</text>
+
+  <circle class="hot" cx="190" cy="255" r="40"/>
+  <text class="step" x="190" y="263" text-anchor="middle" style="fill:#fff;font-weight:700">🔇</text>
+  <text class="accent" x="190" y="320" text-anchor="middle" font-size="22">× 3</text>
+  <circle class="key" cx="190" cy="392" r="34"/>
+  <text class="step" x="190" y="399" text-anchor="middle">⚙</text>
+  <text class="small" x="190" y="452" text-anchor="middle">or: the gear = Settings</text>
+  <text class="small" x="190" y="540" text-anchor="middle">A panel with model,</text>
+  <text class="small" x="190" y="568" text-anchor="middle">serial and software</text>
+  <text class="small" x="190" y="596" text-anchor="middle">version appears.</text>
+
+  <!-- Right: the menu path -->
+  <rect class="card" x="420" y="60" width="740" height="640"/>
+  <text class="lbl" x="460" y="115" style="font-weight:700">The long way — with the remote</text>
+
+  <g>
+    <rect class="key" x="460" y="150" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="186">⚙  Settings · Einstellungen</text>
+
+    <rect class="key" x="460" y="228" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="264">⌄  All Settings · Alle Einstellungen</text>
+
+    <rect class="key" x="460" y="306" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="342">▸  General · Allgemein</text>
+
+    <rect class="key" x="460" y="384" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="420">▸  Devices · Geräte</text>
+
+    <rect class="key" x="460" y="462" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="498">▸  TV Management · TV-Management</text>
+
+    <rect class="hot" x="460" y="540" width="660" height="56" rx="12"/>
+    <text class="step" x="484" y="576" style="fill:#fff;font-weight:700">★  TV Information · TV-Informationen</text>
+
+    <path class="arrow" d="M790 206 L790 226" marker-end="url(#a)"/>
+    <path class="arrow" d="M790 284 L790 304" marker-end="url(#a)"/>
+    <path class="arrow" d="M790 362 L790 382" marker-end="url(#a)"/>
+    <path class="arrow" d="M790 440 L790 460" marker-end="url(#a)"/>
+    <path class="arrow" d="M790 518 L790 538" marker-end="url(#a)"/>
+  </g>
+
+  <text class="small" x="460" y="645">Newer builds call the last entry “About This TV · Info zu diesem TV”.</text>
+  <text class="small" x="460" y="672">Both names, same screen: model, serial number, software version.</text>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04b52"/>
+    </marker>
+  </defs>
+</svg>

@@ -70,6 +70,8 @@ und ein Downgrade ist hier kein Thema. Einzelheiten und der Weg von Hand:
 - Home-Assistant-Werte als Kacheln, MQTT und Update-Sperre über Glasshouse
 - Bildschirmschoner, Einrichtungsassistent, Sicherung und Wiederherstellung der Konfiguration
 
+Wo die Firmware-Nummer am Fernseher steht — mit beiden Wegen: [docs/FIRMWARE.md](docs/FIRMWARE.md).
+
 ## Voraussetzungen
 
 * LG-Fernseher mit webOS 6 oder neuer, **gerootet** (Homebrew Channel installiert)

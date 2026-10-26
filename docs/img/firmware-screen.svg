@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img"
+     aria-label="The TV information screen with device name, model, serial number, software version 03.51.16 and webOS version 6.5.0; the software version is the number you need">
+  <style>
+    .bg { fill: #101216; }
+    .panel { fill: #1b1e24; stroke: #2c313a; stroke-width: 2; }
+    .title { fill: #f2f4f7; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; }
+    .row { fill: #23272f; }
+    .name { fill: #a7aebb; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 24px; }
+    .value { fill: #f2f4f7; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 26px; }
+    .hot { fill: #b3252a; stroke: #e04b52; stroke-width: 3; }
+    .hottxt { fill: #ffffff; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; }
+    .note { fill: #9aa1ad; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 21px; }
+    .call { fill: #e04b52; font-family: Manrope, Helvetica, Arial, sans-serif; font-size: 23px; font-weight: 700; }
+    .frame { fill: none; stroke: #3a3f4a; stroke-width: 14; rx: 12; }
+  </style>
+
+  <rect class="bg" width="1200" height="720" rx="22"/>
+  <rect class="frame" x="30" y="30" width="1140" height="660" rx="12"/>
+
+  <text class="title" x="80" y="110">TV Information · TV-Informationen</text>
+
+  <g>
+    <rect class="row" x="80" y="150" width="1040" height="66" rx="10"/>
+    <text class="name" x="106" y="192">Device name · Gerätename</text>
+    <text class="value" x="700" y="192">[LG] webOS TV NANO779PA</text>
+
+    <rect class="row" x="80" y="230" width="1040" height="66" rx="10"/>
+    <text class="name" x="106" y="272">Model · Modell</text>
+    <text class="value" x="700" y="272">43NANO779PA</text>
+
+    <rect class="row" x="80" y="310" width="1040" height="66" rx="10"/>
+    <text class="name" x="106" y="352">Serial number · Seriennummer</text>
+    <text class="value" x="700" y="352">000MANJ00000</text>
+
+    <rect class="row" x="80" y="390" width="1040" height="66" rx="10"/>
+    <text class="name" x="106" y="432">webOS TV version · webOS TV-Version</text>
+    <text class="value" x="700" y="432">6.5.0-2401</text>
+
+    <rect class="hot" x="80" y="470" width="1040" height="72" rx="10"/>
+    <text class="hottxt" x="106" y="516">Software version · Software-Version</text>
+    <text class="hottxt" x="700" y="516">03.51.16</text>
+  </g>
+
+  <path d="M880 566 L880 556" stroke="#e04b52" stroke-width="4" fill="none" marker-end="url(#up)"/>
+  <text class="call" x="700" y="596">↑ this is the number the installer asks for</text>
+  <text class="note" x="80" y="648">Three numbers separated by dots, e.g. 03.51.16. Not the webOS version above it — the</text>
+  <text class="note" x="80" y="676">exploit tables are keyed on this build number, and it changes with every LG update.</text>
+  <defs>
+    <marker id="up" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#e04b52"/>
+    </marker>
+  </defs>
+</svg>

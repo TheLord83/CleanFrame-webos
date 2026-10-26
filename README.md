@@ -65,6 +65,8 @@ downgrade is out of scope here. Details and the manual path: [docs/INSTALL.md](d
 - Home Assistant values as tiles; MQTT and update blocking through Glasshouse
 - Screensaver, setup wizard, backup and restore of the configuration
 
+Where the firmware number is on the TV — with the two ways to find it: [docs/FIRMWARE.md](docs/FIRMWARE.md).
+
 ## Requirements
 
 - LG TV with webOS 6 or newer, **rooted** (Homebrew Channel installed)
