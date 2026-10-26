@@ -46,7 +46,7 @@ var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.22';
+var VERSION = '0.4.25';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -535,24 +535,37 @@ function handle(req, res) {
        * Nobody needs Home Assistant for the remote control — it is only the last net. */
       remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
         if (!e2) return json(res, 200, { ok: true, via: 'launcher', sent: sent });
+        /* Never open a pairing prompt just because a key was pressed: without a stored
+         * key the TV would ask again on every single press. Unpaired -> straight on. */
+        if (!ssap.status().paired) {
+          return viaHomeAssistant(store, keys, e2, 'noch nicht gekoppelt');
+        }
         ssap.press(keys, { tv: (store.read() || {}).tv || '' }, function (e3, pressed) {
           if (!e3) return json(res, 200, { ok: true, via: 'ssap', sent: pressed });
-          var conf = store.read() || {};
-          var cfg = conf.integrations || {};
-          systemkey.press(keys, cfg.ha, function (e4, reply) {
-            if (e4) {
-              return json(res, 503, {
-                ok: false,
-                error: String(e2),
-                errorOwn: String(e3),
-                errorSystem: String(e4),
-                hint: 'Launcher nicht im Vordergrund und keine eigene Kopplung; Home Assistant antwortet auch nicht'
-              });
-            }
-            json(res, 200, { ok: true, via: 'homeassistant', sent: reply.pressed, entity: reply.entity });
-          });
+          viaHomeAssistant(store, keys, e2, String(e3));
         });
       });
+    });
+  }
+
+  /* Last net for the keys: Home Assistant, which is already paired with the TV. */
+  function viaHomeAssistant(store, keys, launcherError, ownError) {
+    var conf = store.read() || {};
+    var cfg = conf.integrations || {};
+    systemkey.press(keys, cfg.ha, function (e4, reply) {
+      if (e4) {
+        return json(res, 503, {
+          ok: false,
+          error: String(launcherError),
+          errorOwn: String(ownError),
+          errorSystem: String(e4),
+          paired: ssap.status().paired,
+          hint: ssap.status().paired
+            ? 'Launcher nicht im Vordergrund, eigene Kopplung still, Home Assistant antwortet auch nicht'
+            : 'Noch nicht gekoppelt: im Hub unter System auf "Jetzt koppeln" und die Frage am Fernseher bestätigen'
+        });
+      }
+      json(res, 200, { ok: true, via: 'homeassistant', sent: reply.pressed, entity: reply.entity });
     });
   }
 

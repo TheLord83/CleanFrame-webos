@@ -132,8 +132,20 @@ Ws.prototype.send = function (obj) {
 };
 
 /* Returns one text frame; keeps leftover bytes for the next call. */
+/* Antwortet auf ein Ping-Rahmen des Servers. Ohne Pong schließt der Fernseher die
+ * Verbindung nach knapp 40 Sekunden — mitten in der Kopplungsfrage. */
+Ws.prototype.pong = function (payload) {
+  var data = payload || Buffer.alloc(0);
+  var mask = crypto.randomBytes(4);
+  var head = Buffer.from([0x8a, 0x80 | data.length]);
+  var masked = Buffer.alloc(data.length);
+  for (var i = 0; i < data.length; i++) masked[i] = data[i] ^ mask[i % 4];
+  this.s.write(Buffer.concat([head, mask, masked]));
+};
+
 Ws.prototype.recv = function (cb, timeoutMs) {
   var self = this;
+  if (self.dead) return cb('Verbindung geschlossen');
   function tryParse() {
     if (self.buf.length < 2) return false;
     var b2 = self.buf[1];
@@ -155,6 +167,7 @@ Ws.prototype.recv = function (cb, timeoutMs) {
     var payload = self.buf.slice(off, off + len).toString('utf8');
     self.buf = self.buf.slice(off + len);
     if (opcode === 0x8) return cb('Server hat geschlossen');
+    if (opcode === 0x9) { self.pong(Buffer.from(payload)); return tryParse(); }
     if (opcode === 0x1 || opcode === 0x2) return cb(null, payload);
     return tryParse();
   }
@@ -179,6 +192,10 @@ Ws.prototype.recv = function (cb, timeoutMs) {
 };
 
 Ws.prototype.close = function () {
+  if (this.dead) return;
+  this.dead = true;
+  try { this.s.setTimeout(0); } catch (e) { /* egal */ }
+  try { this.s.removeAllListeners('data'); } catch (e) { /* egal */ }
   try { this.s.destroy(); } catch (e) { /* egal */ }
 };
 
@@ -189,35 +206,45 @@ Ws.prototype.close = function () {
 function register(opts, cb) {
   var host = opts.host || '127.0.0.1';
   var known = readKey();
+  var fertig = false;
+  function finish(err, val) {
+    if (fertig) return;
+    fertig = true;
+    cb(err, val);
+  }
   Ws.connect(host, SSAP_PORT, function (e, ws) {
-    if (e) return cb(e);
+    if (e) return finish(e);
+    var geschlossen = false;
+    function zu(err, val) {
+      if (geschlossen) return;
+      geschlossen = true;
+      clearTimeout(hart);
+      ws.close();
+      finish(err, val);
+    }
     var payload = { forcePairing: false, pairingType: 'PROMPT', manifest: MANIFEST };
     if (known && known.key) payload['client-key'] = known.key;
     ws.send({ type: 'register', id: 'reg', payload: payload });
     var deadline = (opts.waitSeconds || 90) * 1000;
     var start = Date.now();
     var hart = setTimeout(function () {
-      ws.close();
-      cb('keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)');
+      zu('keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)');
     }, deadline + 3000);
     function loop() {
       if (Date.now() - start > deadline) {
-        ws.close();
-        return cb('keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)');
+        return zu('keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)');
       }
       var left = Math.max(3000, deadline - (Date.now() - start));
       ws.recv(function (e2, text) {
-        if (e2) { ws.close(); return cb(e2 === 'timeout' ? 'keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)' : e2); }
+        if (e2) return zu(e2 === 'timeout' ? 'keine Antwort vom Fernseher (Dialog am Gerät bestätigt?)' : e2);
         var msg;
         try { msg = JSON.parse(text); } catch (e3) { return loop(); }
         var key = (msg.payload || {})['client-key'];
         if (key) {
-          clearTimeout(hart);
           writeKey({ key: key, tv: opts.tv || '', saved: new Date().toISOString() });
-          ws.close();
-          return cb(null, { key: key, fresh: !(known && known.key === key) });
+          return zu(null, { key: key, fresh: !(known && known.key === key) });
         }
-        if (msg.type === 'error') { ws.close(); return cb(msg.error || 'Fehler'); }
+        if (msg.type === 'error') return zu(msg.error || 'Fehler');
         loop();
       }, left);
     }
@@ -234,32 +261,43 @@ function press(keys, opts, cb) {
     if (!n) return cb('unbekannte Taste: ' + keys[i]);
     names.push(n);
   }
-  register({ host: host, tv: opts.tv, waitSeconds: 5 }, function (e, res) {
-    if (e) return cb(e);
+  var known = readKey();
+  if (!known || !known.key) return cb('noch nicht gekoppelt');
+  (function (res) {
     Ws.connect(host, SSAP_PORT, function (e2, ws) {
       if (e2) return cb(e2);
       ws.send({ type: 'register', id: 'reg', payload: {
         forcePairing: false, pairingType: 'PROMPT', manifest: MANIFEST,
         'client-key': res.key
       } });
-      ws.recv(function (e3, text) {
-        var okReg = false;
-        try { okReg = JSON.parse(text).type === 'registered'; } catch (e4) { okReg = false; }
-        if (!okReg) { ws.close(); return cb('Registrierung abgelehnt'); }
-        ws.send({ type: 'request', id: 'ptr',
-          uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' });
-        ws.recv(function (e5, text2) {
-          ws.close();
-          if (e5) return cb(e5);
-          var msg;
-          try { msg = JSON.parse(text2); } catch (e6) { return cb('unlesbare Antwort'); }
-          var sockPath = (msg.payload || {}).socketPath;
-          if (!sockPath) return cb((msg.error || 'kein Pointer-Socket'));
-          sendFrames(sockPath, names, cb);
-        });
-      });
+      /* Der Fernseher schickt erst die Bestätigung ("response") und dann den
+       * eigentlichen "registered"-Rahmen — deshalb warten, bis der kommt. */
+      var versuche = 0;
+      function warteAufRegistered() {
+        versuche += 1;
+        if (versuche > 6) { ws.close(); return cb('Registrierung abgelehnt'); }
+        ws.recv(function (e3, text) {
+          if (e3) { ws.close(); return cb(e3); }
+          var msg = null;
+          try { msg = JSON.parse(text); } catch (e4) { msg = null; }
+          if (msg && msg.type === 'error') { ws.close(); return cb(msg.error || 'Fehler'); }
+          if (!msg || msg.type !== 'registered') return warteAufRegistered();
+          ws.send({ type: 'request', id: 'ptr',
+            uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' });
+          ws.recv(function (e5, text2) {
+            ws.close();
+            if (e5) return cb(e5);
+            var antwort;
+            try { antwort = JSON.parse(text2); } catch (e6) { return cb('unlesbare Antwort'); }
+            var sockPath = (antwort.payload || {}).socketPath;
+            if (!sockPath) return cb((antwort.error || 'kein Pointer-Socket'));
+            sendFrames(sockPath, names, cb);
+          });
+        }, 8000);
+      }
+      warteAufRegistered();
     });
-  });
+  })(known);
 }
 
 /* The pointer socket is a unix socket on the device and a ws:// URL on the network. */
