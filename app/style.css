@@ -318,9 +318,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .ent-line{display:flex;align-items:center;margin-top:8px}
 .ent-line:first-child{margin-top:0}
 .ent-line > * + *{margin-left:20px}
-.ent-check{width:104px;height:96px;border-radius:18px;background:rgba(16,14,12,.44);color:#f6f1e7;display:flex;align-items:center;justify-content:center;font:inherit;border:0}
+.ent-check{width:104px;height:96px;border-radius:18px;background:rgba(16,14,12,.5);color:#f6f1e7;display:flex;align-items:center;justify-content:center;font:inherit;border:2px solid rgba(246,241,231,.32)}
 .ent-check .ico{width:44px;height:44px}
-.ent-check.is-focus{background:var(--solid);color:var(--solid-ink)}
+.ent-check.is-focus{background:var(--solid);color:var(--solid-ink);border-color:var(--solid)}
 .ent-name{flex:1;height:96px;padding:10px 28px;border-radius:18px;background:rgba(16,14,12,.44);color:#f6f1e7;display:flex;flex-direction:column;justify-content:center;font:inherit;border:0;text-align:left}
 .ent-name.is-focus{background:var(--solid);color:var(--solid-ink)}
 .ent-name-main{font-size:38px;line-height:46px;font-weight:500;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

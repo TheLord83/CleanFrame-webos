@@ -1562,7 +1562,9 @@
    * hub lets you name a value yourself ("Temperature" instead of
    * "sensor.living_room_temperature"). */
   function haLabel(id, fallback) {
-    var picked = haPicked(), i;
+    /* All chosen values, not only the visible ones: a hidden value keeps its
+     * name in the settings page. */
+    var picked = haAll(), i;
     for (i = 0; i < picked.length; i++) {
       if (picked[i].id === id && picked[i].label) return picked[i].label;
     }
@@ -2234,7 +2236,9 @@
           + '<button type="button" tabindex="-1" class="ent-name' + (f.i === i && f.part === 'name' ? ' is-focus' : '') + '"'
           + ' data-z="entName" data-i="' + i + '" data-id="' + esc(e.id) + '">'
           + '<span class="ent-name-main">' + esc(name) + '</span>'
-          + '<span class="ent-name-id">' + esc(e.id) + '</span></button>'
+          /* Without an own label the id IS the name; printing it twice looks
+           * like a rendering bug. */
+          + (e.label ? '<span class="ent-name-id">' + esc(e.id) + '</span>' : '') + '</button>'
           + '</div>';
       });
       el.list.innerHTML = html;
@@ -2577,6 +2581,11 @@
                ueberlappt: r && h ? r.bottom > h.top : null };
     },
     language: function (code) { setLanguage(code); return true; },
+    openEntities: function () {
+      while (S.stack.length > 1) S.stack.pop();
+      openEntities();
+      return top().id;
+    },
     openSettings: function (group) {
       while (S.stack.length > 1) S.stack.pop();
       push({ id: 'settings', f: { id: 'background' } });

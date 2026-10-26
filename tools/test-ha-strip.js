@@ -430,11 +430,14 @@ function run(wsUrl, haPort) {
               getCfg(function (cfg) {
                 var ents = (((cfg || {}).integrations || {}).ha || {}).entities || [];
                 check('the choice is stored on the server', ents[0] && ents[0].shown === false, JSON.stringify(ents[0] || null));
+                evalJs("(document.querySelector('#sheetView .ent-line .ent-name-main')||{}).textContent", function (name) {
+                  check('a hidden value keeps its own name', String(name) === 'Temperatur', String(name));
                 key('ok', function () {
                   waitFor("document.querySelectorAll('#haStrip .ha-chip').length === 3", function (ok2, v2) {
                     check('switching it back shows it again', ok2, String(v2));
                     key('back', function () { key('back', function () { stepValueChange(); }); });
                   });
+                });
                 });
               });
             });
