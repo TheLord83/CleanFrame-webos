@@ -433,6 +433,16 @@
     }, 2000);
   }
 
+  /* A language change from the hub needs one fresh page build. The guard in
+   * sessionStorage stops a stale server value from reloading in a loop. */
+  function reloadForLanguage(want) {
+    try {
+      if (sessionStorage.getItem('cf.langReload') === want) return;
+      sessionStorage.setItem('cf.langReload', want);
+    } catch (e) { }
+    setTimeout(function () { try { location.reload(); } catch (e) { } }, 350);
+  }
+
   /* Apply the configuration without losing the revision. */
   function applyConfigInto(cfg) {
     S.pendingCfg = null;
@@ -2676,7 +2686,18 @@
       /* 'system' means: the TV decides. If no usable system language exists
        * (web app reports en-US), German stays the default. */
       var want = cfg.lang === 'system' ? 'de' : cfg.lang;
+      /* CleanFrameI18n.lang is the language this page was built with; set()
+       * only swaps the table. */
+      var built = window.CleanFrameI18n.lang;
       window.CleanFrameI18n.set(want);
+      if (built === want) {
+        try { sessionStorage.removeItem('cf.langReload'); } catch (e) {}
+      } else if (booted) {
+        /* Tiles and labels are rendered once, the utility bar never again, so
+         * swapping the table alone would leave German chrome around English
+         * values. Rebuild the page instead. */
+        reloadForLanguage(want);
+      }
     }
 
     if (cfg.look) {

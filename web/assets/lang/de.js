@@ -260,6 +260,8 @@ window.CF_LANG.de = {
   "uitest.wizLayout": "Schritt Darstellung rendert Regler",
   "uitest.wizDone": "Schritt Fertig zeigt Zusammenfassung",
   "uitest.langSwitch": "Sprachumschalter ändert die Oberfläche",
+  "uitest.mergeOwn": "Änderung dieser Seite gewinnt",
+  "uitest.mergeFresh": "Fremde Änderung bleibt erhalten",
   'sys.dev.title': "Fernseher",
   'sys.dev.hint': "Modell, webOS- und Firmware-Version liest der Hub direkt auf dem Fernseher aus.",
   'sys.dev.model': "Modell",

@@ -194,6 +194,24 @@ settings cards, tile list, visible status lines) and is stored in
 `localStorage["cf.ui.lang"]`; the default stays German. For a headless check the language
 can be forced with `?lang=en`, e.g. `chrome --headless=new --dump-dom "http://127.0.0.1:8484/?lang=en"`.
 
+### App language, and why the page reloads
+
+The language of the launcher is a server setting (`lang`, set under Appearance).
+A running launcher does not only swap its translation table when that changes: it
+reloads itself once. Tiles and labels are built at startup and the utility bar is
+never rebuilt, so a table swap would leave German chrome around English values
+(exactly what happened on 2026-10-26). `CleanFrameI18n.lang` keeps the language
+the page was built with, and `reloadForLanguage()` compares against it; a guard in
+`sessionStorage` stops a stale server value from reloading in a loop.
+
+### Two tabs, one configuration
+
+Every write carries `rev`. If the server answers 409, the interface fetches the
+newer configuration and re-applies only the fields this tab changed since it last
+agreed with the server (`mergeChanged()`), then sends again. Without that a tab
+left open for an hour would push its whole stale copy back and wipe what the
+launcher or another tab wrote in the meantime.
+
 ## Security model
 
 - Without a token everything is allowed; with a token (`CF_TOKEN`) requests must

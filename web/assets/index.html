@@ -881,7 +881,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.40';
+  var UI_BUILD = '0.4.41';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -901,6 +901,23 @@
   }
   setInterval(spinTick, 200);
 
+  function cloneCfg(c) { return JSON.parse(JSON.stringify(c || {})); }
+
+  /* Which top-level fields did this page change since it last agreed with the
+   * server? Only those travel onto a newer revision; everything else stays as
+   * the server has it. Without this a tab left open for a while would push its
+   * whole stale configuration back and wipe what changed in the meantime. */
+  function mergeChanged(fresh, before, edited) {
+    var out = cloneCfg(fresh), k;
+    before = before || {};
+    for (k in edited) {
+      if (!Object.prototype.hasOwnProperty.call(edited, k)) continue;
+      if (k === 'rev' || k === 'updatedAt') continue;
+      if (JSON.stringify(edited[k]) !== JSON.stringify(before[k])) out[k] = cloneCfg({ v: edited[k] }).v;
+    }
+    return out;
+  }
+
   function save(payload, statusEl, okKey, retried) {
     if (saveBusy) {
       saveDirty = true;
@@ -913,6 +930,7 @@
       /* Only take the revision over — the response must not overwrite the
        * fields, otherwise clicks made while saving are lost. */
       if (r && r.config) { state.cfg.rev = r.config.rev; state.cfgSchemaVersion = r.schemaVersion; }
+      state.cfgSnapshot = cloneCfg(state.cfg);
       var zeit = r && r.updatedAt ? timeString(new Date(r.updatedAt)) : '';
       var vars = { msg: { key: okKey }, rev: state.cfg.rev || '?' };
       if (zeit) {
@@ -926,7 +944,7 @@
        * change away, resend it with the new revision number instead. */
       if (e && e.status === 409 && !retried) {
         return api('GET', '/api/config').then(function (r2) {
-          state.cfg.rev = r2.config.rev;
+          state.cfg = mergeChanged(r2.config, state.cfgSnapshot, state.cfg);
           return save(state.cfg, statusEl, okKey, true);
         });
       }
@@ -982,6 +1000,7 @@
                         api('GET', '/api/icons').catch(function () { return { groups: [] }; })])
       .then(function (res) {
         state.cfg = res[0].config;
+        state.cfgSnapshot = cloneCfg(res[0].config);
         state.apps = res[1].apps || [];
         state.schema = res[3].schema || {};
         state.icons = res[4].groups || [];
@@ -1510,6 +1529,18 @@
         var after = document.querySelector('[data-t="nav.look"]').textContent;
         step('uitest.langSwitch', before !== after, before + ' -> ' + after);
         document.getElementById('uiLang').click();
+
+        /* A stale tab must not push its whole configuration over a newer one:
+         * only the fields it changed itself travel along. */
+        var fresh = { rev: 9, lang: 'de', home: [{ appId: 'a' }], look: { wall: 'valley' } };
+        var before9 = { rev: 8, lang: 'de', home: [{ appId: 'a' }], look: { wall: 'valley' } };
+        var edited9 = { rev: 8, lang: 'en', home: [{ appId: 'a' }], look: { wall: 'valley' } };
+        var merged = mergeChanged(fresh, before9, edited9);
+        step('uitest.mergeOwn', merged.lang === 'en', 'lang ' + merged.lang);
+        fresh.home = [{ appId: 'neu' }];
+        merged = mergeChanged(fresh, before9, edited9);
+        step('uitest.mergeFresh', merged.home[0].appId === 'neu' && merged.lang === 'en' && merged.rev === 9,
+             'home ' + merged.home[0].appId + ', lang ' + merged.lang + ', rev ' + merged.rev);
         var ok = steps.every(function (x) { return x.ok; });
         out.textContent = JSON.stringify({ ok: ok, steps: steps }, null, 1);
         out.hidden = false;

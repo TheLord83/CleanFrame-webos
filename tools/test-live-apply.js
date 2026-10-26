@@ -314,13 +314,29 @@ function run(wsUrl) {
       waitFor('Array.prototype.some.call(document.querySelectorAll("#track .tile"), function (t) { return (t.textContent || "").indexOf("Pruefname") >= 0; })', function (ok) {
         evalJs('JSON.stringify(Array.prototype.map.call(document.querySelectorAll("#track .tile"), function (t) { return (t.textContent || "").trim(); }).slice(0, 4))', function (v) {
           check('tile name arrives live (dock)', ok, v);
-          stepSpinner();
+          stepLanguage();
         });
       });
     });
   }
 
-  /* 8) spinner in the web interface: on during the action, off afterwards */
+  /* 8) a language change from the server must rebuild the page: swapping the
+   * translation table alone leaves the built texts in the old language. */
+  function stepLanguage() {
+    patchCfg(function (c) { c.lang = 'en'; }, function () {
+      waitFor('document.body.innerText.indexOf("All apps") >= 0', function (ok) {
+        evalJs('(function(){ var u=document.getElementById("utils"); return u ? (u.innerText || "").replace(/\\n/g, " | ") : "no-util-bar"; })()', function (v) {
+          check('language from the server rebuilds the page', ok, v);
+          /* Leave the browser as we found it for the next run. */
+          evalJs('(function(){ try { localStorage.removeItem("cleanframe.lang"); } catch (e) {} return 1; })()', function () {
+            stepSpinner();
+          });
+        });
+      });
+    });
+  }
+
+  /* 9) spinner in the web interface: on during the action, off afterwards */
   function stepSpinner() {
     send('Page.navigate', { url: SERVER + '/' }, function () {
       wait(3000, function () {
@@ -331,11 +347,32 @@ function run(wsUrl) {
               check('spinner runs during the action', an, an ? 'on' : 'stayed off');
               waitFor('(function(){var e=document.getElementById("tvSpin"); return !!(e && e.className.indexOf("on") < 0);})()', function (aus) {
                 check('spinner stops afterwards', aus, aus ? 'off' : 'keeps running');
-                restore();
+                stepHubSelftest();
               });
             });
           });
         });
+      });
+    });
+  }
+
+  /* 10) the interface's own self-test (?selftest=ui) has to end green. It is the
+   * only place where the checks of the browser page itself live, so a stage that
+   * nobody calls would be green for the wrong reason. */
+  function stepHubSelftest() {
+    send('Page.navigate', { url: SERVER + '/?selftest=ui' }, function () {
+      wait(1500, function () {
+        (function poll(n) {
+          evalJs('document.title', function (t) {
+            if (t !== 'SELFTEST-OK' && t !== 'SELFTEST-FAIL' && n < 40) {
+              return wait(250, function () { poll(n + 1); });
+            }
+            evalJs('(function(){var o=document.getElementById("out"); var bad=[]; try { JSON.parse(o.textContent).steps.forEach(function(s){ if(!s.ok) bad.push(s.name); }); } catch(e) {} return bad.join(" | "); })()', function (bad) {
+              check('hub self-test is green', t === 'SELFTEST-OK', t === 'SELFTEST-OK' ? 'all steps green' : (bad || String(t)));
+              restore();
+            });
+          });
+        })(0);
       });
     });
   }

@@ -257,6 +257,8 @@ window.CF_LANG.en = {
   "uitest.wizLayout": "Appearance step renders controls",
   "uitest.wizDone": "Done step shows the summary",
   "uitest.langSwitch": "Language switch changes the interface",
+  "uitest.mergeOwn": "This page's change wins",
+  "uitest.mergeFresh": "The other change survives",
   'sys.dev.title': "Television",
   'sys.dev.hint': "Model, webOS and firmware version are read on the TV itself by the hub.",
   'sys.dev.model': "Model",
