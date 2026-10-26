@@ -1500,7 +1500,14 @@
     step('uitest.tiles', !!document.getElementById('tileList'));
     step('uitest.langSelect', !!document.getElementById('lk-lang') && document.getElementById('lk-lang').options.length === 3);
 
-    if (!target) { out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1); out.hidden = false; return; }
+    if (!target) {
+      /* Also fail loudly in the title: a self-test that cannot run is a failure,
+       * not a quiet return. */
+      out.textContent = JSON.stringify({ ok: false, steps: steps }, null, 1);
+      out.hidden = false;
+      document.title = 'SELFTEST-FAIL';
+      return;
+    }
     document.getElementById('addApp').value = target;
     document.getElementById('btnAdd').click();
     step('uitest.addClick', (state.cfg.home || []).some(function (e) { return e.appId === target; }), target);

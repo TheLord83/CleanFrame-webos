@@ -134,6 +134,9 @@ fi
 if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "key tests" node tools/test-ui-keys.js --port "$PORT_DEBUG" --config "http://127.0.0.1:$PORT_SERVER/api/config"
   run "live adoption" node tools/test-live-apply.js --port "$PORT_DEBUG" --server "http://127.0.0.1:$PORT_SERVER"
+  # The page can check itself; that only counts when something calls it.
+  run "interface self-test" python3 tools/check-selftest.py --chrome "${CHROME:-}" \
+    --url "http://127.0.0.1:$PORT_SERVER/?selftest=ui"
 fi
 
 # --------------------------------------- Home Assistant status strip

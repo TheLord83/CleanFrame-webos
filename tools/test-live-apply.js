@@ -347,32 +347,11 @@ function run(wsUrl) {
               check('spinner runs during the action', an, an ? 'on' : 'stayed off');
               waitFor('(function(){var e=document.getElementById("tvSpin"); return !!(e && e.className.indexOf("on") < 0);})()', function (aus) {
                 check('spinner stops afterwards', aus, aus ? 'off' : 'keeps running');
-                stepHubSelftest();
+                restore();
               });
             });
           });
         });
-      });
-    });
-  }
-
-  /* 10) the interface's own self-test (?selftest=ui) has to end green. It is the
-   * only place where the checks of the browser page itself live, so a stage that
-   * nobody calls would be green for the wrong reason. */
-  function stepHubSelftest() {
-    send('Page.navigate', { url: SERVER + '/?selftest=ui' }, function () {
-      wait(1500, function () {
-        (function poll(n) {
-          evalJs('document.title', function (t) {
-            if (t !== 'SELFTEST-OK' && t !== 'SELFTEST-FAIL' && n < 40) {
-              return wait(250, function () { poll(n + 1); });
-            }
-            evalJs('(function(){var o=document.getElementById("out"); var bad=[]; try { JSON.parse(o.textContent).steps.forEach(function(s){ if(!s.ok) bad.push(s.name); }); } catch(e) {} return bad.join(" | "); })()', function (bad) {
-              check('hub self-test is green', t === 'SELFTEST-OK', t === 'SELFTEST-OK' ? 'all steps green' : (bad || String(t)));
-              restore();
-            });
-          });
-        })(0);
       });
     });
   }
