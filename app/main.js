@@ -650,6 +650,54 @@
     var e = { id: 'apps', mode: 'browse', top: 0, f: { zone: 'grid', i: Math.max(0, ALPHA.indexOf(S.appsFocus)), h: 0 } };
     push(e); refreshCatalog(); return e;
   }
+  /* ---------- Values on the start page (TV-side) ---------- */
+  function entSummary() {
+    var all = haAll(), shown = 0;
+    if (!all.length) return T('nothing chosen in the hub');
+    all.forEach(function (e) { if (e && e.shown !== false) shown++; });
+    return shown + ' / ' + all.length;
+  }
+
+  function openEntities() {
+    resetSheet();
+    push({ id: 'entities', f: { i: 0, part: 'on' } });
+    render(); renderSheet(top(), true);
+  }
+
+  /* Switch one value off in the strip without dropping it from the selection:
+   * the hub keeps it, the strip skips it. Written to the server like any other
+   * change, so it survives a restart and stays in step with the hub. */
+  function entToggle(id) {
+    var now = null;
+    writeEntities(function (list) {
+      list.forEach(function (e) { if (e && e.id === id) { e.shown = (e.shown === false); now = e.shown; } });
+    });
+    if (now === null) return;
+    S.note = (now ? T('In the strip: ') : T('Hidden: ')) + (haLabel(id, id));
+    resetSheet();
+    render(); renderSheet(top(), true);
+    loadHaValues();
+  }
+
+  function openEntityRename(id) {
+    var cur = '', i;
+    haAll().forEach(function (e) { if (e && e.id === id) cur = e.label || ''; });
+    resetSheet();
+    push({ id: 'rename', entity: id, text: cur, f: { i: cur.length, zone: 'ok' } });
+    render(); renderSheet(top(), true);
+  }
+
+  function entityRename(id, text) {
+    var t = String(text || '').slice(0, 60);
+    writeEntities(function (list) {
+      list.forEach(function (e) { if (e && e.id === id) e.label = t; });
+    });
+    S.note = T('Renamed: ') + (t || haLabel(id, id));
+    resetSheet();
+    render();
+    loadHaValues();
+  }
+
   function openEditor(origin) {
     var i = ensureSel();
     clearSession();
@@ -972,6 +1020,7 @@
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
+      { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
@@ -990,7 +1039,8 @@
     point: function (t, z, i, id) { if (z === 'row' && id) { t.f.id = id; this.key(t, 'ok'); } }
   };
   function settingsOk(id) {
-    if (id === 'editor') openEditor('settings');
+    if (id === 'ent') openEntities();
+    else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') runSetupAgain();
     else openAppearance(id);
   }
@@ -1201,7 +1251,10 @@
     sheet: true,
     key: function (t, k) {
       if (k === 'back') { pop(); render(); return; }
-      if (k === 'ok') { homeRename(t.app, t.text); pop(); render(); return; }
+      if (k === 'ok') {
+        if (t.entity) { entityRename(t.entity, t.text); pop(); render(); return; }
+        homeRename(t.app, t.text); pop(); render(); return;
+      }
       if (k === 'left' || k === 'right') {
         var i = parseInt(t.f.i, 10) || 0;
         t.f.i = clamp(i + (k === 'left' ? -1 : 1), 0, t.text.length);
@@ -1218,7 +1271,10 @@
       render();
     },
     point: function (t, z, i) {
-      if (z === 'rename-ok') { homeRename(t.app, t.text); pop(); render(); }
+      if (z === 'rename-ok') {
+        if (t.entity) { entityRename(t.entity, t.text); pop(); render(); }
+        else { homeRename(t.app, t.text); pop(); render(); }
+      }
       else if (z === 'rename-cancel') { pop(); render(); }
     }
   };
@@ -1234,6 +1290,33 @@
       render();
     },
     point: function (t, z, i) { if (z === 'ctx') { t.f.i = i; this.key(t, 'ok'); } }
+  };
+
+  V.entities = {
+    sheet: true,
+    key: function (t, k) {
+      var all = haAll(), n = all.length, f = t.f;
+      if (!n) { if (k === 'back') pop(); render(); return; }
+      f.i = clamp(f.i || 0, 0, n - 1);
+      if (f.part !== 'name') f.part = 'on';
+      if (k === 'back') { pop(); render(); return; }
+      else if (k === 'up') f.i = Math.max(0, f.i - 1);
+      else if (k === 'down') f.i = Math.min(n - 1, f.i + 1);
+      else if (k === 'left') f.part = 'on';
+      else if (k === 'right') f.part = 'name';
+      else if (k === 'ok') {
+        if (f.part === 'name') { openEntityRename(all[f.i].id); return; }
+        entToggle(all[f.i].id);
+        return;
+      }
+      render();
+    },
+    point: function (t, z, i, id) {
+      if (z !== 'entOn' && z !== 'entName') return;
+      t.f.i = i;
+      t.f.part = z === 'entName' ? 'name' : 'on';
+      this.key(t, 'ok');
+    }
   };
 
   V.message = {
@@ -1434,9 +1517,24 @@
    * strip stays hidden and nothing appears. */
   var haValues = null, haBusy = false, haTimer = null, haKey = '';
 
-  function haPicked() {
+  /* Everything chosen in the hub, including the ones switched off on the TV. */
+  function haAll() {
     var it = S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.ha;
     return (it && it.entities) || [];
+  }
+
+  function haPicked() {
+    return haAll().filter(function (e) { return e && e.shown !== false; });
+  }
+
+  /* Write the entity list back to the server. The rest of the configuration is
+   * carried along untouched by serverPayload(). */
+  function writeEntities(mutate) {
+    var ha = S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.ha;
+    if (!ha || !Array.isArray(ha.entities) || !ha.entities.length) return false;
+    mutate(ha.entities);
+    syncServer(S.c);
+    return true;
   }
 
   function loadHaValues() {
@@ -1980,7 +2078,7 @@
     rename: function (t) {
       var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
       return '<h2 class="s-title">' + T('Rename') + '</h2>'
-        + '<p class="s-sub">' + esc(a ? a.name : t.app) + '</p>'
+        + '<p class="s-sub">' + esc(t.entity || (a ? a.name : t.app)) + '</p>'
         + '<div class="rename-box" data-z="rename-text"><span>' + esc(cur) + '</span><i class="rename-caret"></i><span>' + esc(rest) + '</span></div>'
         + '<div class="settings-overview" data-slot="list">'
         + '<button type="button" tabindex="-1" class="settings-group' + (t.f.zone === 'ok' ? ' is-focus' : '') + '" data-z="rename-ok">'
@@ -1999,6 +2097,11 @@
               + '<span class="settings-group-copy"><span class="settings-group-name"></span></span></button>';
           }).join('')
         + '</div>';
+    },
+    entities: function () {
+      return '<h2 class="s-title">' + T('Values on the start page') + '</h2><p class="s-sub" data-slot="sub"></p>'
+        + '<div class="ent-list" data-slot="list"></div>'
+        + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Switch on or off, or rename') + '</span></p>';
     },
     message: function (t) {
       var m = messageContent(t);
@@ -2112,6 +2215,29 @@
         html += '<button type="button" tabindex="-1" class="settings-group' + (r.id === t.f.id ? ' is-focus' : '') + '" data-z="row" data-i="0" data-id="' + r.id + '" data-action="settings.' + (r.id === 'editor' ? 'editor' : 'group.' + r.id) + '"><span class="settings-group-copy"><span class="settings-group-name">' + esc(r.label) + '</span><span class="settings-group-value">' + esc(r.value) + '</span></span>' + icon('right') + '</button>';
       });
       setHTML(el.list, html);
+      /* Nine rows no longer fit above the footer hint; a tighter pitch keeps the
+       * last one reachable instead of letting it slide under the hint. */
+      el.list.className = 'settings-overview' + (settingsRows().length > 8 ? ' is-dense' : '');
+    },
+    entities: function (t, el) {
+      var all = haAll(), f = t.f, html = '';
+      setHTML(el.sub, all.length ? T('Chosen in the hub. Left switches the value on or off, right renames it.') : T('Nothing chosen in the hub yet.'));
+      if (!all.length) { el.list.innerHTML = ''; return; }
+      f.i = clamp(f.i || 0, 0, all.length - 1);
+      if (f.part !== 'name') f.part = 'on';
+      all.forEach(function (e, i) {
+        var on = e && e.shown !== false, name = haLabel(e.id, e.name || e.id);
+        html += '<div class="ent-line' + (on ? '' : ' is-off') + '">'
+          + '<button type="button" tabindex="-1" class="ent-check' + (f.i === i && f.part === 'on' ? ' is-focus' : '') + '"'
+          + ' data-z="entOn" data-i="' + i + '" data-id="' + esc(e.id) + '" aria-label="' + esc((on ? T('Hide ') : T('Show ')) + name) + '">'
+          + (on ? icon('check') : '') + '</button>'
+          + '<button type="button" tabindex="-1" class="ent-name' + (f.i === i && f.part === 'name' ? ' is-focus' : '') + '"'
+          + ' data-z="entName" data-i="' + i + '" data-id="' + esc(e.id) + '">'
+          + '<span class="ent-name-main">' + esc(name) + '</span>'
+          + '<span class="ent-name-id">' + esc(e.id) + '</span></button>'
+          + '</div>';
+      });
+      el.list.innerHTML = html;
     },
     message: function (t, el) {
       setHTML(el.acts, messageContent(t).actions.map(function (a, i) {

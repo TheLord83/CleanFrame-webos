@@ -143,7 +143,10 @@ function validate(input) {
       var id = typeof e === 'string' ? e : (e && e.id);
       if (!isStr(id, 120) || !/^[a-z_]+\.[a-z0-9_]+$/.test(id) || seenE[id]) return;
       seenE[id] = true;
-      cfg.integrations.ha.entities.push({ id: id, label: isStr(e && e.label, 60) ? e.label : '' });
+      /* `shown` lets the TV hide a chosen value without dropping it from the
+       * selection - the hub keeps offering it, the strip just skips it. */
+      cfg.integrations.ha.entities.push({ id: id, label: isStr(e && e.label, 60) ? e.label : '',
+                                         shown: !(e && e.shown === false) });
     });
   }
   var mq = integ.mqtt && typeof integ.mqtt === 'object' ? integ.mqtt : {};

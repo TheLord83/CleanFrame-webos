@@ -449,6 +449,20 @@ def main():
             assert by["light.wohnzimmer_decke"]["state"] == "on"
             assert by["unbekannt.x"]["state"] == "unknown", "an unknown entity must not be missing"
 
+        def t_ha_shown_roundtrip():
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            cfg["integrations"]["ha"] = {
+                "url": f"http://127.0.0.1:{ha_port}", "token": "testtoken",
+                "entities": [{"id": "light.wohnzimmer_decke", "label": "", "shown": False},
+                             {"id": "sensor.wohnzimmer_temperatur", "label": "Temperatur"}]}
+            st, d, _ = req("PUT", "/api/config", {"config": cfg})
+            assert st == 200, (st, d)
+            st, d, _ = req("GET", "/api/config")
+            ents = d["config"]["integrations"]["ha"]["entities"]
+            assert ents[0]["shown"] is False, ents
+            assert ents[1]["shown"] is True, ents
+
         def t_ha_toggle():
             st, d, _ = req("GET", "/api/config")
             cfg = d["config"]
@@ -588,6 +602,7 @@ def main():
             ("Home Assistant connection is checked", t_ha_check),
             ("HA entities are filtered and translated", t_ha_entities),
             ("HA values for the tile", t_ha_values),
+            ("a value hidden on the TV stays hidden in the hub", t_ha_shown_roundtrip),
             ("HA toggle switches exactly the chosen entity", t_ha_toggle),
             ("HA toggle refuses what needs more than a button", t_ha_toggle_refused),
             ("wrong HA token is reported", t_ha_wrong_token),

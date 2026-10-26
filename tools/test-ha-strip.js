@@ -280,7 +280,7 @@ function run(wsUrl, haPort) {
   function wait(ms, cb) { setTimeout(cb, ms); }
   /* Real key presses over CDP, the same path as the remote on the TV. The stage
    * only sees them while the window has focus. */
-  var KEYS = { up: [38, 'ArrowUp'], down: [40, 'ArrowDown'], left: [37, 'ArrowLeft'], right: [39, 'ArrowRight'], ok: [13, 'Enter'] };
+  var KEYS = { up: [38, 'ArrowUp'], down: [40, 'ArrowDown'], left: [37, 'ArrowLeft'], right: [39, 'ArrowRight'], ok: [13, 'Enter'], back: [461, 'Backspace'] };
   function key(name, cb) {
     var k = KEYS[name];
     send('Input.dispatchKeyEvent', {
@@ -301,6 +301,11 @@ function run(wsUrl, haPort) {
         wait(250, poll);
       });
     })();
+  }
+  function getCfg(cb) {
+    req('GET', SERVER + '/api/config', null, function (e, code, data) {
+      cb(code === 200 && data && data.config ? data.config : null);
+    });
   }
   function putCfg(cfg, cb) {
     req('PUT', SERVER + '/api/config', { config: cfg }, function (e, code) {
@@ -337,7 +342,11 @@ function run(wsUrl, haPort) {
   }
 
   /* 1. The strip appears with one chip per chosen entity, labels and values right. */
+  /* Any JavaScript error during the run is collected: a page that throws while
+   * rendering shows an empty list, and a test that only counts elements would
+   * call that a layout problem instead of a broken script. */
   function stepStrip() {
+    evalJs("(function(){window.__cfErrs=[];window.addEventListener('error',function(e){window.__cfErrs.push(String(e.message)+' @ '+(e.filename||'').split('/').pop()+':'+e.lineno);});return 1;})()", function () {
     waitFor("(function(){var s=document.getElementById('haStrip');return !!(s && !s.hidden && s.children.length===3);})()", function (ok, v) {
       check('status strip shows three chips', ok, String(v));
       if (!ok) return finish();
@@ -346,8 +355,12 @@ function run(wsUrl, haPort) {
         check('own label wins over the Home Assistant name', parts[0] === 'Temperatur=21.4 °C', parts[0]);
         check('state is translated (on -> An)', parts[1] === 'Wohnzimmer Decke=An', parts[1]);
         check('missing reading says so, without unit', parts[2] === 'Kaputter Sensor=Nicht verfügbar', parts[2]);
-        stepPosition();
+        evalJs("(window.__cfErrs||[]).join(' || ')", function (errs) {
+          check('no JavaScript errors while drawing', !errs, String(errs || ''));
+          stepPosition();
+        });
       });
+    });
     });
   }
 
@@ -376,7 +389,52 @@ function run(wsUrl, haPort) {
               key('up', function () {
                 evalJs("document.querySelectorAll('#haStrip .ha-chip.is-focus').length", function (left) {
                   check('up leaves the strip again', String(left) === '0', String(left));
-                  stepValueChange();
+                  stepEntities();
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+
+  /* 2c. The TV has its own page for the values: a checkbox per chosen entity
+   * and the name editable there. */
+  function openValuesPage(cb) {
+    key('up', function () {            /* dock -> utilities */
+      key('right', function () {
+        key('right', function () {     /* -> settings */
+          key('ok', function () {
+            key('down', function () { key('down', function () { key('down', function () {
+              key('down', function () { key('down', function () { key('down', function () {
+                key('ok', function () { cb(); });
+              }); }); });
+            }); }); });
+          });
+        });
+      });
+    });
+  }
+
+  function stepEntities() {
+    evalJs('window.focus(), 1', function () {
+      openValuesPage(function () {
+        evalJs("JSON.stringify({rows:document.querySelectorAll('#sheetView .ent-line').length,title:(document.querySelector('#sheetView .s-title')||{}).textContent,errs:(window.__cfErrs||[]).slice(-3)})", function (info) {
+          var n = '0';
+          try { n = String(JSON.parse(String(info)).rows); } catch (e) {}
+          check('settings opens the values page with every chosen value', n === '3', String(info));
+          key('ok', function () {
+            waitFor("document.querySelectorAll('#haStrip .ha-chip').length === 2", function (ok, v) {
+              check('left switches a value out of the strip', ok, String(v));
+              getCfg(function (cfg) {
+                var ents = (((cfg || {}).integrations || {}).ha || {}).entities || [];
+                check('the choice is stored on the server', ents[0] && ents[0].shown === false, JSON.stringify(ents[0] || null));
+                key('ok', function () {
+                  waitFor("document.querySelectorAll('#haStrip .ha-chip').length === 3", function (ok2, v2) {
+                    check('switching it back shows it again', ok2, String(v2));
+                    key('back', function () { key('back', function () { stepValueChange(); }); });
+                  });
                 });
               });
             });

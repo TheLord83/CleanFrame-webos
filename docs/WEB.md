@@ -86,6 +86,17 @@ duplicate `appId`s are removed.
 is what the status strip renders. Only display-worthy domains are offered —
 `automation.*`, `zone.*` and similar are filtered out on the server.
 
+### The values page on the TV
+
+`Einstellungen -> Werte auf der Startseite` lists exactly the entities chosen in
+the hub. `left`/`right` switches between the checkbox and the name, `OK` either
+hides the value from the strip or opens the on-screen keyboard for a shorter
+name. Nothing can be added there — the 1747 entries stay in the browser.
+
+A hidden value keeps its place in the hub selection (`shown: false` in
+`integrations.ha.entities`), so the hub still offers it and the TV can bring it
+back without setting everything up again.
+
 ### Switching from the strip
 
 `POST /api/ha/toggle` with `{"entity_id": "light.wohnzimmer"}` calls

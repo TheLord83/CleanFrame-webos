@@ -34,6 +34,18 @@
       'Locked': 'Verriegelt',
       'Unlocked': 'Offen',
 
+      /* Values on the start page (TV-side settings) */
+      'Values on the start page': 'Werte auf der Startseite',
+      'nothing chosen in the hub': 'nichts im Hub ausgewählt',
+      'Chosen in the hub. Left switches the value on or off, right renames it.': 'Im Hub ausgewählt. Links schaltet den Wert an oder aus, rechts benennt ihn um.',
+      'Nothing chosen in the hub yet.': 'Im Hub ist noch nichts ausgewählt.',
+      'Switch on or off, or rename': 'An/aus schalten oder umbenennen',
+      'In the strip: ': 'In der Leiste: ',
+      'Hidden: ': 'Versteckt: ',
+      'Renamed: ': 'Umbenannt: ',
+      'Hide ': 'Verbergen: ',
+      'Show ': 'Anzeigen: ',
+
       /* Header */
       'Screensaver': 'Bildschirmschoner',
       'All apps': 'Alle Apps',

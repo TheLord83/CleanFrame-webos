@@ -314,6 +314,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .settings-group>.ico{width:30px;height:30px;color:var(--mute)}
 .settings-group.is-focus{background:var(--solid);color:var(--solid-ink)}
 .settings-group.is-focus .settings-group-value,.settings-group.is-focus>.ico{color:var(--solid-mute)}
+.ent-list{position:absolute;left:140px;top:216px;width:1100px}
+.ent-line{display:flex;align-items:center;margin-top:8px}
+.ent-line:first-child{margin-top:0}
+.ent-line > * + *{margin-left:20px}
+.ent-check{width:104px;height:96px;border-radius:18px;background:rgba(16,14,12,.44);color:#f6f1e7;display:flex;align-items:center;justify-content:center;font:inherit;border:0}
+.ent-check .ico{width:44px;height:44px}
+.ent-check.is-focus{background:var(--solid);color:var(--solid-ink)}
+.ent-name{flex:1;height:96px;padding:10px 28px;border-radius:18px;background:rgba(16,14,12,.44);color:#f6f1e7;display:flex;flex-direction:column;justify-content:center;font:inherit;border:0;text-align:left}
+.ent-name.is-focus{background:var(--solid);color:var(--solid-ink)}
+.ent-name-main{font-size:38px;line-height:46px;font-weight:500;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ent-name-id{font-size:24px;line-height:30px;color:rgba(246,241,231,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ent-name.is-focus .ent-name-id{color:var(--solid-mute)}
+.ent-line.is-off .ent-check{opacity:.62}
+.ent-line.is-off .ent-name-main{opacity:.6}
+.senior .ent-check{width:124px;height:116px}
+.senior .ent-name{height:116px}
+.senior .ent-name-main{font-size:44px;line-height:52px}
+.senior .ent-name-id{font-size:27px;line-height:34px}
+.settings-overview.is-dense .settings-group{height:76px;padding:4px 28px 4px 26px}
+.settings-overview.is-dense .settings-group+.settings-group{margin-top:4px}
+.settings-overview.is-dense .settings-group-name{font-size:34px;line-height:40px}
+.settings-overview.is-dense .settings-group-value{font-size:24px;line-height:30px}
 .settings-overview-hint{position:absolute;left:140px;top:968px;display:flex;align-items:center;gap:16px;font-size:26px;line-height:36px;color:var(--mute)}
 .remote-key{display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:34px;padding:0 10px;border:1.5px solid currentColor;border-radius:17px;font-size:21px;line-height:28px;font-weight:600;letter-spacing:0}
 .lay-note{position:absolute;left:140px;top:608px;max-width:1040px;font-size:30px;line-height:42px;font-weight:500;color:var(--mute)}
