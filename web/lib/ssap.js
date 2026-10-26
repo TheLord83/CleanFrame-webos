@@ -21,20 +21,30 @@ var crypto = require('crypto');
 var SSAP_PORT = parseInt(process.env.CF_SSAP_PORT || '3000', 10);
 var KEY_FILE = process.env.CF_TV_KEY || '/var/lib/cleanframe/tv-client-key.json';
 
+/* The permission list is not decoration: the TV only grants what the manifest asks
+ * for, and it compares it with what it knows. This is the exact list aiowebostv
+ * (Home Assistant) sends - with a shorter list the TV hands out a key that is
+ * allowed to do nothing but read the model name. */
+var PERMISSIONS = [
+  'APP_TO_APP', 'CLOSE', 'CONTROL_AUDIO',
+  'CONTROL_DISPLAY', 'CONTROL_INPUT_JOYSTICK', 'CONTROL_INPUT_MEDIA_PLAYBACK',
+  'CONTROL_INPUT_MEDIA_RECORDING', 'CONTROL_INPUT_TEXT', 'CONTROL_INPUT_TV',
+  'CONTROL_MOUSE_AND_KEYBOARD', 'CONTROL_POWER', 'CONTROL_TV_SCREEN',
+  'LAUNCH', 'LAUNCH_WEBAPP', 'READ_APP_STATUS',
+  'READ_COUNTRY_INFO', 'READ_CURRENT_CHANNEL', 'READ_INPUT_DEVICE_LIST',
+  'READ_INSTALLED_APPS', 'READ_LGE_SDX', 'READ_LGE_TV_INPUT_EVENTS',
+  'READ_NETWORK_STATE', 'READ_NOTIFICATIONS', 'READ_POWER_STATE',
+  'READ_RUNNING_APPS', 'READ_SETTINGS', 'READ_TV_CHANNEL_LIST',
+  'READ_TV_CURRENT_TIME', 'READ_UPDATE_INFO', 'SEARCH',
+  'TEST_OPEN', 'TEST_PROTECTED', 'TEST_SECURE',
+  'UPDATE_FROM_REMOTE_APP', 'WRITE_NOTIFICATION_ALERT', 'WRITE_NOTIFICATION_TOAST',
+  'WRITE_SETTINGS'
+];
+
 var MANIFEST = {
   manifestVersion: 1,
-  appVersion: '1.0',
-  signed: {
-    created: '20140509',
-    appId: 'com.lge.test',
-    vendorId: 'com.lge',
-    localizedAppNames: { '': 'CleanFrame' },
-    permissions: [
-      'TEST_SECURE', 'CONTROL_INPUT_TEXT', 'CONTROL_MOUSE_AND_KEYBOARD',
-      'READ_INSTALLED_APPS', 'READ_INPUT_DEVICE_LIST', 'READ_TV_CURRENT_TIME',
-      'READ_POWER_STATE', 'CONTROL_POWER'
-    ]
-  }
+  appVersion: '1.1',
+  permissions: PERMISSIONS
 };
 
 /* Our key names -> button names of the remote control. */
@@ -77,14 +87,33 @@ function writeKey(obj) {
 function Ws(sock) {
   this.s = sock;
   this.buf = Buffer.alloc(0);
+  this.dead = false;
+  this.geschlossen = false;
+  this.waiter = null;
+  var self = this;
+  /* One permanent listener. Without it, frames that arrive between two recv() calls
+   * are dropped by the socket - which is exactly what the TV does right after the
+   * handshake, so the answer was lost and every key press ended in "timeout". */
+  sock.on('data', function (chunk) {
+    self.buf = Buffer.concat([self.buf, chunk]);
+    if (self.waiter) self.waiter();
+  });
+  sock.on('close', function () {
+    self.geschlossen = true;
+    if (self.waiter) self.waiter();
+  });
+  sock.on('end', function () {
+    self.geschlossen = true;
+    if (self.waiter) self.waiter();
+  });
 }
 
-Ws.connect = function (host, port, cb) {
+Ws.connect = function (host, port, cb, reqPath) {
   var sock = net.connect(port, host);
   var key = crypto.randomBytes(16).toString('base64');
   sock.setNoDelay(true);
   sock.on('connect', function () {
-    sock.write('GET / HTTP/1.1\r\nHost: ' + host + ':' + port + '\r\n' +
+    sock.write('GET ' + (reqPath || '/') + ' HTTP/1.1\r\nHost: ' + host + ':' + port + '\r\n' +
       'Upgrade: websocket\r\nConnection: Upgrade\r\n' +
       'Sec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n\r\n');
   });
@@ -102,6 +131,7 @@ Ws.connect = function (host, port, cb) {
     }
     done = true;
     sock.removeListener('data', onHandshake);
+    sock.setTimeout(0);
     var ws = new Ws(sock);
     ws.buf = head.slice(end + 4);
     cb(null, ws);
@@ -131,7 +161,6 @@ Ws.prototype.send = function (obj) {
   this.s.write(Buffer.concat([header, mask, masked]));
 };
 
-/* Returns one text frame; keeps leftover bytes for the next call. */
 /* Antwortet auf ein Ping-Rahmen des Servers. Ohne Pong schließt der Fernseher die
  * Verbindung nach knapp 40 Sekunden — mitten in der Kopplungsfrage. */
 Ws.prototype.pong = function (payload) {
@@ -143,52 +172,52 @@ Ws.prototype.pong = function (payload) {
   this.s.write(Buffer.concat([head, mask, masked]));
 };
 
+/* Gives back the next text frame. Reads from the buffer the permanent listener fills,
+ * answers pings on the way and skips frames nobody asked for. */
 Ws.prototype.recv = function (cb, timeoutMs) {
   var self = this;
   if (self.dead) return cb('Verbindung geschlossen');
-  function tryParse() {
-    if (self.buf.length < 2) return false;
-    var b2 = self.buf[1];
-    var len = b2 & 0x7f;
-    var off = 2;
-    if (len === 126) {
-      if (self.buf.length < 4) return false;
-      len = self.buf.readUInt16BE(2);
-      off = 4;
-    } else if (len === 127) {
-      if (self.buf.length < 10) return false;
-      var hi = self.buf.readUInt32BE(2);
-      var lo = self.buf.readUInt32BE(6);
-      len = hi * 4294967296 + lo;
-      off = 10;
-    }
-    if (self.buf.length < off + len) return false;
-    var opcode = self.buf[0] & 0x0f;
-    var payload = self.buf.slice(off, off + len).toString('utf8');
-    self.buf = self.buf.slice(off + len);
-    if (opcode === 0x8) return cb('Server hat geschlossen');
-    if (opcode === 0x9) { self.pong(Buffer.from(payload)); return tryParse(); }
-    if (opcode === 0x1 || opcode === 0x2) return cb(null, payload);
-    return tryParse();
-  }
-  if (tryParse() !== false) return;
   var fertig = false;
-  var frist = setTimeout(function () {
+  var frist = null;
+  function finish(err, val) {
     if (fertig) return;
     fertig = true;
-    self.s.removeListener('data', onData);
-    cb('timeout');
-  }, timeoutMs || 20000);
-  var onData = function () {
+    if (frist) clearTimeout(frist);
+    self.waiter = null;
+    cb(err, val);
+  }
+  function pump() {
     if (fertig) return;
-    /* tryParse ruft cb() selbst auf, wenn ein Textrahmen vollständig ist. */
-    if (tryParse() !== false) {
-      fertig = true;
-      clearTimeout(frist);
-      self.s.removeListener('data', onData);
+    for (;;) {
+      if (self.buf.length < 2) break;
+      var b2 = self.buf[1];
+      var len = b2 & 0x7f;
+      var off = 2;
+      if (len === 126) {
+        if (self.buf.length < 4) break;
+        len = self.buf.readUInt16BE(2);
+        off = 4;
+      } else if (len === 127) {
+        if (self.buf.length < 10) break;
+        var hi = self.buf.readUInt32BE(2);
+        var lo = self.buf.readUInt32BE(6);
+        len = hi * 4294967296 + lo;
+        off = 10;
+      }
+      if (b2 & 0x80) off += 4;
+      if (self.buf.length < off + len) break;
+      var opcode = self.buf[0] & 0x0f;
+      var raw = self.buf.slice(off, off + len);
+      self.buf = self.buf.slice(off + len);
+      if (opcode === 0x8) return finish('Server hat geschlossen');
+      if (opcode === 0x9) { self.pong(raw); continue; }
+      if (opcode === 0x1 || opcode === 0x2) return finish(null, raw.toString('utf8'));
     }
-  };
-  self.s.on('data', onData);
+    if (self.geschlossen) return finish('Verbindung geschlossen');
+  }
+  self.waiter = pump;
+  frist = setTimeout(function () { finish('timeout'); }, timeoutMs || 20000);
+  pump();
 };
 
 Ws.prototype.close = function () {
@@ -285,13 +314,17 @@ function press(keys, opts, cb) {
           ws.send({ type: 'request', id: 'ptr',
             uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' });
           ws.recv(function (e5, text2) {
-            ws.close();
-            if (e5) return cb(e5);
+            if (e5) { ws.close(); return cb(e5); }
             var antwort;
-            try { antwort = JSON.parse(text2); } catch (e6) { return cb('unlesbare Antwort'); }
+            try { antwort = JSON.parse(text2); } catch (e6) { ws.close(); return cb('unlesbare Antwort'); }
             var sockPath = (antwort.payload || {}).socketPath;
-            if (!sockPath) return cb((antwort.error || 'kein Pointer-Socket'));
-            sendFrames(sockPath, names, cb);
+            if (!sockPath) { ws.close(); return cb(antwort.error || 'kein Pointer-Socket'); }
+            /* The input socket only lives as long as the connection that asked for it —
+             * closing it first leaves the frames unheard and the picture still. */
+            sendFrames(sockPath, names, function (e7, done) {
+              ws.close();
+              cb(e7, done);
+            });
           });
         }, 8000);
       }
@@ -300,40 +333,46 @@ function press(keys, opts, cb) {
   })(known);
 }
 
-/* The pointer socket is a unix socket on the device and a ws:// URL on the network. */
+/* The pointer socket is a unix socket on the device and a ws:// URL on the network.
+ * The frame is plain text, not JSON:
+ *     type:button
+ *     name:DOWN
+ *     <empty line>
+ * Client frames must be masked on the websocket; without the mask the TV drops them
+ * silently and the picture never moves. */
 function sendFrames(sockPath, names, cb) {
   var done = [];
   function next(i) {
     if (i >= names.length) return cb(null, done);
-    var frame = JSON.stringify({ type: 'button', name: names[i] }) + '\n';
-    var target = sockPath;
-    var sock;
-    if (target.indexOf('ws://') === 0 || target.indexOf('wss://') === 0) {
-      var url = target.split('://')[1];
-      var hostPort = url.split('/')[0];
-      var pathPart = '/' + url.split('/').slice(1).join('/');
-      var hp = hostPort.split(':');
-      sock = net.connect(parseInt(hp[1] || '3000', 10), hp[0]);
-      sock.on('connect', function () {
-        sock.write('GET ' + pathPart + ' HTTP/1.1\r\nHost: ' + hostPort +
-          '\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
-          'Sec-WebSocket-Key: ' + crypto.randomBytes(16).toString('base64') +
-          '\r\nSec-WebSocket-Version: 13\r\n\r\n');
-        setTimeout(function () { sock.write(frame); }, 150);
-      });
-    } else {
-      sock = net.connect(target);
-      sock.on('connect', function () { sock.write(frame); });
+    var name = names[i];
+    var frame = 'type:button\nname:' + name + '\n\n';
+    var fertig = false;
+    function weiter(ok, err) {
+      if (fertig) return;
+      fertig = true;
+      done.push(ok ? { name: name, ok: true } : { name: name, ok: false, error: err });
+      setTimeout(function () { next(i + 1); }, 200);
     }
-    sock.on('error', function (e) {
-      done.push({ name: names[i], ok: false, error: e.code || String(e) });
-      next(i + 1);
+    if (sockPath.indexOf('ws://') === 0 || sockPath.indexOf('wss://') === 0) {
+      var rest = sockPath.split('://')[1];
+      var hostPort = rest.split('/')[0];
+      var reqPath = '/' + rest.split('/').slice(1).join('/');
+      var hp = hostPort.split(':');
+      Ws.connect(hp[0], parseInt(hp[1] || '3000', 10), function (e, ws) {
+        if (e) return weiter(false, e);
+        ws.send(frame);
+        setTimeout(function () { ws.close(); weiter(true); }, 220);
+      }, reqPath);
+      setTimeout(function () { weiter(false, 'timeout'); }, 5000);
+      return;
+    }
+    var sock = net.connect(sockPath);
+    sock.on('connect', function () {
+      sock.write(frame);
+      setTimeout(function () { try { sock.destroy(); } catch (e) { /* egal */ } weiter(true); }, 200);
     });
-    setTimeout(function () {
-      try { sock.destroy(); } catch (e) { /* egal */ }
-      done.push({ name: names[i], ok: true });
-      setTimeout(function () { next(i + 1); }, 250);
-    }, 700);
+    sock.on('error', function (e) { weiter(false, e.code || String(e)); });
+    setTimeout(function () { weiter(false, 'timeout'); }, 5000);
   }
   next(0);
 }

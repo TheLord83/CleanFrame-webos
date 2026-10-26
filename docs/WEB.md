@@ -239,19 +239,28 @@ picture as part of its verification.
 
 ### Measured on the 43NANO779PA (webOS 6.5, firmware 03.51.16)
 
-* **Pairing works**, the prompt appears when a client is in the foreground, and the
-  client-key is issued (`registered`). Store it in `/var/lib/cleanframe/tv-client-key.json`.
-* **That key carries no permissions on this firmware.** Every request except
-  `system/getSystemInfo` answers `401 insufficient permissions` — `networkinput/
-  getPointerInputSocket`, `audio/getVolume`, `applicationManager/listApps`,
-  `tv/getExternalInputList`. Reproduced twice, on the same socket the prompt was
-  confirmed on, and with the full manifest (`serial`, `localizedVendorNames`, all
-  permissions) that pylgtv and aiowebostv use. Assume the same on sister models
-  until a measurement says otherwise — do not build on a pair-and-press path.
-* **What does drive the keys without Home Assistant:** the launcher app itself, via
-  DevTools (`127.0.0.1:9998`, ~90 ms). `/api/tv/key` answers `via: "launcher"` and the
-  picture changes. It needs the launcher in the foreground — that is inherent to a
-  launcher, not a limitation to fix.
-* `luna-send -a <any app> luna://com.webos.service.networkinput/getPointerInputSocket`
-  returns `/tmp/netinput.pointer.sock` as root, but writing `type:button\nname:DOWN\n\n`
-  to it changes no pixel. Left as a dead end.
+What the own channel needs, each point cost a measurement:
+
+* **The manifest is the permission.** The TV grants only what the registration asks for,
+  and it compares against the list aiowebostv (Home Assistant) uses. With eight
+  permissions the TV hands out a key that may read the model name and nothing else -
+  every other request answers `401 insufficient permissions`. With the 37 permissions
+  from aiowebostv's `handshake.py` the same TV grants volume, app list, inputs and the
+  pointer socket. Copy that list, do not invent one.
+* **Keep the connection that asked for the socket open.** The pointer socket only lives
+  while the registering connection is up; closing it first leaves the frames unheard.
+* **The frame is text, not JSON:** `type:button\nname:DOWN\n\n`.
+* **Client frames must be masked.** Without the mask the TV drops them silently.
+* **One permanent listener on the socket.** Frames that arrive between two reads
+  (`recv()`) are otherwise lost - the TV's `registered` answer comes so fast after the
+  handshake that this alone made every key press end in a timeout.
+* **`/api/tv/snapshot` can hand back an old picture** while `/api/tv/screenshot.png`
+  is always fresh. Measure key presses with the screenshot, not the snapshot, or you
+  test a frozen frame.
+
+With all of that, `POST /api/tv/key` answers `via: "ssap"` and the keys reach LG's own
+menus - no Home Assistant, no launcher in the foreground, no pairing prompt.
+
+Rollout: the pairing question appears once per TV. `POST /api/tv/pair` opens it,
+`GET /api/tv/pair` reports `paired`; the key lands in
+`/var/lib/cleanframe/tv-client-key.json` (0600).
