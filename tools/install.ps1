@@ -30,7 +30,10 @@ param(
   [switch]$Root,
   [switch]$NoRoot,
   [switch]$Info,
-  [string]$SshKey
+  [string]$SshKey,
+  [string]$Model,
+  [string]$Firmware,
+  [switch]$ForceRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,6 +85,9 @@ $Text = @{
     root_no_root  = '    -NoRoot given: hub skipped'
     root_no_tty   = '    no terminal to ask: hub skipped. Pass -Root to root first.'
     glass_ok_install = '    Glasshouse answers on port 8080: installing works without a root shell'
+    ask_fw        = 'Firmware version from the TV (Settings > General > About this TV), empty = skip:'
+    fw_link       = '    direct link: {0}'
+    root_refused  = 'ERROR: by the published rules this firmware is patched - not rooting. Use -ForceRoot to try anyway.'
     nothing_without_root = 'ERROR: without root nothing can be installed - no root shell (22) and no Glasshouse (8080). Start again with -Root.'
     root_stage    = '==> Rooting (SlopBro)'
     root_skip     = '    already rooted, SSH works'
@@ -132,6 +138,9 @@ $Text = @{
     root_no_root  = '    -NoRoot gesetzt: Hub wird uebersprungen'
     root_no_tty   = '    keine Eingabe moeglich: Hub wird uebersprungen. Mit -Root wird vorher gerootet.'
     glass_ok_install = '    Glasshouse antwortet auf Port 8080: installieren geht auch ohne root-Shell'
+    ask_fw        = 'Firmware-Version vom Fernseher (Einstellungen > Allgemein > Info zu diesem TV), leer = ueberspringen:'
+    fw_link       = '    direkter Link: {0}'
+    root_refused  = 'FEHLER: nach den veroeffentlichten Regeln ist diese Firmware gepatcht - ich roote nicht. Mit -ForceRoot trotzdem versuchen.'
     nothing_without_root = 'FEHLER: ohne root laesst sich nichts installieren - keine Root-Shell (22) und kein Glasshouse (8080). Mit -Root neu starten.'
     root_stage    = '==> Rooten (SlopBro)'
     root_skip     = '    schon gerootet, SSH funktioniert'
@@ -212,6 +221,30 @@ if ($Info) {
     Say ("    rooted: no")
   }
   exit 0
+}
+
+# ---- can it be rooted at all? ask the firmware, then judge ----------------------
+$tvModel = $Model
+if (-not $tvModel -and $Python) {
+  try {
+    $probe = (& $Python (Join-Path $Tools 'tvinfo.py') $Tv --json 2>$null | Out-String)
+    $tvModel = ($probe | ConvertFrom-Json).modelName
+  } catch { $tvModel = $null }
+}
+$tvFirmware = $Firmware
+if (-not $tvFirmware -and -not [Console]::IsInputRedirected) {
+  $answer = Read-Host (T 'ask_fw')
+  if ($answer -match '^[0-9]+\.[0-9]+') { $tvFirmware = $answer }
+}
+if ($Python -and $tvModel) {
+  $adviceArgs = @('--model', $tvModel, '--json')
+  if ($tvFirmware) { $adviceArgs += @('--firmware', $tvFirmware) }
+  $advice = (& $Python (Join-Path $Tools 'rootaly.py') @adviceArgs 2>$null | Out-String) | ConvertFrom-Json
+  Say ("    verdict:   " + $advice.verdict)
+  if ($advice.method) { Say ("    method:    " + $advice.method) }
+  Say ("    reason:    " + $advice.reason)
+  if ($advice.link) { Say (T 'fw_link' @($advice.link)) }
+  if ($advice.verdict -eq 'no' -and -not $ForceRoot) { Fail (T 'root_refused') }
 }
 
 Say (T 'root_check')

@@ -66,6 +66,14 @@ def _webos_major(text):
     return int(match.group(1)), int(match.group(2) or 0)
 
 
+def cani_link(model=None, firmware=None):
+    """A cani.rootmy.tv search link with model and firmware already filled in."""
+    from urllib.parse import quote_plus
+    parts = [str(x).strip() for x in (model, firmware)]
+    query = " ".join(x for x in parts if x and x != "-")
+    return CANI + "/?q=" + quote_plus(query) if query else CANI
+
+
 def advice(model=None, webos=None, firmware=None):
     """Return {'verdict': 'yes'|'no'|'unknown', 'method': ..., 'reason': ..., 'check': url}.
 
@@ -81,23 +89,24 @@ def advice(model=None, webos=None, firmware=None):
 
     major = _webos_major(webos)
     fw = _version_tuple(firmware)
+    link = cani_link(model, None if firmware in (None, "", "-") else firmware)
 
     # 1. SlopBro: exact per-platform ceiling, the only case where we can say "yes" or "no"
     if platform and platform in SLOPBRO_MAX and fw:
         ceiling = _version_tuple(SLOPBRO_MAX[platform]) or (0, 0, 0)
         if fw <= ceiling:
-            return {"verdict": "yes", "method": "slopbro",
+            return {"verdict": "yes", "link": link, "method": "slopbro",
                     "reason": "%s works on platform %s up to firmware %s, this TV is on %s"
                               % ("SlopBro", platform, SLOPBRO_MAX[platform], firmware),
                     "check": CANI}
-        return {"verdict": "no", "method": "",
+        return {"verdict": "no", "link": link, "method": "",
                 "reason": "SlopBro stops at firmware %s for platform %s, this TV is on %s. "
                           "A newer method may exist." % (SLOPBRO_MAX[platform], platform, firmware),
                 "check": CANI}
 
     # 1b. Platform known, but the firmware was not readable: say what the ceiling is
     if platform and platform in SLOPBRO_MAX and not fw:
-        return {"verdict": "unknown", "method": "slopbro",
+        return {"verdict": "unknown", "link": link, "method": "slopbro",
                 "reason": "SlopBro covers platform %s up to firmware %s, but this TV's firmware "
                           "is not readable without root or a paired session - check %s"
                           % (platform, SLOPBRO_MAX[platform], CANI),
@@ -105,25 +114,25 @@ def advice(model=None, webos=None, firmware=None):
 
     # 2. webOS 4.x: faultmanager is still open there
     if major and major[0] == 4:
-        return {"verdict": "yes", "method": "faultmanager",
+        return {"verdict": "yes", "link": link, "method": "faultmanager",
                 "reason": "faultmanager is vulnerable on webOS 4.0-10.0 and webOS 4.x firmware "
                           "is not patched as far as the author has seen",
                 "check": CANI}
 
     # 3. webOS 5/6/7/9/10: patched on current firmware — undecidable without the exact build
     if major and major[0] in (5, 6, 7, 9, 10):
-        return {"verdict": "unknown", "method": "faultmanager / dejavuln",
+        return {"verdict": "unknown", "link": link, "method": "faultmanager / dejavuln",
                 "reason": "since 08/2025 the latest firmware for webOS 5, 6, 7 and 9 is patched "
                           "almost everywhere; preinstalled or older builds can still be open. "
                           "The exact firmware decides it — that is what cani.rootmy.tv is for",
                 "check": CANI}
 
     if major and major[0] == 3:
-        return {"verdict": "unknown", "method": "dejavuln",
+        return {"verdict": "unknown", "link": link, "method": "dejavuln",
                 "reason": "dejavuln covers webOS 3.5 and up, but patches are rolling out per model",
                 "check": CANI}
 
-    return {"verdict": "unknown", "method": "",
+    return {"verdict": "unknown", "link": link, "method": "",
             "reason": "model or version missing - without them no rule applies",
             "check": CANI}
 
@@ -144,7 +153,7 @@ def main(argv=None):
         if result["method"]:
             print("method:  %s" % result["method"])
         print("reason:  %s" % result["reason"])
-        print("check:   %s" % result["check"])
+        print("check:   %s" % (result.get("link") or result["check"]))
     return 0 if result["verdict"] == "yes" else 1
 
 

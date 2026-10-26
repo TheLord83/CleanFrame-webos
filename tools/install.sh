@@ -25,6 +25,9 @@ DO_LAUNCHER=1
 DO_HUB=1
 DO_ROOT=0
 NO_ROOT=0
+FORCE_ROOT=0
+FIRMWARE_ARG=""
+MODEL_ARG=""
 DO_INFO=0
 SSH_KEY="${CF_SSH_KEY:-}"
 DRY=0
@@ -43,6 +46,11 @@ while [ $# -gt 0 ]; do
     --lang)        LANG_CODE="${2:-en}"; shift 2 ;;
     --root)        DO_ROOT=1; shift ;;
     --no-root)     NO_ROOT=1; shift ;;
+    --model)       MODEL_ARG="$2"; shift 2 ;;
+    --model=*)     MODEL_ARG="${1#*=}"; shift ;;
+    --firmware)    FIRMWARE_ARG="$2"; shift 2 ;;
+    --firmware=*)  FIRMWARE_ARG="${1#*=}"; shift ;;
+    --force-root)  FORCE_ROOT=1; shift ;;
     --info)        DO_INFO=1; shift ;;
     --ssh-key)     SSH_KEY="${2:-}"; shift 2 ;;
     --no-launcher) DO_LAUNCHER=0; shift ;;
@@ -72,6 +80,10 @@ t() {
       info_noroot)   echo "    ohne root gibt der Fernseher nur das Modell heraus; webOS und Firmware stehen im Hub unter System" ;;
       probe)         echo "==> Was der Fernseher ohne root ueber sich verraet (SSAP getSystemInfo)" ;;
       probe_root)    echo "    aus der Root-Shell gelesen (os_info.json)" ;;
+      ask_fw)        echo "Firmware-Version vom Fernseher (Einstellungen > Allgemein > Info zu diesem TV), leer = ueberspringen:" ;;
+      fw_bad)        echo "    Das sieht nicht wie eine Firmware-Version aus (Beispiel: 03.51.16) - ignoriert." ;;
+      fw_link)       echo "    direkter Link: %s" ;;
+      root_refused)  echo "FEHLER: nach den veroeffentlichten Regeln ist diese Firmware gepatcht - ich roote nicht. Mit --force-root trotzdem versuchen." ;;
       root_advice)   echo "==> Kann dieser Fernseher gerootet werden?" ;;
       root_advice_no) echo "    ACHTUNG: nach den veroeffentlichten Regeln passt hier kein Exploit mehr." ;;
       root_advice_unknown) echo "    Unbekannt: die exakte Firmware entscheidet. Vor dem Rooten auf cani.rootmy.tv pruefen." ;;
@@ -134,6 +146,10 @@ t() {
       info_noroot)   echo "    without root the TV only reveals its model; webOS and firmware are in the hub under System" ;;
       probe)         echo "==> What the TV tells about itself without root (SSAP getSystemInfo)" ;;
       probe_root)    echo "    read from the root shell (os_info.json)" ;;
+      ask_fw)        echo "Firmware version from the TV (Settings > General > About this TV), empty = skip:" ;;
+      fw_bad)        echo "    That does not look like a firmware version (example: 03.51.16) - ignored." ;;
+      fw_link)       echo "    direct link: %s" ;;
+      root_refused)  echo "ERROR: by the published rules this firmware is patched - not rooting. Use --force-root to try anyway." ;;
       root_advice)   echo "==> Can this TV be rooted?" ;;
       root_advice_no) echo "    WARNING: by the published rules no exploit matches this firmware any more." ;;
       root_advice_unknown) echo "    Unknown: the exact firmware decides. Check cani.rootmy.tv before rooting." ;;
@@ -290,6 +306,10 @@ if is_rooted; then
   [ "$OS_CODE" != "-" ] && say "    platform:  $OS_CODE"
 fi
 
+if [ -n "$MODEL_ARG" ] && { [ "$TVMODEL" = "-" ] || [ -z "$TVMODEL" ]; }; then
+  TVMODEL="$MODEL_ARG"
+fi
+
 if command -v python3 >/dev/null; then
   say "$(t root_advice)"
   ADVICE="$(python3 "$HERE/rootaly.py" --model "$TVMODEL" --webos "$TVWEBOS" --firmware "$TVFW" --json 2>/dev/null)"
@@ -302,6 +322,44 @@ print("    reason:    " + d.get("reason", ""))
 print("    check:     " + d.get("check", ""))' 2>/dev/null
   [ "$VERDICT" = "no" ] && say "$(t root_advice_no)"
   [ "$VERDICT" = "unknown" ] && say "$(t root_advice_unknown)"
+
+  # The firmware decides, and it is the one thing the TV will not hand out unpaired.
+  # So ask for it instead of guessing - or take it from --firmware in scripts.
+  if [ -n "$TVFW" ] && [ "$TVFW" != "-" ]; then
+    : # read from the TV itself, that beats anything typed in
+  elif [ -n "$FIRMWARE_ARG" ]; then
+    TVFW="$FIRMWARE_ARG"
+  elif [ "$TVFW" = "-" ] || [ -z "$TVFW" ]; then
+    printf '%s ' "$(t ask_fw)"
+    fwantwort=""
+    if [ -n "${CF_FIRMWARE:-}" ]; then
+      fwantwort="$CF_FIRMWARE"
+    else
+      { read -r fwantwort </dev/tty; } 2>/dev/null || fwantwort=""
+    fi
+    printf '\n'
+    case "$fwantwort" in
+      "") : ;;
+      *[0-9]*.[0-9]*) TVFW="$fwantwort" ;;
+      *) say "$(t fw_bad)" ;;
+    esac
+  fi
+
+  if [ -n "$TVFW" ] && [ "$TVFW" != "-" ]; then
+    ADVICE="$(python3 "$HERE/rootaly.py" --model "$TVMODEL" --webos "$TVWEBOS" --firmware "$TVFW" --json 2>/dev/null)"
+    VERDICT="$(printf '%s' "$ADVICE" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("verdict","unknown"))' 2>/dev/null || echo unknown)"
+    say "    verdict:   $VERDICT"
+    printf '%s' "$ADVICE" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+if d.get("method"): print("    method:    " + d["method"])
+print("    reason:    " + d.get("reason", ""))
+if d.get("link"): print("    check:     " + d["link"])' 2>/dev/null
+  fi
+
+  if [ "$VERDICT" = "no" ] && [ "$FORCE_ROOT" != "1" ]; then
+    say "$(t root_refused)"
+    exit 1
+  fi
 fi
 
 if [ "$DO_INFO" = "1" ]; then

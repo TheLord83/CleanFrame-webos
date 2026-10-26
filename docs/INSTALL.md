@@ -164,6 +164,9 @@ on an existing IPK.
 | find the TV automatically | *(no argument)* | *(no argument)* |
 | use a known address | `--tv 192.168.1.50` | `-Tv 192.168.1.50` |
 | root the TV without asking | `--root` | `-Root` |
+| firmware for the rootability check | `--firmware 03.51.16` | `-Firmware 03.51.16` |
+| model, when the probe finds none | `--model 43NANO779PA` | `-Model 43NANO779PA` |
+| root even though the table says patched | `--force-root` | `-ForceRoot` |
 | do not root, launcher only | `--no-root` | `-NoRoot` |
 | report model, webOS, node | `--info` | `-Info` |
 | use an existing IPK | `--ipk <file>` | `-Ipk <file>` |
@@ -208,6 +211,28 @@ That limit matters, because rooting depends on the exact firmware, not on the mo
 
 The installer prints that verdict **before** it offers to root, and the exploit keeps the
 last word: if the firmware is patched, it fails and says so. Nothing is guessed.
+
+### The firmware decides — so the installer asks for it
+
+The one thing an unrooted TV will not tell us is its firmware. Instead of guessing, the
+installer asks (or takes `--firmware`), then judges the answer with `tools/rootaly.py`:
+
+```text
+Firmware version from the TV (Settings > General > About this TV), empty = skip: 03.99.99
+==> Can this TV be rooted?
+    verdict:   no
+    reason:    SlopBro stops at firmware 03.53.45 for platform kisscurl, this TV is on 03.99.99
+    check:     https://cani.rootmy.tv/?q=43NANO779PA+03.99.99
+ERROR: by the published rules this firmware is patched - not rooting. Use --force-root to try anyway.
+```
+
+* **verdict no** → it stops before touching anything. `--force-root` / `-ForceRoot` overrides
+  that, for the case where you know better than the published table.
+* **verdict unknown** → it warns, prints the pre-filled cani.rootmy.tv link and continues.
+* **verdict yes** → straight on.
+
+The link is the real check: cani.rootmy.tv takes `?q=<model> <firmware>` and answers with the
+methods for that exact build.
 
 ### Root is checked, not assumed
 

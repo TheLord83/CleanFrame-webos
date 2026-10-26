@@ -137,7 +137,8 @@ PS> .\tools\install.ps1 -DryRun
 
 ### What it does in both cases
 
-It starts by asking the TV whether it already has a root shell. If not, it offers to root it
+It asks the TV for its model, asks you for the firmware, and checks that firmware against the
+published exploit table before it offers anything — a patched TV is not touched. If not, it offers to root it
 (`Root it now? [Y/n]`) — the launcher runs without root, the hub does not, so with `n` (or
 `--no-root` / `-NoRoot`) it installs the launcher only and says that the hub was skipped.
 

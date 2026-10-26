@@ -142,7 +142,8 @@ PS> .\tools\install.ps1 -DryRun
 
 ### Was in beiden Fällen passiert
 
-Zuerst fragt es den Fernseher, ob er schon eine Root-Shell hat. Wenn nicht, bietet es das
+Es holt Modell und – falls nötig per Nachfrage – die Firmware vom Fernseher und prüft sie gegen
+die veröffentlichte Exploit-Tabelle, bevor es etwas anbietet. Ein gepatchtes Gerät wird nicht angefasst. Wenn nicht, bietet es das
 Rooten an (`Jetzt rooten? [J/n]`) — der Launcher läuft ohne root, der Hub nicht. Mit `n`
 (oder `--no-root` / `-NoRoot`) installiert es nur den Launcher und sagt, dass der Hub
 übersprungen wurde.
