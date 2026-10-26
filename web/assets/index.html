@@ -284,6 +284,14 @@
     <div class="status" id="shotStatus"></div>
     <img id="shotImg" alt="" style="display:none;max-width:100%;margin-top:12px;border-radius:8px;border:1px solid #2f333c">
 
+
+    <h3 style="margin-top:22px"><span data-t="sys.pair.title">Fernbedienung koppeln</span></h3>
+    <p class="hint" data-t="sys.pair.hint">Der Hub steuert den ganzen Fernseher über eine eigene Kopplung — einmalig, direkt am Gerät bestätigt. Home Assistant ist dafür nicht nötig.</p>
+    <div class="row">
+      <button class="action" id="btnPair" data-t="sys.pair.run">Jetzt koppeln</button>
+    </div>
+    <div class="status" id="pairStatus"></div>
+
     <h2><span data-t="sys.backup.title">Sicherung</span><button class="showtv" type="button" data-view="settings" data-t="home.showtv" data-t-title="home.showtv.title" title="Diese Ansicht am Fernseher öffnen und ein frisches Bild holen">Am Fernseher zeigen</button></h2>
     <p class="hint" data-t="sys.backup.hint">Die Datei enthält die komplette Konfiguration als JSON — Startseite, Darstellung, Integrationen.</p>
     <div class="row">
@@ -866,7 +874,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.21';
+  var UI_BUILD = '0.4.22';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -997,6 +1005,39 @@
    *  2. /api/tv/screenshot.jpg?width=... - the whole screen through the TV's capture service:
    *     works always, also on LG's own screens, ~1.5 s per picture.
    * The status line says which one you are looking at. */
+
+  /* Pairing for the remote control. The TV asks once on screen; the key is stored on the
+   * device afterwards, so this runs exactly once per TV. */
+  function pairStatus() {
+    var el = $('pairStatus');
+    if (!el) return;
+    fetch('/api/tv/pair', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.status && j.status.paired) {
+        note(el, 'sys.pair.paired', { tv: j.status.tv || '-' }, true);
+      } else {
+        note(el, 'sys.pair.unpaired', null, false);
+      }
+    }).catch(function () { note(el, 'sys.pair.unpaired', null, false); });
+  }
+
+  function startPair() {
+    var el = $('pairStatus');
+    note(el, 'sys.pair.running', null, null);
+    spin(true);
+    fetch('/api/tv/pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waitSeconds: 120 })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      spinNachlauf(600);
+      if (j && j.ok) { note(el, 'sys.pair.ok', null, true); return; }
+      note(el, 'sys.pair.fail', { err: (j && j.error) || t('err.unknown') }, false);
+    }).catch(function (e) {
+      spinNachlauf(600);
+      note(el, 'sys.pair.fail', { err: e.message }, false);
+    });
+  }
+
   function loadShot() {
     if (shotBusy || document.hidden) return;
     shotBusy = true;
@@ -1120,6 +1161,7 @@
   }, true);
 
   $('btnShot').onclick = loadShot;
+  if ($('btnPair')) { $('btnPair').onclick = startPair; pairStatus(); }
   $('shotQuality').onchange = loadShot;
   $('autoShot').onchange = function () {
     if ($('autoShot').checked) { loadShot(); startLive(); }

@@ -281,4 +281,12 @@ window.CF_LANG.de = {
   "sys.shot.failed": "Aufnahme fehlgeschlagen:",
   "tv.img.screen": "Bildschirmfoto vom ganzen Fernseher {time} — {w}×{h}",
   "tv.key.onlylauncher": "Die Tasten gehen über Home Assistant an den Fernseher — auch LGs eigene Menüs. Nur die Launcher-Tasten (schnell) brauchen die laufende App.",
+  "sys.pair.title": "Fernbedienung koppeln",
+  "sys.pair.hint": "Der Hub steuert den ganzen Fernseher über eine eigene Kopplung — einmalig, direkt am Gerät bestätigt. Home Assistant ist dafür nicht nötig.",
+  "sys.pair.run": "Jetzt koppeln",
+  "sys.pair.running": "Kopplung läuft — die Frage erscheint jetzt am Fernseher, bitte mit der Fernbedienung bestätigen.",
+  "sys.pair.ok": "Gekoppelt. Die Tasten erreichen jetzt den ganzen Fernseher.",
+  "sys.pair.fail": "Kopplung nicht möglich: {err}",
+  "sys.pair.paired": "Gekoppelt{tv}",
+  "sys.pair.unpaired": "Noch nicht gekoppelt — Tasten gehen an den Launcher bzw. über Home Assistant.",
 };

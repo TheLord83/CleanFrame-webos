@@ -278,4 +278,12 @@ window.CF_LANG.en = {
   "sys.shot.failed": "Capture failed:",
   "tv.img.screen": "Whole screen from the TV {time} — {w}×{h}",
   "tv.key.onlylauncher": "The keys go to the TV through Home Assistant — including LG's own menus. Only the fast launcher keys need the app running.",
+  "sys.pair.title": "Pair the remote",
+  "sys.pair.hint": "The hub drives the whole TV through its own pairing — once, confirmed on the device. Home Assistant is not needed for this.",
+  "sys.pair.run": "Pair now",
+  "sys.pair.running": "Pairing — the question should be on the TV now, please accept it with the remote.",
+  "sys.pair.ok": "Paired. The keys now reach the whole TV.",
+  "sys.pair.fail": "Pairing not possible: {err}",
+  "sys.pair.paired": "Paired{tv}",
+  "sys.pair.unpaired": "Not paired yet — keys go to the launcher or through Home Assistant.",
 };

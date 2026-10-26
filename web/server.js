@@ -42,10 +42,11 @@ var diag = require('./lib/diag');
 var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var systemkey = require('./lib/systemkey');
+var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.21';
+var VERSION = '0.4.22';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -529,22 +530,45 @@ function handle(req, res) {
       /* First try the launcher (DevTools, ~90 ms). If it is not running, the keys go to
        * the TV itself through Home Assistant's paired webostv integration - that also
        * reaches LG's own menus. */
+      /* Three ways, in this order: the launcher itself (fast, DevTools), then our own
+       * paired SSAP channel (the whole TV), then Home Assistant if it happens to be set up.
+       * Nobody needs Home Assistant for the remote control — it is only the last net. */
       remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
         if (!e2) return json(res, 200, { ok: true, via: 'launcher', sent: sent });
-        var conf = store.read() || {};
-        var cfg = conf.integrations || {};
-        systemkey.press(keys, cfg.ha, function (e3, reply) {
-          if (e3) {
-            return json(res, 503, {
-              ok: false,
-              error: String(e2),
-              errorSystem: String(e3),
-              hint: 'Launcher nicht im Vordergrund und Home Assistant nicht erreichbar'
-            });
-          }
-          json(res, 200, { ok: true, via: 'homeassistant', sent: reply.pressed, entity: reply.entity });
+        ssap.press(keys, { tv: (store.read() || {}).tv || '' }, function (e3, pressed) {
+          if (!e3) return json(res, 200, { ok: true, via: 'ssap', sent: pressed });
+          var conf = store.read() || {};
+          var cfg = conf.integrations || {};
+          systemkey.press(keys, cfg.ha, function (e4, reply) {
+            if (e4) {
+              return json(res, 503, {
+                ok: false,
+                error: String(e2),
+                errorOwn: String(e3),
+                errorSystem: String(e4),
+                hint: 'Launcher nicht im Vordergrund und keine eigene Kopplung; Home Assistant antwortet auch nicht'
+              });
+            }
+            json(res, 200, { ok: true, via: 'homeassistant', sent: reply.pressed, entity: reply.entity });
+          });
         });
       });
+    });
+  }
+
+  /* Pairing for the remote control: the TV asks once on screen, the key is stored
+   * afterwards. Home Assistant is not involved. */
+  if (req.method === 'GET' && p === '/api/tv/pair') {
+    return json(res, 200, { ok: true, status: ssap.status() });
+  }
+  if (req.method === 'POST' && p === '/api/tv/pair') {
+    return readBody(req, function (body) {
+      var wait = Math.min(180, Math.max(20, parseInt(body && body.waitSeconds, 10) || 120));
+      ssap.register({ tv: (store.read() || {}).tv || '', waitSeconds: wait, force: true },
+        function (e, out) {
+          if (e) return json(res, 504, { ok: false, error: String(e) });
+          json(res, 200, { ok: true, paired: true, fresh: !!out.fresh, status: ssap.status() });
+        });
     });
   }
 

@@ -198,17 +198,30 @@ Two things to keep in mind for node 8 on the TV: no `readBigUInt64BE` (the 64-bi
 lengths are assembled by hand), and the DevTools console keeps HTTP connections open —
 so the answer has to be read via `Content-Length`, not via the connection ending.
 
-### Keys reach the whole TV — through Home Assistant
+### Keys reach the whole TV — own pairing first, Home Assistant last
 
 DevTools keys only move our own launcher: LG's home screen and settings are a different
 process and answer `ECONNREFUSED 127.0.0.1:9998` as soon as our app is not in front. The
 documented way for the rest of the TV is the SSAP pointer socket
 (`ssap://com.webos.service.networkinput/getPointerInputSocket`), which needs a client key
-paired with `CONTROL_MOUSE_AND_KEYBOARD`. This firmware grants that only during pairing and
-shows no pairing prompt at all, so the server takes the second path: Home Assistant is
-already paired with this TV, and its `webostv.button` service presses the same buttons.
+paired with `CONTROL_MOUSE_AND_KEYBOARD`.
 
-- The server asks Home Assistant for the entity only once per five minutes and takes the
+The hub brings that pairing itself (`web/lib/ssap.js`, `POST /api/tv/pair`): it registers
+over SSAP, the TV asks once on screen, the key is stored in `/var/lib/cleanframe/tv-client-key.json`
+(mode 0600) and reused. That is exactly what every webOS remote app does and needs no other
+software:
+
+- `GET /api/tv/pair` — `{paired, tv, saved}`.
+- `POST /api/tv/pair` with `{"waitSeconds": 120}` — starts the pairing and waits for the
+  answer; `504` with a readable reason when nobody confirms.
+- Order for `POST /api/tv/key`: launcher (DevTools) → own SSAP channel → Home Assistant.
+
+Home Assistant is only the last net, for TVs that refuse the prompt (one webOS 6.5 build
+shows no dialog at all; measured there: no window on screen, the SSAP connection closes
+without a key, while normal notifications do appear). Its `webostv.button` service then
+presses the same buttons through the pairing Home Assistant made earlier.
+
+- The Home Assistant path asks for the entity only once per five minutes and takes the
   reachable LG `media_player` (an old registration often stays as `unavailable` forever and
   would swallow every press).
 - Key names are translated (`ok` → `ENTER`, `back` → `BACK`, `volup` → `VOLUMEUP`, digits
