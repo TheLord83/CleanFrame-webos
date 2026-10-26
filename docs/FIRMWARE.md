@@ -34,6 +34,33 @@ Three things people mix up:
 * Similar model numbers can sit on different platforms: `43NANO779PA` is `kisscurl` (W21A) — a
   `43NANO766QA` is not.
 
+## Screenshots of the TV, for a report or a forum post
+
+With root there is a capture service — and yes, it also captures LG's own screens (home screen,
+settings, the info panel), not only the browser:
+
+```sh
+./tools/screenshot.py                                  # 1920x1080 PNG into the current directory
+./tools/screenshot.py -o info.png                      # given name
+./tools/screenshot.py --format JPG --width 1280 --height 720
+```
+
+Under the hood it is one Luna call on the TV:
+
+```sh
+luna-send -n 1 -f luna://com.webos.service.capture/executeOneShot \
+  '{"path":"/tmp/shot.png","method":"DISPLAY","format":"PNG","width":1920,"height":1080}'
+```
+
+Two things that cost an hour when you do not know them:
+
+* On webOS 6.5 the service `com.webos.service.tv.capture` (the name in most guides) **does not
+  exist** — the answer is `Service does not exist`. Use `com.webos.service.capture`.
+* `luna-send` prints **nothing** when it runs in the foreground over ssh; the same call
+  backgrounded finishes in under a second. Write the reply to a file on the TV and read it.
+* The framebuffer is not an option: `/dev/fb0` exists, but `dd` answers `No such device` — the
+  device is held by `surface-manager`.
+
 ## Without walking any menu
 
 If the TV is rooted, nothing has to be typed by hand:
