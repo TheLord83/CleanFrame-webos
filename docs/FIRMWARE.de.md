@@ -5,12 +5,6 @@ bezeichnet —, weil sie entscheidet, ob der Fernseher noch rootbar ist. Das Mod
 meistens selbst. Diese Seite zeigt, wo beides am Gerät steht, und wie man es ohne Menü
 herausbekommt.
 
-![Der Weg zu den TV-Informationen](img/firmware-path.de.svg)
-
-> Die Bilder sind Zeichnungen, keine Fotos vom Fernseher: LG zeichnet dieselben Bildschirme mit
-> anderer Schrift und leicht anderer Reihenfolge. Worauf es ankommt, sind die Beschriftungen und
-> der Weg.
-
 ## Der Menüweg
 
 ```
@@ -25,13 +19,7 @@ Einstellungen
 Neuere Versionen nennen den letzten Punkt **Info zu diesem TV**. Gleicher Bildschirm, gleiche
 Zahlen.
 
-**Der Tipp „dreimal STUMM drücken", der überall im Netz steht, funktioniert nicht überall.**
-Getestet am `43NANO779PA` mit webOS 6.5 am 26.10.2026: es passiert nichts, kein Panel. Nimm das
-Menü.
-
 ## Was der Bildschirm zeigt
-
-![Der Info-Bildschirm, Software-Version hervorgehoben](img/firmware-screen.de.svg)
 
 | Was dasteht | Sieht aus wie | Wofür |
 | --- | --- | --- |

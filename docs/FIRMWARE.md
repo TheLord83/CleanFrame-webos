@@ -4,11 +4,6 @@ The installer asks for the **software version** — that is the number LG calls 
 it decides whether the TV can still be rooted. The model it usually finds by itself. This page shows
 where both are on the TV, and how to get them without walking a menu.
 
-![The way to the TV information screen](img/firmware-path.svg)
-
-> The pictures are drawings, not photos of a TV: LG draws the same screens with other fonts and a
-> slightly different order. What matters is the labels and the path.
-
 ## The menu path
 
 ```
@@ -22,13 +17,7 @@ Settings
 
 Newer builds name the last entry **About This TV**. Same screen, same numbers.
 
-**The "press MUTE three times" shortcut that is all over the internet does not work everywhere.**
-Tested on a `43NANO779PA` with webOS 6.5 on 26 October 2026: nothing happens, no panel opens. Use the
-menu.
-
 ## What the screen shows
-
-![The information screen, with the software version highlighted](img/firmware-screen.svg)
 
 | On screen | Looks like | Needed for |
 | --- | --- | --- |
