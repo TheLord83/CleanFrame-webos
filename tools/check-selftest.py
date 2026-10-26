@@ -56,7 +56,9 @@ def devtools_alive(port):
 
 def failed_steps(port, url, timeout_s=25.0):
     """Open a tab, wait for the title, close the tab, return the title."""
-    target = http_json("http://127.0.0.1:%d/json/new?%s" % (port, urllib.parse.quote(url, safe="")), "PUT", timeout=10)
+    # The URL goes in verbatim: /json/new?<url> takes it unencoded, a quoted one
+    # arrives as a broken address and the tab ends up on an error page.
+    target = http_json("http://127.0.0.1:%d/json/new?%s" % (port, url), "PUT", timeout=10)
     target_id = target.get("id", "")
     if not target_id:
         return ""
