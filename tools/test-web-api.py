@@ -24,6 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 STUB = os.path.join(WEB, "test", "fixtures", "apps-stub.json")
 OSINFO = os.path.join(WEB, "test", "fixtures", "os_info.json")
+DEVINFO = os.path.join(WEB, "test", "fixtures", "device_info.json")
 
 results = []
 
@@ -117,6 +118,7 @@ def main():
         # Port without a counterpart: the screenshot test should exercise the error
         # path, not hit some forwarding that happens to run on the machine.
         "CF_OS_INFO": OSINFO,
+        "CF_DEVICE_INFO": DEVINFO,
         "CF_DEVTOOLS_PORT": str(free_port()),
     })
     ha_server = HTTPServer(("127.0.0.1", 0), FakeHA)
@@ -209,10 +211,13 @@ def main():
             st, d, _ = req("GET", "/api/tv/info")
             assert st == 200, st
             assert d["ok"] is True, d
-            assert d["modelName"] == "LG 43NANO779PA", d
-            assert d["webOs"] == "webOS TV Lite", d
+            assert d["modelName"] == "43NANO779PA", d
+            assert d["webOs"] == "webOS TV Lite 6.5.0", d
             assert d["firmware"] == "03.51.16", d
             assert d["kernel"].startswith("4.4.84"), d
+            assert d["codename"] == "kisscurl-koli", d
+            assert d["serial"] == "000MANJ00000", d
+            assert d["hardwareId"] == "HE_DTV_W21A_AFADATAA", d
             assert d["hub"] and d["node"], d
 
         def t_health():

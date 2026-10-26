@@ -69,8 +69,9 @@ t() {
       find_none)     echo "FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> Zustand des Fernsehers" ;;
       info_root)     echo "    root: %s" ;;
-      info_noroot)   echo "    Versionen ohne root: siehe Hub > System, oder hier sobald gerootet ist" ;;
-      probe)         echo "==> Was der Fernseher ohne root ueber sich verraet" ;;
+      info_noroot)   echo "    ohne root gibt der Fernseher nur das Modell heraus; webOS und Firmware stehen im Hub unter System" ;;
+      probe)         echo "==> Was der Fernseher ohne root ueber sich verraet (SSAP getSystemInfo)" ;;
+      probe_root)    echo "    aus der Root-Shell gelesen (os_info.json)" ;;
       root_advice)   echo "==> Kann dieser Fernseher gerootet werden?" ;;
       root_advice_no) echo "    ACHTUNG: nach den veroeffentlichten Regeln passt hier kein Exploit mehr." ;;
       root_advice_unknown) echo "    Unbekannt: die exakte Firmware entscheidet. Vor dem Rooten auf cani.rootmy.tv pruefen." ;;
@@ -130,8 +131,9 @@ t() {
       find_none)     echo "ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md" ;;
       info)          echo "==> State of the TV" ;;
       info_root)     echo "    root: %s" ;;
-      info_noroot)   echo "    versions without root: see hub > System, or here once the TV is rooted" ;;
-      probe)         echo "==> What the TV tells about itself without root" ;;
+      info_noroot)   echo "    without root the TV only reveals its model; webOS and firmware are in the hub under System" ;;
+      probe)         echo "==> What the TV tells about itself without root (SSAP getSystemInfo)" ;;
+      probe_root)    echo "    read from the root shell (os_info.json)" ;;
       root_advice)   echo "==> Can this TV be rooted?" ;;
       root_advice_no) echo "    WARNING: by the published rules no exploit matches this firmware any more." ;;
       root_advice_unknown) echo "    Unknown: the exact firmware decides. Check cani.rootmy.tv before rooting." ;;
@@ -233,6 +235,30 @@ is_rooted() {
   [ "$("${SSH[@]}" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
 }
 
+
+# Model, webOS, firmware, codename and serial as one pipe-separated line.
+# os_info.json and device_info.json, both read on the TV and parsed here: the TV has node
+# but no python, and a node one-liner through ssh is a quoting trap.
+tv_os_facts() {
+  "${SSH[@]}" 'cat /var/run/nyx/os_info.json; printf "\n---SPLIT---\n"; cat /var/run/nyx/device_info.json' 2>/dev/null \
+    | tr -d '\r' | python3 -c '
+import json, sys
+parts = sys.stdin.read().split("---SPLIT---")
+def load(text):
+    try:
+        return json.loads(text)
+    except Exception:
+        return {}
+os_info = load(parts[0]) if parts else {}
+dev_info = load(parts[1]) if len(parts) > 1 else {}
+webos = " ".join(x for x in [os_info.get("webos_name"), os_info.get("webos_release")] if x)
+codename = os_info.get("webos_release_codename") or os_info.get("core_os_release_codename") or ""
+print("|".join([dev_info.get("product_id") or "-", webos or "-",
+                os_info.get("webos_manufacturing_version") or "-", codename or "-",
+                dev_info.get("serial_number") or "-",
+                os_info.get("core_os_kernel_version") or "-"]))' 2>/dev/null
+}
+
 # ---- what the TV says about itself, and whether it can be rooted at all ------
 # Everything here works without root: SSDP/DIAL description, AirPlay mDNS and the SSAP
 # handshake. The firmware usually is NOT among it - which is exactly why the verdict can
@@ -248,24 +274,20 @@ print(d.get("modelName") or d.get("modelNumber") or "-", d.get("webOs") or "-", 
 EOV
     say "$(t probe)"
     say "    model:     ${TVMODEL:--}"
-    say "    webOS:     ${TVWEBOS:--}"
-    say "    firmware:  ${TVFW:--}"
   fi
 fi
 
 # With a root shell the TV tells the truth, and it wins over the probe.
 if is_rooted; then
-  read -r OS_MODEL OS_WEBOS OS_FW <<EOV
-$("${SSH[@]}" 'cat /var/run/nyx/os_info.json' 2>/dev/null | tr -d '\r' | python3 -c 'import json,sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    print("- - -"); raise SystemExit(0)
-print(d.get("modelName") or "-", d.get("webos_name") or "-", d.get("version") or "-")' 2>/dev/null || echo "- - -")
-EOV
+  FACTS="$(tv_os_facts)"
+  IFS='|' read -r OS_MODEL OS_WEBOS OS_FW OS_CODE OS_SERIAL OS_KERNEL <<< "$FACTS"
   [ "$OS_MODEL" != "-" ] && TVMODEL="$OS_MODEL"
   [ "$OS_WEBOS" != "-" ] && TVWEBOS="$OS_WEBOS"
   [ "$OS_FW" != "-" ] && TVFW="$OS_FW"
+  say "$(t probe_root)"
+  say "    webOS:     ${TVWEBOS:--}"
+  say "    firmware:  ${TVFW:--}"
+  [ "$OS_CODE" != "-" ] && say "    platform:  $OS_CODE"
 fi
 
 if command -v python3 >/dev/null; then
@@ -303,25 +325,13 @@ PY
   say "$(printf "$(t info_version)" "${LAUNCHERVER:-?}")"
   say "$(printf "$(t info_hub)" "${HUBVER:-?}")"
   if tcp 22; then
-    # Fetch os_info.json and parse it here: the TV has node but no python, and quoting a
-    # node one-liner through ssh is a trap. One file transfer, all version numbers.
-    "${SSH[@]}" 'cat /var/run/nyx/os_info.json' 2>/dev/null | tr -d '\r' | python3 -c '
-import json, sys
-raw = sys.stdin.read().strip()
-try:
-    os_info = json.loads(raw)
-except Exception:
-    print("    (os_info.json not readable)")
-    raise SystemExit(0)
-rows = [("model", os_info.get("modelName") or os_info.get("model", "")),
-        ("webOS", os_info.get("webos_name") or os_info.get("webosName", "")),
-        ("firmware", os_info.get("version") or os_info.get("firmwareVersion", "")),
-        ("kernel", os_info.get("kernel") or os_info.get("kernelVersion", "")),
-        ("node", "")]
-for name, value in rows:
-    if value:
-        print("    %-9s %s" % (name + ":", value))
-' 2>/dev/null
+    FACTS="$(tv_os_facts)"
+    IFS='|' read -r I_MODEL I_WEBOS I_FW I_CODE I_SERIAL I_KERNEL <<< "$FACTS"
+    [ -n "$I_MODEL" ] && say "    model:     $I_MODEL"
+    [ -n "$I_WEBOS" ] && say "    webOS:     $I_WEBOS"
+    [ -n "$I_FW" ] && say "    firmware:  $I_FW"
+    [ -n "$I_KERNEL" ] && say "    kernel:    $I_KERNEL"
+    [ -n "$I_CODE" ] && say "    platform:  $I_CODE"
     NODEVER="$("${SSH[@]}" '/usr/bin/node -v' 2>/dev/null | tr -d '\r')" || true
     [ -n "$NODEVER" ] && say "    node:     $NODEVER"
     say "$(printf "$(t info_root)" "yes")"

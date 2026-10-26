@@ -251,6 +251,8 @@
       <tr><th data-t="sys.dev.webos">webOS</th><td id="devWebos">…</td></tr>
       <tr><th data-t="sys.dev.firmware">Firmware</th><td id="devFw">…</td></tr>
       <tr><th data-t="sys.dev.kernel">Kernel</th><td id="devKernel">…</td></tr>
+      <tr><th data-t="sys.dev.codename">Plattform</th><td id="devCodename">…</td></tr>
+      <tr><th data-t="sys.dev.serial">Seriennummer</th><td id="devSerial">…</td></tr>
       <tr><th data-t="sys.dev.hub">Hub</th><td id="devHub">…</td></tr>
       <tr><th data-t="sys.dev.node">node</th><td id="devNode">…</td></tr>
     </table>
@@ -772,6 +774,8 @@
       put('devWebos', d.webOs);
       put('devFw', d.firmware);
       put('devKernel', d.kernel);
+      put('devCodename', d.codename);
+      put('devSerial', d.serial);
       put('devHub', d.hub);
       put('devNode', d.node);
       var st = document.getElementById('devStatus');

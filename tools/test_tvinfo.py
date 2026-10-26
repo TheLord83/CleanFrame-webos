@@ -33,10 +33,13 @@ WITH_VERSION = """<root><device><modelName>LG 50NANO816PA</modelName>
 
 class TvinfoTest(unittest.TestCase):
     def setUp(self):
-        self.orig = (tvinfo.ssdp_search, tvinfo.airplay, tvinfo.ssap_handshake)
+        self.orig = (tvinfo.ssdp_search, tvinfo.airplay, tvinfo.ssap_handshake,
+                     tvinfo.ssap_unauth)
 
     def tearDown(self):
-        (tvinfo.ssdp_search, tvinfo.airplay, tvinfo.ssap_handshake) = self.orig
+        (tvinfo.ssdp_search, tvinfo.airplay, tvinfo.ssap_handshake,
+         tvinfo.ssap_unauth) = self.orig
+        tvinfo.ssap_unauth = lambda ip, port=3000, timeout=3.0: {}
 
     def test_xml_fields_read_an_lg_description(self):
         fields = tvinfo._xml_fields(LG_DESCRIPTION)
@@ -69,6 +72,18 @@ class TvinfoTest(unittest.TestCase):
         info = tvinfo.collect("192.168.0.5")
         self.assertTrue(info["complete"])
         self.assertEqual(info["firmware"], "03.30.40")
+
+    def test_model_and_serial_come_from_the_unpaired_ssap_call(self):
+        """Measured on a real TV: getSystemInfo answers without pairing, model + serial."""
+        tvinfo.ssdp_search = lambda ip, timeout=2.0: {}
+        tvinfo.airplay = lambda ip, timeout=2.0: {}
+        tvinfo.ssap_handshake = lambda ip, port=3000, timeout=2.0: True
+        tvinfo.ssap_unauth = lambda ip, port=3000, timeout=3.0: {
+            "modelName": "43NANO779PA", "serialNumber": "000MANJ00000"}
+        info = tvinfo.collect("192.168.1.50")
+        self.assertEqual(info["modelName"], "43NANO779PA")
+        self.assertEqual(info["serial"], "000MANJ00000")
+        self.assertFalse(info["complete"])   # firmware still unknown
 
     def test_airplay_model_is_a_fallback(self):
         tvinfo.ssdp_search = lambda ip, timeout=2.0: {}

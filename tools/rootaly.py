@@ -95,6 +95,14 @@ def advice(model=None, webos=None, firmware=None):
                           "A newer method may exist." % (SLOPBRO_MAX[platform], platform, firmware),
                 "check": CANI}
 
+    # 1b. Platform known, but the firmware was not readable: say what the ceiling is
+    if platform and platform in SLOPBRO_MAX and not fw:
+        return {"verdict": "unknown", "method": "slopbro",
+                "reason": "SlopBro covers platform %s up to firmware %s, but this TV's firmware "
+                          "is not readable without root or a paired session - check %s"
+                          % (platform, SLOPBRO_MAX[platform], CANI),
+                "check": CANI}
+
     # 2. webOS 4.x: faultmanager is still open there
     if major and major[0] == 4:
         return {"verdict": "yes", "method": "faultmanager",

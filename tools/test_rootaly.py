@@ -26,6 +26,12 @@ class RootalyTest(unittest.TestCase):
         self.assertEqual(result["verdict"], "no")
         self.assertIn("03.53.45", result["reason"])
 
+    def test_known_platform_without_firmware_is_unknown_with_a_ceiling(self):
+        result = rootaly.advice("43NANO779PA", "", "")
+        self.assertEqual(result["verdict"], "unknown")
+        self.assertEqual(result["method"], "slopbro")
+        self.assertIn("03.53.45", result["reason"])
+
     def test_webos_4_is_a_yes_with_faultmanager(self):
         result = rootaly.advice("OLED55C8PLA", "4.5.0", "05.30.10")
         self.assertEqual(result["verdict"], "yes")

@@ -1,8 +1,10 @@
 {
- "modelName": "LG 43NANO779PA",
- "modelNumber": "43NANO779PA",
+ "core_os_kernel_version": "4.4.84-899.19.koli.1",
+ "core_os_release": "6.5.0-2401",
+ "core_os_release_codename": "kisscurl-koli",
+ "webos_build_datetime": "20250226114027",
+ "webos_imagename": "starfish-global-secured",
+ "webos_manufacturing_version": "03.51.16",
  "webos_name": "webOS TV Lite",
- "version": "03.51.16",
- "kernel": "4.4.84-899.19.koli.1",
- "serialNumber": "TEST1234"
+ "webos_release": "6.5.0"
 }

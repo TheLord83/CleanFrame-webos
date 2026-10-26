@@ -422,23 +422,36 @@ function handle(req, res) {
    * from the LAN with a token — the access opens an SSH tunnel to the DevTools
    * port (9998), which is otherwise blocked. */
   if (req.method === 'GET' && p === '/api/tv/info') {
-    /* The hub runs on the TV, so the version numbers are simply a local file:
-     * /var/run/nyx/os_info.json. CF_OS_INFO points elsewhere for tests. */
-    var infoPath = process.env.CF_OS_INFO || '/var/run/nyx/os_info.json';
-    var info = { ok: false, path: infoPath };
+    /* The hub runs on the TV, so the numbers are two local files:
+     *   /var/run/nyx/os_info.json      webOS name/release, firmware, kernel, codename
+     *   /var/run/nyx/device_info.json  product id (= model), serial, board, memory
+     * CF_OS_INFO / CF_DEVICE_INFO point elsewhere for tests. */
+    var osPath = process.env.CF_OS_INFO || '/var/run/nyx/os_info.json';
+    var devPath = process.env.CF_DEVICE_INFO || '/var/run/nyx/device_info.json';
+    var info = { ok: false, osPath: osPath, devicePath: devPath };
     try {
-      var raw = require('fs').readFileSync(infoPath, 'utf8');
-      var os = JSON.parse(raw);
+      info.os = JSON.parse(require('fs').readFileSync(osPath, 'utf8'));
       info.ok = true;
-      info.modelName = os.modelName || '';
-      info.modelNumber = os.modelNumber || '';
-      info.webOs = os.webos_name || os.webosName || '';
-      info.firmware = os.version || os.firmwareVersion || '';
-      info.kernel = os.kernel || os.kernelVersion || '';
-      info.serial = os.serialNumber || '';
     } catch (e) {
       info.error = String(e.message || e);
     }
+    try {
+      info.device = JSON.parse(require('fs').readFileSync(devPath, 'utf8'));
+    } catch (e) {
+      info.device = {};
+    }
+    var os = info.os || {};
+    var dev = info.device || {};
+    info.modelName = dev.product_id || '';            /* 43NANO779PA */
+    info.serial = dev.serial_number || '';
+    info.board = dev.board_type || '';
+    info.hardwareId = dev.hardware_id || '';          /* HE_DTV_W21A_AFADATAA */
+    info.ram = dev.ram_size || '';
+    info.webOs = [os.webos_name, os.webos_release].filter(Boolean).join(' ') || '';
+    info.firmware = os.webos_manufacturing_version || '';   /* 03.51.16 */
+    info.kernel = os.core_os_kernel_version || '';
+    info.codename = os.webos_release_codename || os.core_os_release_codename || '';  /* kisscurl-koli */
+    info.buildTime = os.webos_build_datetime || '';
     info.hub = VERSION;
     info.node = process.version;
     return json(res, 200, info);

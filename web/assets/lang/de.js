@@ -270,4 +270,6 @@ window.CF_LANG.de = {
   'sys.dev.node': "node",
   'sys.dev.unknown': "unbekannt",
   'err.readFailed': "Konnte nicht gelesen werden: {msg}",
+  'sys.dev.codename': "Plattform",
+  'sys.dev.serial': "Seriennummer",
 };

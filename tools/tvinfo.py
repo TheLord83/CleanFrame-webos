@@ -193,14 +193,64 @@ def ssap_handshake(ip, port=3000, timeout=2.0):
         return False
 
 
+
+def ssap_unauth(ip, port=3000, timeout=3.0):
+    """`ssap://system/getSystemInfo` answers WITHOUT pairing - model and serial number.
+
+    Measured on a webOS 6.5 TV (43NANO779PA): this one call returns modelName and
+    serialNumber with no client-key and no prompt on screen. Everything else we tried
+    (config/getConfigs, settings/getSystemSettings, update/getCurrentSWInformation)
+    answers `401 insufficient permissions (not registered)`, i.e. needs a paired session.
+    """
+    import json as _json
+    import os as _os
+    import struct as _struct
+    try:
+        sock = socket.create_connection((ip, port), timeout=timeout)
+        key = base64.b64encode(_os.urandom(16)).decode()
+        sock.sendall(("GET / HTTP/1.1\r\nHost: %s:%d\r\nUpgrade: websocket\r\n"
+                      "Connection: Upgrade\r\nSec-WebSocket-Key: %s\r\n"
+                      "Sec-WebSocket-Version: 13\r\n\r\n" % (ip, port, key)).encode())
+        if "101" not in sock.recv(4096).decode("utf-8", "replace").split("\r\n")[0]:
+            sock.close()
+            return {}
+        message = _json.dumps({"id": "1", "type": "request",
+                               "uri": "ssap://system/getSystemInfo"}).encode()
+        mask = _os.urandom(4)
+        sock.sendall(bytes([0x81, 0x80 | len(message)]) + mask
+                     + bytes(b ^ mask[i % 4] for i, b in enumerate(message)))
+        sock.settimeout(timeout)
+        header = sock.recv(2)
+        if len(header) < 2:
+            sock.close()
+            return {}
+        length = header[1] & 0x7F
+        if length == 126:
+            length = _struct.unpack(">H", sock.recv(2))[0]
+        elif length == 127:
+            length = _struct.unpack(">Q", sock.recv(8))[0]
+        data = b""
+        while len(data) < length:
+            chunk = sock.recv(length - len(data))
+            if not chunk:
+                break
+            data += chunk
+        sock.close()
+        answer = _json.loads(data.decode("utf-8", "replace"))
+        return answer.get("payload") or {}
+    except Exception:
+        return {}
+
 def collect(ip):
     """Everything the TV tells us without root. Empty values mean 'it did not say'."""
     ssdp = ssdp_search(ip)
     desc = ssdp.get("description", {})
     mdns = airplay(ip)
+    sysinfo = ssap_unauth(ip)
     info = {
         "ip": ip,
-        "modelName": desc.get("modelName") or mdns.get("model") or "",
+        "modelName": desc.get("modelName") or mdns.get("model") or sysinfo.get("modelName") or "",
+        "serial": sysinfo.get("serialNumber") or "",
         "modelNumber": desc.get("modelNumber") or "",
         "friendlyName": desc.get("friendlyName") or "",
         "manufacturer": desc.get("manufacturer") or "",
@@ -224,6 +274,8 @@ def collect(ip):
         info["sources"].append("airplay")
     if info["ssap"]:
         info["sources"].append("ssap:3000")
+    if sysinfo:
+        info["sources"].append("ssap:system/getSystemInfo")
     info["complete"] = bool(info["modelName"] and info["firmware"])
     return info
 
@@ -242,15 +294,17 @@ def main(argv=None):
         print("model:     %s" % (info["modelName"] or "unknown"))
         print("model no.: %s" % (info["modelNumber"] or "unknown"))
         print("name:      %s" % (info["friendlyName"] or "unknown"))
+        print("serial:    %s" % (info["serial"] or "unknown"))
         print("webOS:     %s" % (info["webOs"] or "unknown"))
         print("firmware:  %s" % (info["firmware"] or "unknown"))
         print("ssap:      %s" % ("yes" if info["ssap"] else "no"))
         print("sources:   %s" % (", ".join(info["sources"]) or "none"))
         if not info["complete"]:
             print("")
-            print("The TV did not tell us model and firmware over the network. Without root,")
-            print("the firmware is only readable on screen (Settings > General > About) or")
-            print("through a paired SSAP session, which shows a prompt on the TV.")
+            print("The TV did not give us everything over the network. Without root the model")
+            print("usually comes from SSAP getSystemInfo; webOS and firmware only come from a")
+            print("root shell, a paired SSAP session (prompt on the TV), the hub (tab System)")
+            print("or the screen menu (Settings > General > About this TV).")
     return 0 if info["sources"] else 1
 
 

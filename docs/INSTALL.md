@@ -188,14 +188,19 @@ on port 3000.
 | Field | Without root? |
 | --- | --- |
 | that it is a webOS TV at all (SSAP answers) | yes |
-| friendly name, model name, model number | yes, from the device description |
-| webOS version, firmware build | **no** — LG only hands these out inside a paired SSAP session, which shows a prompt on the TV, or through a root shell |
+| **model** (`43NANO779PA`) and serial number | yes — `ssap://system/getSystemInfo` answers without a client key and without any prompt (measured on webOS 6.5) |
+| friendly name / model number | only if the TV also answers SSDP or DIAL; both were silent on our 43NANO779PA |
+| webOS release and firmware build | **no** — `config/getConfigs`, `settings/getSystemSettings` and `update/getCurrentSWInformation` all answer `401 not registered`, i.e. they need a paired session (prompt on screen); over a root shell both come from `/var/run/nyx/os_info.json` |
+
+So on an unrooted TV the installer knows the model, and that is enough to name the platform and
+the exploit ceiling — but not to decide whether *this* firmware is still vulnerable.
 
 That limit matters, because rooting depends on the exact firmware, not on the model. So
 `tools/rootaly.py` judges only what the published rules actually cover:
 
 * platform `kisscurl` (NANO77/NANO79, W21A) with SlopBro: up to firmware **03.53.45** → an
-  exact yes or no,
+  exact yes or no — once the firmware is known (root shell, hub, or on screen); without it the
+  verdict stays "unknown" but names the ceiling,
 * webOS 4.x → faultmanager is still open there → yes,
 * webOS 5/6/7/9/10 → since 08/2025 the current firmware is patched almost everywhere, the
   build decides → **unknown**, with the pointer to <https://cani.rootmy.tv>,
