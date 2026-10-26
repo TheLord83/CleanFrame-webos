@@ -236,3 +236,22 @@ the interface shows "no picture". Starting it again:
 `curl -X POST http://<tv-ip>:8080/api/control -d '{"action":"launchApp","value":"com.blackpearl.cleanframe"}'`
 — or simply run `tools/install.sh <tv-ip>`, which starts the app and waits for the
 picture as part of its verification.
+
+### Measured on the 43NANO779PA (webOS 6.5, firmware 03.51.16)
+
+* **Pairing works**, the prompt appears when a client is in the foreground, and the
+  client-key is issued (`registered`). Store it in `/var/lib/cleanframe/tv-client-key.json`.
+* **That key carries no permissions on this firmware.** Every request except
+  `system/getSystemInfo` answers `401 insufficient permissions` — `networkinput/
+  getPointerInputSocket`, `audio/getVolume`, `applicationManager/listApps`,
+  `tv/getExternalInputList`. Reproduced twice, on the same socket the prompt was
+  confirmed on, and with the full manifest (`serial`, `localizedVendorNames`, all
+  permissions) that pylgtv and aiowebostv use. Assume the same on sister models
+  until a measurement says otherwise — do not build on a pair-and-press path.
+* **What does drive the keys without Home Assistant:** the launcher app itself, via
+  DevTools (`127.0.0.1:9998`, ~90 ms). `/api/tv/key` answers `via: "launcher"` and the
+  picture changes. It needs the launcher in the foreground — that is inherent to a
+  launcher, not a limitation to fix.
+* `luna-send -a <any app> luna://com.webos.service.networkinput/getPointerInputSocket`
+  returns `/tmp/netinput.pointer.sock` as root, but writing `type:button\nname:DOWN\n\n`
+  to it changes no pixel. Left as a dead end.
