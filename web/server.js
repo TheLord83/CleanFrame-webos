@@ -46,7 +46,7 @@ var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.4.26';
+var VERSION = '0.4.27';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -533,17 +533,20 @@ function handle(req, res) {
       /* Three ways, in this order: the launcher itself (fast, DevTools), then our own
        * paired SSAP channel (the whole TV), then Home Assistant if it happens to be set up.
        * Nobody needs Home Assistant for the remote control — it is only the last net. */
-      remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
-        if (!e2) return json(res, 200, { ok: true, via: 'launcher', sent: sent });
-        /* Never open a pairing prompt just because a key was pressed: without a stored
-         * key the TV would ask again on every single press. Unpaired -> straight on. */
-        if (!ssap.status().paired) {
-          return viaHomeAssistant(store, keys, e2, 'noch nicht gekoppelt');
-        }
-        ssap.press(keys, { tv: (store.read() || {}).tv || '' }, function (e3, pressed) {
-          if (!e3) return json(res, 200, { ok: true, via: 'ssap', sent: pressed });
-          viaHomeAssistant(store, keys, e2, String(e3));
+      /* The other way round on purpose: the own channel reaches the whole TV (LG's menus
+       * included), while the launcher only reaches our own webview. The launcher answers
+       * "ok" even when LG's settings own the screen — the key went nowhere and the
+       * caller believed it worked. So: own channel first, launcher second. */
+      function viaLauncher(store2, ownError) {
+        remote.sendKeys(keys, { holdMs: (body && body.holdMs) || 0 }, function (e2, sent) {
+          if (!e2) return json(res, 200, { ok: true, via: 'launcher', sent: sent });
+          viaHomeAssistant(store2, keys, e2, ownError);
         });
+      }
+      if (!ssap.status().paired) return viaLauncher(store, 'noch nicht gekoppelt');
+      ssap.press(keys, { tv: (store.read() || {}).tv || '' }, function (e3, pressed) {
+        if (!e3) return json(res, 200, { ok: true, via: 'ssap', sent: pressed });
+        viaLauncher(store, String(e3));
       });
     });
   }
