@@ -68,8 +68,15 @@ function friendly(state) {
   var a = state.attributes || {};
   var name = a.friendly_name || state.entity_id;
   var unit = a.unit_of_measurement || '';
+  /* 'unknown' and 'unavailable' stay as they are: the interface translates them,
+   * and a bare dash hides whether the sensor is missing or just has no reading. */
   var value = state.state;
-  if (value === 'unknown' || value === 'unavailable') value = '–';
+  /* Numbers are rounded for the display: Home Assistant delivers long floats
+   * (26.9494692484538 %) that no one wants to read on a television. */
+  if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) {
+    var num = parseFloat(value);
+    if (isFinite(num)) value = Math.abs(num) >= 100 ? String(Math.round(num)) : String(Math.round(num * 10) / 10);
+  }
   if (typeof value === 'string' && value.length > 24) value = value.slice(0, 24) + '…';
   return { id: state.entity_id, name: name, state: value, unit: unit, domain: state.entity_id.split('.')[0] };
 }
@@ -103,7 +110,7 @@ function values(cfg, ids, cb) {
     if (!Array.isArray(r.data)) return cb({ ok: false, error: 'unerwartete Antwort', values: [] });
     var byId = {};
     r.data.forEach(function (s) { if (s && s.entity_id) byId[s.entity_id] = friendly(s); });
-    cb({ ok: true, values: list.map(function (id) { return byId[id] || { id: id, name: id, state: '–', unit: '' }; }) });
+    cb({ ok: true, values: list.map(function (id) { return byId[id] || { id: id, name: id, state: 'unknown', unit: '' }; }) });
   });
 }
 

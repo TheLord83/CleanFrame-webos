@@ -13,6 +13,27 @@
 
   var DICT = {
     de: {
+      /* Home Assistant states: the value text on the status strip. The English
+         word is the key (see the header), so only German needs an entry. */
+      'On': 'An',
+      'Off': 'Aus',
+      'Open': 'Offen',
+      'Closed': 'Geschlossen',
+      'Not available': 'Nicht verfügbar',
+      'Unknown': 'Unbekannt',
+      'Home': 'Zuhause',
+      'Away': 'Abwesend',
+      'Day': 'Tagsüber',
+      'Night': 'Nachts',
+      'Heating': 'Heizt',
+      'Cooling': 'Kühlt',
+      'Idle': 'Bereit',
+      'Playing': 'Läuft',
+      'Paused': 'Pausiert',
+      'Docked': 'In Station',
+      'Locked': 'Verriegelt',
+      'Unlocked': 'Offen',
+
       /* Header */
       'Screensaver': 'Bildschirmschoner',
       'All apps': 'Alle Apps',

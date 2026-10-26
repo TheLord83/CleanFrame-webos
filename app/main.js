@@ -438,6 +438,7 @@
     S.pendingCfg = null;
     applyServerConfig(cfg);
     render();
+    loadHaValues();
     updateClock();
     if (S.syncLog) S.syncLog.push('adopted from web (rev ' + (cfg.rev || 0) + ')');
   }
@@ -1249,7 +1250,7 @@
   var stage = $('stage'), homeEl = $('home'), caption = $('caption'), utilsEl = $('utils');
   var utilFocusLabel = $('utilFocusLabel'), utilFocusKey = '', appFocusName = $('appFocusName');
   var dock = $('dock'), shelf = $('shelf'), track = $('track'), plate = $('plate'), matScrim = $('matScrim'), dockEmpty = $('dockEmpty');
-  var cueL = $('cueL'), cueR = $('cueR'), dockAction = $('dockAction');
+  var cueL = $('cueL'), cueR = $('cueR'), dockAction = $('dockAction'), haStrip = $('haStrip');
   var focusStatus = $('focusStatus'), sceneEl = $('scene'), appearanceEl = $('appearance'), appearanceRows = $('appearanceRows'), appearanceDesc = $('appearanceDesc');
   var appearanceBack = $('appearanceBack'), appearanceTitle = $('appearanceTitle'), appearanceStatus = $('appearanceStatus');
   var phScene = $('phScene'), phPlate = $('phPlate'), phField = $('phField'), phList = $('phList'), phRows = $('phRows'), phAction = $('phAction'), phEmpty = $('phEmpty');
@@ -1326,6 +1327,7 @@
     renderUtils(hs);
     if (S.c.layout === 'list') renderList(hs);
     else { photoMode = null; renderDock(hs); }
+    renderHaStrip();
     renderAppFocusName(hs);
   }
 
@@ -1411,6 +1413,101 @@
     fieldTransform(utFields[utPlateIndex], x, y, width, 60);
     utPlates[utPlateIndex].className = 'ph-plate ut-lens is-current on-focus';
   }
+  /* ---------- Home Assistant status strip ----------
+   * The entities picked in the hub are shown above the dock: name and current
+   * value, read-only. A value refresh runs on its own timer, so a new value does
+   * not redraw the whole home screen. Without a selection or without a server the
+   * strip stays hidden and nothing appears. */
+  var haValues = null, haBusy = false, haTimer = null, haKey = '';
+
+  function haPicked() {
+    var it = S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.ha;
+    return (it && it.entities) || [];
+  }
+
+  function loadHaValues() {
+    var picked = haPicked();
+    if (!picked.length || !window.FrameDevice || !FrameDevice.api) { haValues = null; renderHaStrip(); return; }
+    if (haBusy) return;
+    haBusy = true;
+    var ids = picked.map(function (e) { return e.id; }).join(',');
+    FrameDevice.api('GET', '/api/ha/values?entities=' + encodeURIComponent(ids), null, function (err, data) {
+      haBusy = false;
+      /* Keep the last known values on an error: a stale value beats a flickering
+       * block. Only an empty answer clears the strip. */
+      if (!err && data && data.values) haValues = data.values;
+      renderHaStrip();
+    });
+  }
+
+  function startHaWatch() {
+    if (haTimer) clearInterval(haTimer);
+    loadHaValues();
+    haTimer = setInterval(loadHaValues, 60000);
+  }
+
+  /* The label from the selection wins over the name Home Assistant reports: the
+   * hub lets you name a value yourself ("Temperature" instead of
+   * "sensor.living_room_temperature"). */
+  function haLabel(id, fallback) {
+    var picked = haPicked(), i;
+    for (i = 0; i < picked.length; i++) {
+      if (picked[i].id === id && picked[i].label) return picked[i].label;
+    }
+    return fallback || id;
+  }
+
+  /* The raw state from Home Assistant is English machine text ("on", "above_horizon").
+   * Known words go through the language table; everything else (numbers, units,
+   * custom text) is shown as it comes. */
+  var HA_STATE_WORDS = {
+    'on': 'On', 'off': 'Off', 'open': 'Open', 'closed': 'Closed',
+    'unavailable': 'Not available', 'unknown': 'Unknown',
+    'home': 'Home', 'not_home': 'Away',
+    'above_horizon': 'Day', 'below_horizon': 'Night',
+    'heat': 'Heating', 'cool': 'Cooling', 'idle': 'Idle',
+    'playing': 'Playing', 'paused': 'Paused',
+    'docked': 'Docked', 'locked': 'Locked', 'unlocked': 'Unlocked'
+  };
+
+  function haStateText(raw, domain) {
+    var s = String(raw === undefined || raw === null || raw === '' ? '–' : raw), word = s.toLowerCase(), key;
+    /* A window contact reports "on" when it is open - "An" would be wrong there. */
+    if (domain === 'binary_sensor' && (word === 'on' || word === 'off')) {
+      return T(word === 'on' ? 'Open' : 'Closed');
+    }
+    key = HA_STATE_WORDS[word];
+    return key ? T(key) : s;
+  }
+
+  function renderHaStrip() {
+    if (!haStrip) return;
+    var picked = haPicked(), vals = haValues, html = '', i, v, text, unit, key;
+    if (!picked.length || !vals || !vals.length) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
+    var byId = {};
+    vals.forEach(function (x) { if (x && x.id) byId[x.id] = x; });
+    for (i = 0; i < picked.length; i++) {
+      v = byId[picked[i].id];
+      if (!v) continue;
+      text = haStateText(v.state, v.domain);
+      /* No reading, no unit: "Nicht verfügbar °C" reads like a broken sensor. */
+      var raw = String(v.state === undefined || v.state === null ? '' : v.state).toLowerCase();
+      unit = (v.unit && raw !== 'unavailable' && raw !== 'unknown') ? ' ' + v.unit : '';
+      html += '<div class="ha-chip"><span class="ha-chip-name">' + esc(haLabel(v.id, v.name)) + '</span>'
+        + '<span class="ha-chip-value">' + esc(text) + esc(unit) + '</span></div>';
+    }
+    if (!html) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
+    key = html + '|' + S.c.bg + '|' + S.c.layout;
+    if (key !== haKey) { setHTML(haStrip, html); haKey = key; }
+    haStrip.hidden = false;
+    /* Sit right above the dock; the dock geometry comes from the current layout,
+     * so this works for the dock and the list layout alike. */
+    var dockTop = parseFloat(dock.style.top);
+    if (!isFinite(dockTop)) dockTop = 676;
+    var h = haStrip.offsetHeight || 0;
+    haStrip.style.top = Math.round(dockTop - h - 24) + 'px';
+  }
+
   function renderAppFocusName(hs) {
     var it = hs.items[hs.i], width, x, y, placement;
     if (S.c.apps !== 'icons' || hs.mode !== 'browse' || hs.zone !== 'apps' || !it) { appFocusName.className = 'app-focus-name'; return; }
@@ -2472,6 +2569,7 @@
      * overwrite the server configuration. */
     S.ready = true;
     startConfigWatch();
+    startHaWatch();
     if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }
   }
 

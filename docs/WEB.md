@@ -82,9 +82,33 @@ duplicate `appId`s are removed.
 
 `integrations.ha.entities` holds up to 12 entity ids (each optionally with a
 `label`); `/api/ha/values` returns name, state and unit for exactly those, which
-is what the tile renders. Only display-worthy domains are offered —
-`automation.*`, `zone.*` and similar are filtered out on the server, and
-`unavailable`/`unknown` render as `–`.
+is what the status strip renders. Only display-worthy domains are offered —
+`automation.*`, `zone.*` and similar are filtered out on the server.
+
+### Status strip on the home screen
+
+The chosen entities appear as a strip of value chips above the dock: own label
+(or the Home Assistant name), value, unit. Read-only, refreshed every 60 s and
+immediately whenever the configuration changes. No selection, no strip.
+
+Rules worth knowing:
+
+- A `label` in the configuration wins over the Home Assistant name — that is what
+  keeps a tile readable at three metres.
+- States are translated in the interface, not on the server: `on` → `An`,
+  `off` → `Aus`, `open` → `Offen` … A `binary_sensor` gets the contact wording
+  (`on` → `Offen`, `off` → `Geschlossen`), because "An" would be wrong for a
+  window.
+- `unavailable` and `unknown` stay as they are on the server and are shown as
+  `Nicht verfügbar` / `Unbekannt`; the unit is dropped with them, so a dead
+  sensor does not read like a measurement of zero.
+- Numbers are rounded for the display (one decimal below 100, integers above):
+  Home Assistant delivers `26.9494692484538 %`.
+
+Measured on the 43NANO779PA (webOS 6.5, firmware 03.51.16): three chips,
+`Temperatur 24.1 °C | Wohnzimmer An | Fenster Geschlossen`, strip bottom at
+264 px with the dock starting at 274 px — nothing overlaps. A label change in
+the hub is on screen within a second without a restart.
 
 `screensaver` controls the coupling to the TV screensaver:
 

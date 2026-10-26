@@ -125,6 +125,12 @@
   ul.tiles .nm { flex: 1 1 160px; }
   ul.tiles .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
   ul.tiles .ctl { display: flex; gap: 4px; }
+  /* Chosen entity: the label is editable, so a long Home Assistant name can be
+     shortened to what fits on a tile. */
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; }
+  .chip input.chip-name { width: 170px; border: 0; background: none; color: inherit; font: inherit; padding: 2px 0; }
+  .chip input.chip-name:focus { outline: none; }
+  .chip button.chip-x { border: 0; padding: 2px 6px; }
   .pill { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
   .status { margin-top: 12px; font-size: 13px; min-height: 20px; }
   .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
@@ -874,7 +880,7 @@
 
   /* Build stamp of this page — if it differs from the server version, the
    * browser is still running an old copy (the most common cause of "doesn't work"). */
-  var UI_BUILD = '0.4.32';
+  var UI_BUILD = '0.4.37';
   setTimeout(function () { melde('Seite geladen, Bau ' + UI_BUILD); }, 0);
 
   /* Spinner: runs while saving or fetching an image, and briefly afterwards
@@ -1316,16 +1322,28 @@
       return;
     }
     list.forEach(function (e, i) {
+      var wrap = document.createElement('span');
+      wrap.className = 'chip';
+      /* Own label: without it the tile shows what Home Assistant calls the
+         entity, which is usually longer than fits ("Living room ceiling
+         light brightness" instead of "Light"). */
+      var name = document.createElement('input');
+      name.className = 'chip-name';
+      name.value = e.label || '';
+      name.placeholder = e.id;
+      name.title = e.id;
+      name.oninput = function () { e.label = name.value; };
       var b = document.createElement('button');
-      b.className = 'ghost';
-      b.textContent = (e.label || e.id) + '  ✕';
+      b.className = 'ghost chip-x';
+      b.textContent = '✕';
       b.title = t('int.ent.remove');
       b.onclick = function () {
         state.cfg.integrations.ha.entities.splice(i, 1);
         renderChosen();
         note($('haStatus'), 'int.ent.changed', null, true);
       };
-      host.appendChild(b);
+      wrap.appendChild(name); wrap.appendChild(b);
+      host.appendChild(wrap);
     });
   }
 

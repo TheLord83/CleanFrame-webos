@@ -577,6 +577,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .a-text .ph-name,.a-text .ph-list.is-compact .ph-name{left:28px}
 .a-icons .ph-group .mark{top:20px}
 .a-icons .ph-list.is-compact .ph-group .mark{top:12px}
+.ha-strip{position:absolute;left:140px;width:1640px;display:flex;flex-wrap:wrap;justify-content:center;pointer-events:none;z-index:2}
+/* Chromium 79 has no flexbox gap, and a sibling rule puts the margin on the wrong
+   chip once the rows wrap — so every chip carries its own outer margin. */
+.ha-chip{margin:0 6px 12px;padding:10px 20px 12px;border-radius:18px;max-width:420px;display:flex;flex-direction:column;/* A fixed dark panel instead of the light plate: the values have to stay readable
+   over a bright mountain photo as well. */
+background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1px 3px rgba(0,0,0,.22);color:#f6f1e7;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+.ha-chip-name{font-size:22px;line-height:28px;font-weight:500;letter-spacing:-.1px;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ha-chip-value{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.l-list .ha-strip{width:auto;left:auto;right:140px;justify-content:flex-end}
+.senior .ha-strip{--cf-scale:1}
 .app-focus-name{position:absolute;z-index:3;font-size:40px;line-height:48px;font-weight:500;letter-spacing:-.6px;color:var(--ink);text-shadow:0 1px 2px rgba(14,10,6,.32),0 3px 14px rgba(14,10,6,.24);opacity:0;pointer-events:none;transition:opacity 120ms linear}
 .app-focus-name.is-on{opacity:1}
 .l-dock .app-focus-name{font-size:36px;line-height:44px;text-align:center}

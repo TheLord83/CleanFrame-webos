@@ -406,7 +406,7 @@ def main():
             temp = [e for e in d["entities"] if e["id"].endswith("temperatur")][0]
             assert temp["unit"] == "°C" and temp["state"] == "21.4", temp
             kaputt = [e for e in d["entities"] if e["id"] == "sensor.kaputt"][0]
-            assert kaputt["state"] == "–", "unavailable must appear as –"
+            assert kaputt["state"] == "unavailable", "the raw state stays readable for the interface"
 
         def t_ha_values():
             st, d, _ = req("GET", "/api/ha/values?entities=sensor.wohnzimmer_temperatur,light.wohnzimmer_decke,unbekannt.x")
@@ -415,7 +415,7 @@ def main():
             by = {v["id"]: v for v in d["values"]}
             assert by["sensor.wohnzimmer_temperatur"]["state"] == "21.4"
             assert by["light.wohnzimmer_decke"]["state"] == "on"
-            assert by["unbekannt.x"]["state"] == "–", "an unknown entity must not be missing"
+            assert by["unbekannt.x"]["state"] == "unknown", "an unknown entity must not be missing"
 
         def t_ha_wrong_token():
             st, d, _ = req("GET", "/api/config")

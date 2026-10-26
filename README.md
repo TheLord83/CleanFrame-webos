@@ -62,7 +62,7 @@ downgrade is out of scope here. Details and the manual path: [docs/INSTALL.md](d
 - Own app catalogue: installed webOS apps, HDMI inputs, and system apps Glasshouse does not list
 - Rename tiles, choose icons, reorder or remove them — context menu on the remote included
 - Web interface without a PIN: token optional, requests from the local machine always allowed
-- Home Assistant values as tiles; MQTT and update blocking through Glasshouse
+- Home Assistant values as a status strip on the start page (your labels, states translated, no restart needed); MQTT and update blocking through Glasshouse
 - Screensaver, setup wizard, backup and restore of the configuration
 
 Where the firmware number is on the TV — with the two ways to find it: [docs/FIRMWARE.md](docs/FIRMWARE.md).
