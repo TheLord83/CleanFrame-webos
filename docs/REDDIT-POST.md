@@ -1,12 +1,14 @@
 # Reddit post for r/webos
 
-Ready to paste. Title and body are separate code blocks because a phone only lets you copy one block
-at a time.
+Ready to paste. The title is one code block, the body is one code block below it.
 
-Images, in this order, as a gallery in one post:
+Two images go into the post as a gallery, both already in the repo:
 
-1. `docs/img/launcher.jpg`, the start page, photo, clock, six tiles
-2. `docs/img/hub-home.jpg`, the hub in a browser, tile list and live picture of the TV
+1. `docs/img/launcher.jpg` (1920x1080), the start page
+2. `docs/img/hub-home.jpg` (1744x1372), the hub in a browser
+
+The body has two placeholder lines where the pictures belong. On Reddit: upload both images to the
+post first, then delete the two lines and the pictures are in place.
 
 Approval: the mod "webos channel icon" answered the modmail with "Sure, you can post it".
 
@@ -19,45 +21,34 @@ CleanFrame: a photo, a clock and your apps as a webOS launcher, now for LG (open
 ## Body
 
 ```
-I ported CleanFrame, a launcher that Nathan Clark wrote for Samsung's The Frame, to webOS. The start page is a photograph, a clock and your apps. If you run Home Assistant, you can put a few of its values on that page and switch lamps with the remote. The mods here said a post about it is fine.
+I ported CleanFrame to LG webOS: https://github.com/TheLord83/CleanFrame-webos
+
+A launcher for rooted LG TVs. The start page is a photo, the clock and your apps. If you run Home Assistant, its values sit on that page and you can switch lamps with the remote. The mods here said a post about it is fine.
 
 What it does:
 
-- wallpaper from a set of photographs, with the background colour taken from the picture
-- clock, and optionally the weather next to it, fetched by the small server that ships with the app, so the television itself never calls out
-- apps in a dock or a grid, as text, as icons, or both
-- a row of Home Assistant values that you pick and name yourself, because sensor.outdoor_temperature is not a label you want to read from the sofa
-- lamps and switches on that row, toggled with OK on the remote
-- settings in the browser on your phone: order and names of the tiles, icons, wallpaper, a live picture of the TV, and a remote
-- senior mode with larger text, and a text size from 20 to 200 percent
-- backup and restore of the whole configuration
-- MQTT status and update blocking, if you run Glasshouse
+- wallpaper from a set of photos, background colour taken from the picture
+- clock, optionally with the weather next to it; the small server that ships with the app fetches it, so the TV stays offline
+- apps in a dock or a grid, as text, icons or both
+- Home Assistant values that you name yourself, because sensor.outdoor_temperature is not a label you want to read from the sofa
+- lamps and switches on that row, toggled with OK
+- settings in the browser on your phone: tile order and names, icons, wallpaper, a live picture of the TV, a remote, senior mode and text size from 20 to 200 percent
 
-What you need:
+[IMAGE 1 HERE: docs/img/launcher.jpg]
 
-- a rooted television. The launcher is a normal web app package, it installs through the Homebrew Channel, and getting there needs root. Rooting is the Homebrew Channel's own guide, I am not repeating it here.
-- optionally Home Assistant. Without it you get the photograph, the clock and your apps.
+[IMAGE 2 HERE: docs/img/hub-home.jpg]
 
-Installing:
+You need a rooted TV. CleanFrame is a normal web app package and installs through the Homebrew Channel (https://github.com/webosbrew/webos-homebrew-channel); rooting is that project's own guide. Home Assistant is optional.
 
-1. Add this address as a repository in the Homebrew Channel: https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json
-2. CleanFrame appears in the channel's list. Install it like any other app.
-3. Start it once from the app list. The settings live at http://<tv-ip>:8484/ while the app is running.
-4. Updates arrive through the channel when I publish a new version. The package is 7.8 MB.
+1. Add this as a repository in the Homebrew Channel: https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json
+2. Install it from the list and start it once from the app list.
+3. Settings: http://<tv-ip>:8484/ while the app runs. Updates come through the channel. The package is 7.8 MB.
 
-The other two ways, a script over SSH and installing by hand with Dev Manager, are in the README.
+What I tested: one TV, a 43NANO779PA on webOS 6.5, and that is the only device this has run on. Other webOS 6 sets should work, webOS 7 I have not touched. The code targets Chromium 79, the browser in webOS 6.
 
-What I have actually tested: one television, a 43NANO779PA on webOS 6.5, and that is the only device this has run on. Other webOS 6 sets should work. webOS 7 and newer I have not touched, and I would rather hear that it breaks on your C2 than guess about it. The code targets Chromium 79, the browser inside webOS 6.
+Three things that will annoy someone: it does not take over the Home button, LG's home screen stays the default; the settings answer only while the TV is awake; and uninstalling leaves /var/lib/cleanframe/config.json behind, which holds your Home Assistant token, README says how to remove it.
 
-Things that will annoy someone:
+Does it start on your model, and does the remote focus move where you expect? Put the model and the webOS version in the reply.
 
-- it does not take over the Home button. LG's home screen stays the default, and CleanFrame starts from the app list like any other app.
-- the settings page runs on the television, so it answers only while the TV is awake. There is a documented way to install that server permanently; this is not the default.
-- if you uninstall the app, one file stays behind: /var/lib/cleanframe/config.json, which holds the Home Assistant token. The README says how to remove it.
-
-Two things I would like to know from you. Does it start at all on your model, and does the remote feel right, meaning the focus moves where you expect it to. Put the model and the webOS version in the reply. That is the part I cannot test on one set.
-
-Links: the code and the documentation are at https://github.com/TheLord83/CleanFrame-webos. The original for Tizen is https://github.com/nthnclrk/CleanFrame, and the webOS port is unofficial and not maintained by him. The Homebrew Channel is https://github.com/webosbrew/webos-homebrew-channel, and Glasshouse, which I use to launch apps and to trim the TV down before any of this is useful, is https://github.com/webosbrew/glasshouse.
-
-MIT licence, no warranty. It runs as root on your television, and that is your decision to make.
+The original for Samsung's The Frame is https://github.com/nthnclrk/CleanFrame, this port is unofficial and not his. Glasshouse, which I use to launch apps and trim the TV down: https://github.com/webosbrew/glasshouse. MIT, no warranty, it runs as root on your TV.
 ```
