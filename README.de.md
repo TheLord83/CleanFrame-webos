@@ -146,9 +146,11 @@ und die Seite ist da. `app/hubboot.js` startet den Server beim Start von CleanFr
 des Homebrew Channels, wartet, bis er antwortet, und beendet ihn, wenn die App zumacht. Auf dem
 Fernseher passiert dabei nichts Dauerhaftes: keine Shell, kein Root, kein Autostart-Eintrag.
 
-Der Preis ist Zeit. Ein mitgelieferter Hub lebt so lange wie der Launcher: App zu, Seite weg, und
-nach einem Neustart läuft nichts, bis CleanFrame einmal startet. Zum Einrichten und für die
-Home-Assistant-Leiste, solange der Launcher auf dem Bildschirm ist, reicht das.
+Der Preis ist Zeit. Ein mitgelieferter Hub lebt so lange wie die Web-Seite des Launchers. Kommt eine
+andere App nach vorn, antwortet er weiter, weil webOS die Seite im Hintergrund behält. Nach einem
+Neustart läuft nichts, bis CleanFrame einmal startet, und genau dafür ist er gedacht. Auf dem
+Testgerät gemessen: die Seite antwortete vier Sekunden nach dem Start und blieb erreichbar, während
+eine andere App im Vordergrund war.
 
 Wer die Seite auch dann will, wenn der Fernseher etwas anderes zeigt, installiert den Hub dauerhaft.
 Das braucht eine Root-Shell und legt den Autostart an:

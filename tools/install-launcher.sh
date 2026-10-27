@@ -122,5 +122,5 @@ curl -sS -m 10 -X POST "http://$TV:8080/api/control" \
   -d "{\"action\":\"launchApp\",\"value\":\"$APPID\"}" >/dev/null 2>&1 \
   && msg launched || msg launch_fail
 
-msg hub_note "$TV"
+msg hub_note "$TV" "$TV"
 exit 0

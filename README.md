@@ -144,9 +144,10 @@ and the page is there. `app/hubboot.js` starts the server through the Homebrew C
 CleanFrame starts, waits until it answers, and stops it when the app goes away. Nothing permanent
 happens on the TV, no shell, no root, no autostart entry.
 
-The trade is time. A bundled hub lives as long as the launcher does: close the app and the page is
-gone, and after a reboot nothing runs until CleanFrame starts once. For setting things up, and for the
-Home Assistant strip while the launcher is on screen, that is enough.
+The trade is time. A bundled hub lives as long as the launcher's web page does. Put another app on
+screen and it keeps answering, because webOS keeps the page in the background; after a reboot nothing
+runs until CleanFrame starts once, and that is the case this exists for. Measured on the test TV: the
+page answered for four seconds after the start, and stayed up while another app was in front.
 
 If you want the page to answer while the TV is showing something else, install the hub for good. That
 needs a root shell and installs the autostart hook:

@@ -227,6 +227,10 @@ service, waits for `/api/health`, and kills it when the app closes. Its log is
 does not know about it. That is why `hub.env` only takes effect in the second mode: a bundled hub is
 started directly by `node`, not by `cleanframectl`.
 
+It ends when the app's page unloads. While another app is in front, webOS keeps the page and the hub
+behind it alive, which is deliberate: the settings page should not die because the TV is showing
+something else. After a reboot it is gone until CleanFrame starts once.
+
 Installed for good, it is a service: `cleanframectl start|stop|restart|status|logs`, an init.d hook,
 and `hub.env` for the environment.
 

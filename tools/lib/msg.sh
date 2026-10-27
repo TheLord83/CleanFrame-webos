@@ -49,8 +49,8 @@ msg() {
     *:launched)         _f='Started. The start page should be on the TV now.' ;;
     de:launch_fail)     _f='Installiert, aber das Starten hat nicht geklappt. Oeffne CleanFrame in der App-Liste.' ;;
     *:launch_fail)      _f='Installed, but starting it did not work. Open CleanFrame from the app list.' ;;
-    de:hub_note)        _f='Tipp: die Einstellungen (Werte auf der Startseite, Home Assistant) brauchen den Hub: ./tools/install-hub.sh %s' ;;
-    *:hub_note)         _f='Next: the settings (values on the start page, Home Assistant) need the hub: ./tools/install-hub.sh %s' ;;
+    de:hub_note)        _f='Die Einstellungsseite kommt mit der App: CleanFrame starten, dann http://%s:8484/ . Ein Hub, der die App ueberlebt: ./tools/install-hub.sh %s' ;;
+    *:hub_note)         _f='The settings page travels with the app: start CleanFrame, then http://%s:8484/ . A hub that outlives the app: ./tools/install-hub.sh %s' ;;
     de:ssh_fail)        _f='Kein SSH auf %s. Der Hub braucht eine gerootete Glotze mit SSH - siehe docs/ROOTING.md.' ;;
     *:ssh_fail)         _f='No SSH on %s. The hub needs a rooted TV with SSH - see docs/ROOTING.md.' ;;
     de:not_root)        _f='SSH antwortet, aber die Sitzung ist nicht root (uid=%s). Der Hub schreibt nach /var/lib und braucht root. Rooten ist nicht Teil dieses Skripts: siehe docs/ROOTING.md, oder installiere nur den Launcher mit ./tools/install-launcher.sh.' ;;

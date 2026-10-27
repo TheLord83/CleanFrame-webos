@@ -79,6 +79,12 @@ Three things follow from that, and all three are intended:
   localStorage configuration exactly as before, and the settings page is simply not there. The reason
   lands in `/var/lib/cleanframe/hub-bundled.log`
 
+It stops when the app's page unloads, which in practice means a reboot or a real teardown of the web
+app. webOS keeps the page in the background when another app comes to the front, so the page keeps
+answering there. What is measured on the test TV (43NANO779PA, webOS 6.5): app started, hub on 8484
+after four seconds with version 0.5.3, the same `/var/lib/cleanframe/config.json` as a permanent
+install, and one process, never two.
+
 ## The hub, for good (optional, needs root)
 
 Installed this way the hub serves the settings page on port 8484 permanently, keeps the
