@@ -34,9 +34,14 @@ Thanks.
 
 Formatted after reading what lands in the sub: Luma, Hearth and Lightkeeper all
 lead with one sentence of why, then a picture, then flat feature bullets, then
-"what you need", then install steps, then the honest limits. No repo link in this
-version, because the repository is still private; the IPK is offered in the
-thread, not by DM, so the mods can see what happens.
+"what you need", then install steps, then the honest limits. Reddit renders
+markdown in self-posts, so the sections use `##` headings and the three links
+(upstream, Homebrew Channel, Glasshouse) are inline.
+
+The one link that is missing is the port's own repository, because it is still
+private. Once it is public, replace the sentence in the second paragraph with
+"my port is at [TheLord83/CleanFrame-webos](https://github.com/TheLord83/CleanFrame-webos)"
+and put the same URL in install step 2 instead of "ask me in the thread".
 
 Title:
 
@@ -48,63 +53,70 @@ Body (Reddit markdown, paste as is):
 
 ---
 
-CleanFrame is an open-source launcher (MIT) that the Samsung The Frame crowd uses.
-I ported it to webOS and wrote a small service that keeps its settings. The quiet
-start page is not new by now, Luma, Hearth and Lightkeeper all do that nicer than
-LG does. What I have not seen yet: **up to 12 Home Assistant values as a strip on
-the start page, switchable with the remote.**
+CleanFrame is an open-source launcher (MIT) that the Samsung The Frame crowd uses. I ported
+it to webOS and wrote a small service that keeps its settings. You can read the original at
+[nthnclrk/CleanFrame](https://github.com/nthnclrk/CleanFrame), my port lives in a separate
+repository that I will link as soon as I have made it public.
 
-I have only one TV to test on, a 43NANO779PA with webOS 6.5, and the mods said a
-feedback post is fine. So that is what this is.
+The quiet start page is not new by now, Luma, Hearth and Lightkeeper all do that nicer than LG
+does. What I have not seen yet: **up to 12 Home Assistant values as a strip on the start page,
+switchable with the remote.**
 
-**The three screens above**
+I have only one TV to test on, a 43NANO779PA with webOS 6.5, and the mods said a feedback post
+is fine. So that is what this is.
+
+## The three screens above
 
 1. the start page with tiles and the value strip
 2. Settings, Values on the start page, where you hide and rename values on the TV itself
 3. the same settings in a phone browser
 
-**What it does**
+## What it does
 
 - own start page with app tiles, 15 bundled wallpapers, clock in 12 or 24 h
 - German and English, independent of the TV language
 - senior mode with 160 % text; the layout reflows instead of overlapping
-- up to 12 Home Assistant entities as chips above the app bar; `OK` toggles light,
-  switch, helper and fan, everything else only displays
+- up to 12 Home Assistant entities as chips above the app bar; `OK` toggles light, switch,
+  helper and fan, everything else only displays
 - a page on the TV to hide or rename those values, adding entities stays in the browser
-- a remote in the browser that also works while LG's own menus are open (SSAP, no Home Assistant needed)
-- screenshot of what is on the TV, straight into the browser
+- a remote in the browser that also works while LG's own menus are open (SSAP, no Home
+  Assistant needed)
+- a screenshot of what is on the TV, straight into the browser
 - no telemetry, no cloud, one JSON file on the TV, backup button
 
-**What you need**
+## What you need
 
-- a rooted TV with the Homebrew Channel
-- Glasshouse, the launcher gets its app list from it. Without it you get an empty dock
-- webOS 6.5 is tested. 7, 25, 26 and OLED are untested, that is the point of this post
+- a rooted TV with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
+  Rooting is their guide's job, not mine
+- [Glasshouse](https://github.com/rorygallagher2024/glasshouse), installed and running. The
+  launcher takes its whole app list from it, without Glasshouse you get an empty dock
+- webOS 6.5 is tested. 7, 9, 10, 11 and OLED are untested, that is the point of this post
 
-**Install, about five minutes**
+## Install, about five minutes
 
-1. Glasshouse installed and opened once (their guide, not mine)
+1. Glasshouse installed and opened once
 2. ask me in the thread for the IPK, or build it from the source
-3. Glasshouse, Apps, install the IPK, launch CleanFrame once
+3. Glasshouse, **Apps**, install the IPK, launch CleanFrame once
 4. `http://<TV-IP>:8484` in a browser for the settings
 
-**Will it eat my Home screen**
+## Will it eat my Home screen?
 
-No. CleanFrame is an app, the Home key still opens LG's home. The home-button hook
-exists in the tree but is off, so a bad uninstall cannot leave you without a start
-page.
+No. CleanFrame is an app, the Home key still opens LG's home. The home-button hook exists in
+the tree but is off, so a bad uninstall cannot leave you without a start page.
 
-**What I would like to know**
+## What I would like to know
 
-- does it start at all on webOS 7, 25, 26
+- does it start at all on webOS 7, 9, 10, 11
 - what breaks on OLED sets (C and G series)
 - do the Home Assistant values read correctly against your own entities
 - is 650 ms the right long-press for the tile menu, or too slow
 
 Model, webOS version and a photo of a broken screen is a perfect report.
 
-Hobby project, no warranty, rooting can void yours. It is a launcher, not a new
-OS, LG's apps, settings and updates keep working.
+## Caveats
+
+Hobby project, no warranty, rooting can void yours. It is a launcher, not a new OS, LG's apps,
+settings and updates keep working.
 
 ---
 
