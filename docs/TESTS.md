@@ -23,8 +23,11 @@ every file a key. 43 icons.
 **4. Configuration server.** `tools/test-web-api.py` starts the server with a stub catalogue and a
 temporary configuration, then checks every endpoint: `/api/health`, `/api/config` (GET, PUT, POST
 with 403, 409 and 415), `/api/schema`, `/api/wall/<id>`, `/api/apps`, `/api/diag`, the Home
-Assistant bridge including the rejected toggle, backup, and `/api/tv/key` with a long press. 41
-checks: a backup that carries no secrets, a connection check that refuses to hand the stored token
+Assistant bridge including the rejected toggle, backup, `/api/tv/key` with a long press and the
+weather line. 46 checks, five of them for the weather with a local Open-Meteo stand-in so the suite
+never needs the network: off by default (and provably nothing fetched), rounded values with a word,
+the fifteen-minute cache, the geocoding, an unknown place. Also: a backup that carries no secrets, a
+connection check that refuses to hand the stored token
 to a foreign URL, and a separate server instance that has to survive a missing `luna-send`.
 
 ## Interface
@@ -65,7 +68,7 @@ matches only the copy inside the app directory, never a hub installed for good. 
 builds a package and looks inside it: `hub/server.js`, `hub/lib/ha.js`, `hub/assets/index.html` and
 `hubboot.js` have to be in there, and no `.pyc` or preview page. 13 and 7 checks.
 
-**Links.** `tools/check-links.py` checks every relative link and anchor in the documentation, 62 of
+**Links.** `tools/check-links.py` checks every relative link and anchor in the documentation, 65 of
 them at the moment. A licence note with a dead link is not a typo, which is why this one runs in CI.
 
 ## Two rules, both learned from failures
