@@ -6,7 +6,7 @@ file that does not come from this repository's own code.
 
 The project's own code and drawings are MIT (`LICENSE`). Everything below keeps its own terms.
 
-## Photographs — the fifteen launcher wallpapers
+## Photographs: the fifteen launcher wallpapers
 
 All fifteen come from [Unsplash](https://unsplash.com) and are used under the
 [Unsplash License](https://unsplash.com/license): free to use, copy, modify and redistribute,
@@ -31,8 +31,8 @@ claims no connection to them.
 | 14 | Mint wave | `app/assets/wallpapers/mint.jpg` | MagicPattern | [photo page](https://unsplash.com/photos/87PP9Zd7MNo) |
 | 15 | Alpine glow | `app/assets/wallpapers/alpine.jpg` | Cristina Gottardi | [photo page](https://unsplash.com/photos/CSpjU6hYo_0) |
 
-The list above is generated from `app/assets/wallpapers/SOURCES.json` — that file is the one the
-launcher reads, this table is the readable copy. All fifteen photo pages were checked and
+The list above is generated from `app/assets/wallpapers/SOURCES.json`, which is the file the launcher
+reads; this table is the readable copy. All fifteen photo pages were checked and
 answered with HTTP 200 on 27 October 2026.
 
 ## Derived images

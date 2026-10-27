@@ -2,8 +2,8 @@
 
 The installer has to run **in the same network as the TV**: it searches with SSDP, talks
 SSAP to port 3000/3001, opens SSH to port 22 and later serves the exploit page over HTTP.
-If your own machine is not in that network — a TV at a relative's place, for example — run
-the installer in a container that sits there.
+If your own machine is not in that network (a TV at a relative's place, for example), run the
+installer in a container that sits there.
 
 ## What is in the image
 

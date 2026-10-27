@@ -24,14 +24,16 @@ on-call rotation.
 
 ## What is not in scope
 
-- **rooting a TV.** The exploit path in `tools/root/` is documented, unsupported, and its
-  security properties are the exploit's, not this project's. Report those to the Homebrew
-  Channel or the exploit's author.
-- **a TV on the open internet.** The hub is meant for a LAN: it has no user accounts, and
-  requests from the local machine are trusted by design, the same way Glasshouse does it.
-  Put it behind a reverse proxy with authentication if you expose it, and think twice
-  before you do.
-- LG's own services, the Homebrew Channel, Glasshouse, Home Assistant.
+Rooting a TV is out of scope. The exploit path in `tools/root/` is documented and unsupported, and
+its security properties belong to the exploit, not to this project. Report those to the Homebrew
+Channel or the exploit's author.
+
+So is a TV on the open internet. The hub is built for a LAN: it has no user accounts, and requests
+from the local machine are trusted by design, the same way Glasshouse does it. If you expose it,
+put a reverse proxy with authentication in front, and think twice before you do.
+
+LG's own services, the Homebrew Channel, Glasshouse and Home Assistant are somebody else's code, and
+problems in them belong to their maintainers.
 
 ## What the project already does
 

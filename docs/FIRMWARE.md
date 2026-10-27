@@ -1,6 +1,6 @@
 # Where is my firmware, and where is my model?
 
-The installer asks for the **software version** — that is the number LG calls the firmware — because
+The installer asks for the **software version**, which is the number LG calls the firmware, because
 it decides whether the TV can still be rooted. The model it usually finds by itself. This page shows
 where both are on the TV, and how to get them without walking a menu.
 
@@ -19,7 +19,7 @@ Newer builds name the last entry **About This TV**. Same screen, same numbers.
 
 ![The General section of the TV settings, list on the right](img/firmware-menu-general.en.png)
 
-The quickest number is under **Support → Software Update** — same value, one click less:
+The quickest number is under **Support → Software Update**: same value, one click less:
 
 ![The Support section, Software Update at the top](img/firmware-menu-support.en.png)
 
@@ -29,7 +29,7 @@ The quickest number is under **Support → Software Update** — same value, one
 
 | On screen | Looks like | Needed for |
 | --- | --- | --- |
-| **Software version** | `03.51.16` — three numbers, dots between them | the rootability check (this is the one the installer asks for) |
+| **Software version** | `03.51.16`: three numbers, dots between them | the rootability check (this is the one the installer asks for) |
 | Model | `43NANO779PA` | the platform (here `kisscurl`, W21A) and the exploit ceiling |
 | Serial number | `000MANJ00000` | support, and telling two TVs apart |
 
@@ -39,12 +39,12 @@ Three things people mix up:
   software version; the webOS version only says which generation the TV is.
 * The software version **changes with every LG update**, so a screenshot from last year proves
   nothing.
-* Similar model numbers can sit on different platforms: `43NANO779PA` is `kisscurl` (W21A) — a
+* Similar model numbers can sit on different platforms: `43NANO779PA` is `kisscurl` (W21A), and a
   `43NANO766QA` is not.
 
 ## Screenshots of the TV, for a report or a forum post
 
-With root there is a capture service — and yes, it also captures LG's own screens (home screen,
+With root there is a capture service, and it also captures LG's own screens (home screen,
 settings, the info panel), not only the browser:
 
 ```sh
@@ -64,11 +64,11 @@ luna-send -n 1 -f luna://com.webos.service.capture/executeOneShot \
 Two things that cost an hour when you do not know them:
 
 * On webOS 6.5 the service `com.webos.service.tv.capture` (the name in most guides) **does not
-  exist** — the answer is `Service does not exist`. Use `com.webos.service.capture`.
+  exist**, and the answer is `Service does not exist`. Use `com.webos.service.capture`.
 * `luna-send` prints **nothing** when it runs in the foreground over ssh; the same call
   backgrounded finishes in under a second. Write the reply to a file on the TV and read it.
-* The framebuffer is not an option: `/dev/fb0` exists, but `dd` answers `No such device` — the
-  device is held by `surface-manager`.
+* The framebuffer is not an option: `/dev/fb0` exists, but `dd` answers `No such device` because
+  `surface-manager` holds the device.
 
 ## Without walking any menu
 
@@ -91,7 +91,7 @@ Two more places show the same numbers:
 
 * the hub, tab **System → TV** (`http://<tv>:8484/`), or `GET /api/tv/info` as JSON,
 * the TV itself: `/var/run/nyx/os_info.json` (`webos_manufacturing_version`) and
-  `/var/run/nyx/device_info.json` (`product_id`) — both plain files, no service needed.
+  `/var/run/nyx/device_info.json` (`product_id`), both plain files with no service in between.
 
 On an **unrooted** TV only model and serial number come out over the network
 (`ssap://system/getSystemInfo`). The firmware is one of the things LG hands out only inside a paired

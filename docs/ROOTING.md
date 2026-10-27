@@ -1,4 +1,4 @@
-# Rooting — and why this page mostly points somewhere else
+# Rooting, and why this page mostly points elsewhere
 
 CleanFrame runs on a rooted TV. It does not root one.
 
@@ -16,8 +16,8 @@ warranty or your mainboard.
 
 | | without root | with root |
 | --- | --- | --- |
-| the launcher (start screen, tiles, clock, wallpapers) | no — Glasshouse installs the IPK | yes |
-| the hub (settings page in the browser, live picture, remote) | no | yes — it writes to `/var/lib` and starts at boot |
+| the launcher (start screen, tiles, clock, wallpapers) | no, Glasshouse installs the IPK | yes |
+| the hub (settings page in the browser, live picture, remote) | no | yes, it writes to `/var/lib` and starts at boot |
 | Home Assistant values, MQTT, screenshots | no | yes, they live in the hub |
 | hiding LG's promo rows, blocking update hosts | no | yes |
 
@@ -26,7 +26,7 @@ That is the whole reason the two installs are separate.
 
 ## The supported path
 
-1. Homebrew Channel installed — their guide, their prerequisites
+1. Homebrew Channel installed, following their guide and their prerequisites
 2. Glasshouse installed from the Homebrew Channel's app list, opened once
 3. back to [INSTALL.md](INSTALL.md): the IPK, or `./tools/install-launcher.sh`
 
@@ -35,7 +35,7 @@ Nothing in steps 1 and 2 is this project's business, and neither is the outcome.
 ## The path that was used here (unsupported)
 
 `tools/root/root-it.sh` is the script from the very beginning of this project. It is in the
-repository so that the path is documented instead of remembered.
+repository so that the path is on record.
 
 ```sh
 ./tools/root/root-it.sh --tv 192.168.1.50
@@ -46,7 +46,7 @@ repository so that the path is documented instead of remembered.
 What it does:
 
 1. asks the TV about itself without touching the screen (`tools/tvinfo.py`: SSDP, DIAL,
-   AirPlay, SSAP) — model, and webOS if it is feeling talkative
+   AirPlay, SSAP): model, and webOS if it is feeling talkative
 2. asks for the firmware version if the TV will not say, and judges it with
    `tools/root/rootaly.py`
 3. fetches [SlopBro](https://github.com/throwaway96/slopbro) and runs it against the TV's
@@ -64,8 +64,7 @@ An unrooted TV will not tell you its firmware: `config/getConfigs`,
 `401 not registered` without a paired session. So the script asks, then judges only what
 the published rules cover (`tools/root/rootaly.py`):
 
-- platform `kisscurl` (NANO77/NANO79, W21A) with SlopBro: up to firmware **03.53.45** —
-  an exact yes or no once the firmware is known; without it the verdict stays `unknown`
+- platform `kisscurl` (NANO77/NANO79, W21A) with SlopBro: up to firmware **03.53.45**, so an exact yes or no once the firmware is known; without it the verdict stays `unknown`
   but names the ceiling
 - webOS 4.x: faultmanager is still open there → yes
 - webOS 5, 6, 7, 9, 10: the build decides → `unknown`, with a pre-filled link to

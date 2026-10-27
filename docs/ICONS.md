@@ -12,8 +12,8 @@ The launcher and the configuration interface share one icon set:
 | [Custom Brand Icons](https://github.com/elax46/custom-brand-icons) | MIT | ARD, ZDF, ZDFneo, ZDFinfo, 3sat, ARTE, KiKA, RTL, RTLzwei, ProSieben, Sat.1, waipu.tv, WOW, Xbox, Nintendo Switch |
 | Original drawings (this repository) | MIT | Device marks: console, HDMI, PC, laptop, Blu-ray, receiver, satellite, camera, soundbar, streaming stick, NAS, website |
 
-Rejected on purpose: `tv-logo/tv-logos` and `cytec/tvlogos` carry **no licence**, so
-their artwork cannot be redistributed. Every file is recorded in
+Two collections were left out on purpose: `tv-logo/tv-logos` and `cytec/tvlogos` carry no licence,
+so their artwork cannot be redistributed. Every file is recorded in
 `app/assets/icons/SOURCES.json` with source URL and licence. Trademarks remain with
 their owners; the marks only label the service the user chooses.
 
@@ -34,7 +34,8 @@ loads all SVGs and the page title reports `OK <n>`. It also writes
 
 ## Where the icons appear
 
-- **Web interface** (`:8484`): picker per home tile, served from `/api/icons` and
-  `/icons/<key>.svg`.
-- **Launcher**: a home entry may carry `icon: "<key>"` or a full URL. The catalogue
-  in "All apps" always keeps the original app icon and name.
+The web interface on port 8484 shows a picker for every home tile, served from `/api/icons` and
+`/icons/<key>.svg`.
+
+In the launcher a home entry may carry `icon: "<key>"` or a full URL. The catalogue under
+"All apps" keeps the original app icon and name.

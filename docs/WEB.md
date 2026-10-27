@@ -1,4 +1,4 @@
-# CleanFrame Hub — configuration server and web interface
+# CleanFrame Hub: configuration server and web interface
 
 The launcher keeps its configuration in one JSON file. A small HTTP server on the
 TV (`com.blackpearl.cleanframe.web`) serves the file over a JSON API and hosts a
@@ -20,7 +20,7 @@ That copies the server to `/var/lib/cleanframe/`, installs the boot hook
 `/var/lib/webosbrew/init.d/52-cleanframe` and starts the service. Then open
 `http://<tv-ip>:8484/`.
 
-Removal: `./tools/uninstall-web.sh 192.168.1.50` — the launcher stays installed.
+Removal: `./tools/uninstall-web.sh 192.168.1.50`, and the launcher stays installed.
 
 ## Service control (on the TV)
 
@@ -72,8 +72,8 @@ content type is delivered by the browser without a preflight.
 }
 ```
 
-`home` entries may override `name` and `icon` — the catalogue in "All apps" on
-the television always shows the original app name and icon.
+`home` entries may override `name` and `icon`. The catalogue under "All apps" on the television
+keeps the original app name and icon.
 
 Validation lives on the server (`web/lib/config.js`), not in the interface:
 unknown languages fall back to `system`, entries without `appId` are dropped, and
@@ -83,15 +83,15 @@ duplicate `appId`s are removed.
 
 `integrations.ha.entities` holds up to 12 entity ids (each optionally with a
 `label`); `/api/ha/values` returns name, state and unit for exactly those, which
-is what the status strip renders. Only display-worthy domains are offered —
-`automation.*`, `zone.*` and similar are filtered out on the server.
+is what the status strip renders. Only display-worthy domains are offered; `automation.*`, `zone.*` and similar are filtered out on
+the server.
 
 ### The values page on the TV
 
 `Einstellungen -> Werte auf der Startseite` lists exactly the entities chosen in
 the hub. `left`/`right` switches between the checkbox and the name, `OK` either
 hides the value from the strip or opens the on-screen keyboard for a shorter
-name. Nothing can be added there — the 1747 entries stay in the browser.
+name. Nothing can be added there; the 1747 entries stay in the browser.
 
 A hidden value keeps its place in the hub selection (`shown: false` in
 `integrations.ha.entities`), so the hub still offers it and the TV can bring it
@@ -101,9 +101,8 @@ back without setting everything up again.
 
 `POST /api/ha/toggle` with `{"entity_id": "light.wohnzimmer"}` calls
 `/api/services/<domain>/toggle` in Home Assistant and returns the new state from
-the answer. Only `light`, `switch`, `input_boolean` and `fan` are accepted —
-anything else answers 400 and never reaches Home Assistant, because a cover needs
-up/stop/down and a lock needs a question.
+the answer. Only `light`, `switch`, `input_boolean` and `fan` are accepted. Anything else answers 400 and never
+reaches Home Assistant, because a cover needs up/stop/down and a lock needs a question.
 
 On the TV, `down` from the dock moves focus into the strip, `left`/`right` picks a
 chip, `OK` switches. The chip flips as soon as the answer arrives and a refused
@@ -116,10 +115,8 @@ The chosen entities appear as a strip of value chips above the dock: own label
 (or the Home Assistant name), value, unit. Read-only, refreshed every 60 s and
 immediately whenever the configuration changes. No selection, no strip.
 
-Rules worth knowing:
-
-- A `label` in the configuration wins over the Home Assistant name — that is what
-  keeps a tile readable at three metres.
+- A `label` in the configuration wins over the Home Assistant name, which is what keeps a tile
+  readable at three metres.
 - States are translated in the interface, not on the server: `on` → `An`,
   `off` → `Aus`, `open` → `Offen` … A `binary_sensor` gets the contact wording
   (`on` → `Offen`, `off` → `Geschlossen`), because "An" would be wrong for a
@@ -132,7 +129,7 @@ Rules worth knowing:
 
 Measured on the 43NANO779PA (webOS 6.5, firmware 03.51.16): three chips,
 `Temperatur 24.1 °C | Wohnzimmer An | Fenster Geschlossen`, strip bottom at
-264 px with the dock starting at 274 px — nothing overlaps. A label change in
+264 px with the dock starting at 274 px, so nothing overlaps. A label change in
 the hub is on screen within a second without a restart.
 
 `screensaver` controls the coupling to the TV screensaver:
@@ -180,8 +177,8 @@ placeholders. A missing key falls back to German and logs
 `missing i18n key: <key>` to the console instead of showing an empty label.
 
 `name` and `label` stay German on purpose: the launcher on the TV reads them. The
-interface picks `nameEn` / `labelEn` when English is selected, otherwise the German
-field — so nothing has to be changed on the device to translate the hub.
+interface picks `nameEn` / `labelEn` when English is selected and the German field otherwise, so
+translating the hub needs nothing changed on the device.
 
 Language parity is checked without a browser:
 
@@ -197,9 +194,9 @@ can be forced with `?lang=en`, e.g. `chrome --headless=new --dump-dom "http://12
 ### App language, and why the page reloads
 
 The language of the launcher is a server setting (`lang`, set under Appearance).
-A running launcher does not only swap its translation table when that changes: it
-reloads itself once. Tiles and labels are built at startup and the utility bar is
-never rebuilt, so a table swap would leave German chrome around English values
+When that setting changes, a running launcher reloads itself once, because tiles and labels are
+built at startup and the utility bar is never rebuilt. Swapping only the table would leave German
+chrome around English values
 (exactly what happened on 2026-10-26). `CleanFrameI18n.lang` keeps the language
 the page was built with, and `reloadForLanguage()` compares against it; a guard in
 `sessionStorage` stops a stale server value from reloading in a loop.
@@ -222,10 +219,10 @@ launcher or another tab wrote in the meantime.
   the stored value, so the browser never has to hold it.
 - The file is written atomically (tmp + rename) with mode 0600.
 
-## Tests (no television required)
+## Tests without the TV
 
 ```sh
-python3 tools/test-web-api.py        # 33 HTTP checks against a stub catalogue
+python3 tools/test-web-api.py        # 39 HTTP checks against a stub catalogue
 ```
 
 The UI has its own check: open `http://<host>:8484/?selftest=ui`. It clicks
@@ -242,14 +239,14 @@ chrome --headless=new --virtual-time-budget=8000 --dump-dom "http://127.0.0.1:84
 The sidebar on the right always shows a picture of the running launcher and a remote
 control. Both use two endpoints of the server:
 
-- `GET /api/tv/snapshot?format=jpeg&quality=65` — picture as JPEG (or PNG with
-  `format=png`), returned as image data, not JSON.
-- `GET /api/tv/keys` — allowed key names.
-- `POST /api/tv/key` with `{"keys": ["down", "ok"]}` — up to 12 keys, optionally
+- `GET /api/tv/snapshot?format=jpeg&quality=65`: picture as JPEG (or PNG with `format=png`),
+  returned as image data, not JSON.
+- `GET /api/tv/keys`: allowed key names.
+- `POST /api/tv/key` with `{"keys": ["down", "ok"]}`: up to 12 keys, optionally
   `holdMs` for a long press. The answer says which path was used: `via: "launcher"`
   (fast, DevTools) or `via: "homeassistant"` (the whole TV, see below).
-- `GET /api/tv/screenshot.png` / `.jpg`, optional `?width=960&height=540` — the whole
-  screen through the TV's capture service; the interface uses the small JPEG for the
+- `GET /api/tv/screenshot.png` / `.jpg`, optional `?width=960&height=540`: the whole screen through
+  the TV's capture service; the interface uses the small JPEG for the
   live picture (about 90 KB instead of 1.3 MB).
 
 How it works: the launcher is a Chromium web app whose DevTools console listens on
@@ -262,10 +259,10 @@ no package needed):
 - keys: `Input.dispatchKeyEvent` (rawKeyDown + keyUp)
 
 Two things to keep in mind for node 8 on the TV: no `readBigUInt64BE` (the 64-bit
-lengths are assembled by hand), and the DevTools console keeps HTTP connections open —
-so the answer has to be read via `Content-Length`, not via the connection ending.
+lengths are assembled by hand), and the DevTools console keeps HTTP connections open, so the answer
+has to be read via `Content-Length` rather than waiting for the connection to end.
 
-### Keys reach the whole TV — own pairing first, Home Assistant last
+### Keys reach the whole TV: own pairing first, Home Assistant last
 
 DevTools keys only move our own launcher: LG's home screen and settings are a different
 process and answer `ECONNREFUSED 127.0.0.1:9998` as soon as our app is not in front. The
@@ -278,9 +275,8 @@ over SSAP, the TV asks once on screen, the key is stored in `/var/lib/cleanframe
 (mode 0600) and reused. That is exactly what every webOS remote app does and needs no other
 software:
 
-- `GET /api/tv/pair` — `{paired, tv, saved}`.
-- `POST /api/tv/pair` with `{"waitSeconds": 120}` — starts the pairing and waits for the
-  answer; `504` with a readable reason when nobody confirms.
+- `GET /api/tv/pair`: `{paired, tv, saved}`.
+- `POST /api/tv/pair` with `{"waitSeconds": 120}`: starts the pairing and waits for the answer; `504` with a readable reason when nobody confirms.
 - Order for `POST /api/tv/key`: launcher (DevTools) → own SSAP channel → Home Assistant.
 
 Home Assistant is only the last net, for TVs that refuse the prompt (one webOS 6.5 build
@@ -301,32 +297,31 @@ presses the same buttons through the pairing Home Assistant made earlier.
 If the app is closed on the TV, the endpoint answers 503 with a plain-text message and
 the interface shows "no picture". Starting it again:
 `curl -X POST http://<tv-ip>:8080/api/control -d '{"action":"launchApp","value":"com.blackpearl.cleanframe"}'`
-— or simply run `tools/install.sh <tv-ip>`, which starts the app and waits for the
-picture as part of its verification.
+Alternatively run `tools/install.sh <tv-ip>`, which starts the app and waits for the picture as part
+of its verification.
 
 ### Measured on the 43NANO779PA (webOS 6.5, firmware 03.51.16)
 
 What the own channel needs, each point cost a measurement:
 
-* **The manifest is the permission.** The TV grants only what the registration asks for,
-  and it compares against the list aiowebostv (Home Assistant) uses. With eight
-  permissions the TV hands out a key that may read the model name and nothing else -
-  every other request answers `401 insufficient permissions`. With the 37 permissions
-  from aiowebostv's `handshake.py` the same TV grants volume, app list, inputs and the
-  pointer socket. Copy that list, do not invent one.
-* **Keep the connection that asked for the socket open.** The pointer socket only lives
-  while the registering connection is up; closing it first leaves the frames unheard.
-* **The frame is text, not JSON:** `type:button\nname:DOWN\n\n`.
-* **Client frames must be masked.** Without the mask the TV drops them silently.
-* **One permanent listener on the socket.** Frames that arrive between two reads
-  (`recv()`) are otherwise lost - the TV's `registered` answer comes so fast after the
-  handshake that this alone made every key press end in a timeout.
-* **`/api/tv/snapshot` can hand back an old picture** while `/api/tv/screenshot.png`
-  is always fresh. Measure key presses with the screenshot, not the snapshot, or you
-  test a frozen frame.
+* The manifest is the permission. The TV grants only what the registration asks for, and it
+  compares against the list aiowebostv (Home Assistant) uses. With eight permissions the TV hands
+  out a key that may read the model name and nothing else, and every other request answers
+  `401 insufficient permissions`. With the 37 permissions from aiowebostv's `handshake.py` the same
+  TV grants volume, app list, inputs and the pointer socket. Copy that list rather than inventing
+  one.
+* Keep the connection that asked for the socket open. The pointer socket only lives while the
+  registering connection is up; closing it first leaves the frames unheard.
+* The frame is text, not JSON: `type:button\nname:DOWN\n\n`.
+* Client frames must be masked. Without the mask the TV drops them silently.
+* One permanent listener on the socket. Frames that arrive between two reads (`recv()`) are
+  otherwise lost: the TV's `registered` answer comes so fast after the handshake that this alone
+  made every key press end in a timeout.
+* `/api/tv/snapshot` can hand back an old picture while `/api/tv/screenshot.png` is always fresh.
+  Measure key presses with the screenshot, or you test a frozen frame.
 
 With all of that, `POST /api/tv/key` answers `via: "ssap"` and the keys reach LG's own
-menus - no Home Assistant, no launcher in the foreground, no pairing prompt.
+menus, with no Home Assistant, no launcher in the foreground and no pairing prompt.
 
 Rollout: the pairing question appears once per TV. `POST /api/tv/pair` opens it,
 `GET /api/tv/pair` reports `paired`; the key lands in
