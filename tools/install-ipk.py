@@ -122,10 +122,18 @@ def install(tv, ipk, app_id=None, quiet=False):
     except Exception:
         say("   note: could not switch sideload off again")
 
-    hits = gh.installed(app_id)
-    if not hits:
+    # Right after the install Glasshouse reports the app with empty fields for a moment,
+    # so wait until the catalog carries the version - otherwise the summary line says
+    # "installed: com.blackpearl.cleanframe (None bytes)".
+    app = None
+    for _ in range(10):
+        hits = [a for a in gh.installed(app_id) if a.get("version")]
+        if hits:
+            app = hits[0]
+            break
+        time.sleep(1)
+    if app is None:
         raise SystemExit("install reported, but %s does not show up in /api/apps" % app_id)
-    app = hits[0]
     say("   installed: %s %s (%s bytes)" % (app.get("id"), app.get("version"), app.get("size")))
     return app
 
