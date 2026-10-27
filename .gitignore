@@ -10,3 +10,7 @@ Thumbs.db
 
 # Generated at release time from the built IPK (tools/make-apps-json.py)
 repo/apps.json
+
+# Python-Reste, nie ins Repo
+__pycache__/
+*.pyc
