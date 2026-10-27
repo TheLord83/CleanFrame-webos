@@ -1,0 +1,12 @@
+# The only dependencies this repository has are the Actions in the workflow.
+# They are pinned by commit SHA, and the bot is what tells us when a pin is outdated.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "actions"
+    labels:
+      - dependencies
