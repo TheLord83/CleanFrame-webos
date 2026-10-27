@@ -119,15 +119,19 @@ Danach `http://<tv-ip>:8484/` öffnen. Einzelheiten samt Autostart-Hook:
 
 ### 2. Homebrew-Channel-Repository
 
-Sobald es ein öffentliches Release gibt, wird das der normale Weg: die anderen Launcher in der
-Szene liefern eine Repository-Datei mit, der Homebrew Channel liest sie unter *Settings*, *Add
-repository*, und die Updates kommen von dort. Die Datei liegt im Repo als [`repo/apps.json`](repo/apps.json) und
-wird von `tools/make-apps-json.py` aus dem gebauten IPK geschrieben (Hash, Größe, Manifest,
-Download-URL):
+Der normale Weg, und der, über den die anderen Launcher in der Szene verteilt werden: der
+Homebrew Channel liest eine Repository-Datei unter *Settings*, *Add repository*, und ab dann
+kommen die Updates von dort. Diese Adresse eintragen:
 
 ```text
-https://raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/repo/apps.json
+https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json
 ```
+
+Sie zeigt auf das jeweils neueste Release, die Adresse bleibt also gleich. Dieselbe Datei liegt
+als [`repo/apps.json`](repo/apps.json) im Repo
+(`raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/repo/apps.json`), wenn du festnageln
+willst, was du installierst. Beide schreibt `tools/make-apps-json.py` aus dem gebauten IPK —
+Hash, Größe, Manifest, Download-URL — und hängt sie ans Release.
 
 ### 3. Die Scripts — experimentell, und deshalb hier unten
 

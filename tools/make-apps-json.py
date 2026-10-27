@@ -7,8 +7,9 @@ Luma all do. This writes it from the built IPK, so the release step is one comma
 instead of hand-edited JSON with a hash that goes stale.
 
 Usage:
-  python3 tools/make-apps-json.py --ipk ipk/cleanframe_0.4.41_all.ipk
-  python3 tools/make-apps-json.py --ipk ... --tag v0.4.41 --out repo/apps.json
+  python3 tools/make-apps-json.py --ipk dist/cleanframe_0.5.1_all.ipk --out repo/apps.json
+  python3 tools/make-apps-json.py --ipk ... --out dist/repo.json     # the release asset
+  python3 tools/make-apps-json.py --ipk ... --check                  # is repo/apps.json current?
 
 The download URL points at the GitHub release asset for that tag, which is what
 "releases/download/<tag>/<file>" resolves to once the release exists.
@@ -98,8 +99,13 @@ def main():
     print("SHA256:  %s" % digest)
     print("Written: %s" % args.out)
     print()
-    print("Repository address for the Homebrew Channel:")
+    print("Repository address for the Homebrew Channel (always the newest release):")
+    print("  https://github.com/%s/releases/latest/download/repo.json" % args.repo)
+    print("Pinned copy in the repository:")
     print("  https://raw.githubusercontent.com/%s/main/repo/apps.json" % args.repo)
+    print()
+    print("Attach this file to the release as repo.json:")
+    print("  %s" % os.path.abspath(args.out))
     return 0
 
 
