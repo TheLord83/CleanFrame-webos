@@ -119,8 +119,28 @@ function values(cfg, ids, cb) {
 /* Domains where one button is enough: the tile switches, nothing else. */
 var SWITCHABLE = { light: 'Licht', switch: 'Schalter', input_boolean: 'Schalter', fan: 'Ventilator' };
 
+/* Read one entity back, and only believe it once two reads agree. Needed after a
+ * switch when the service answer carries no state: light groups and some
+ * integrations answer `light/toggle` with an empty list, and their state can
+ * still be settling (light.wohnzimmerlicht flips four times inside 400 ms
+ * because its two members each report twice). Five reads at 600 ms intervals,
+ * the last one wins if nothing settles. */
+function readBack(cfg, id, attempt, last, cb) {
+  setTimeout(function () {
+    request(cfg, 'GET', '/api/states/' + encodeURIComponent(id), null, 6000, function (r) {
+      var st = r.ok && r.data ? r.data.state : null;
+      if (st && st !== 'unavailable' && st !== 'unknown' && st === last) {
+        return cb({ ok: true, entity_id: id, state: st, readBack: attempt + 1 });
+      }
+      if (attempt < 4) return readBack(cfg, id, attempt + 1, st, cb);
+      cb({ ok: true, entity_id: id, state: st, readBack: attempt + 1 });
+    });
+  }, 600);
+}
+
 /* Switch an entity. cb gets {ok, entity_id, state} - the state comes from Home
- * Assistant's answer, so the strip can show the new value without asking twice. */
+ * Assistant's answer, so the strip can show the new value without asking twice.
+ * Without a usable answer the state is read back after the switch. */
 function toggle(cfg, entityId, cb) {
   var id = String(entityId || '').trim();
   var domain = id.split('.')[0];
@@ -132,7 +152,8 @@ function toggle(cfg, entityId, cb) {
     if (!r.ok) return cb({ ok: false, error: r.error || ('HTTP ' + r.status) });
     var changed = Array.isArray(r.data) ? r.data : [];
     var hit = changed.filter(function (s) { return s && s.entity_id === id; })[0] || changed[0] || null;
-    cb({ ok: true, entity_id: id, state: hit ? hit.state : null });
+    if (hit && hit.state) return cb({ ok: true, entity_id: id, state: hit.state });
+    readBack(cfg, id, 0, null, cb);
   });
 }
 
