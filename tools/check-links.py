@@ -31,10 +31,13 @@ def main():
     checked = 0
     broken = []
     for folder, dirs, files in os.walk(ROOT):
-        if ".git" in dirs:
-            dirs.remove(".git")
-        if "node_modules" in dirs:
-            dirs.remove("node_modules")
+        # Build output and generated leftovers are not part of the documentation:
+        # dist/ holds the export from tools/build-public.sh, which carries README
+        # but no docs/ tree, so checking it would report 37 dead links that only
+        # exist because of the export.
+        for skip in (".git", "node_modules", "dist", ".local", "__pycache__"):
+            if skip in dirs:
+                dirs.remove(skip)
         for name in files:
             if not name.endswith(".md"):
                 continue
