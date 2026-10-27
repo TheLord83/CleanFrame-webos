@@ -177,6 +177,12 @@ your own risk. The app ID is `com.blackpearl.cleanframe` and it installs through
 sideload path like any other homebrew app. What is tested and what is not: see
 [Which TVs](#which-tvs).
 
+## Problems and questions
+
+Open an [issue](https://github.com/TheLord83/CleanFrame-webos/issues) for anything that is not a
+security problem, or write to **193955790+TheLord83@users.noreply.github.com**. A report is worth ten times more with the
+model, the webOS version and a photo of the screen.
+
 ## Licence and credits
 
 - Port code (webOS bridge, packaging, build scripts): MIT — see [LICENSE](LICENSE); both

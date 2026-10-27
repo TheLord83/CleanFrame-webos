@@ -111,7 +111,7 @@ def main():
         "Priority: optional\n"
         "Architecture: all\n"
         "Installed-Size: %d\n"
-        "Maintainer: CleanFrame webOS port <193955790+TheLord83@users.noreply.github.com>\n"
+        "Maintainer: CleanFrame for webOS <193955790+TheLord83@users.noreply.github.com>\n"
         "Description: %s\n"
         "webOS-Package-Format-Version: 2\n"
         "webOS-Packager-Version: 3.0\n"

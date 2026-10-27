@@ -187,6 +187,12 @@ Chromium-79-Verträglichkeit, `app/i18n.js` und `app/appinfo.json` sind neu, `ap
 Keine Zusage für andere Modelle. Root und fremde IPKs können Garantie- und DRM-Funktionen
 beeinflussen; das Installieren erfolgt auf eigenes Risiko.
 
+## Probleme und Fragen
+
+Für alles, was kein Sicherheitsproblem ist, ein [Issue](https://github.com/TheLord83/CleanFrame-webos/issues)
+aufmachen oder an **193955790+TheLord83@users.noreply.github.com** schreiben. Eine Meldung ist zehnmal so viel wert mit
+Modell, webOS-Version und einem Foto vom Bildschirm.
+
 ## Lizenz und Grenzen
 
 * Eigener Code (webOS-Anbindung, Verpackung, Bau-Skripte): MIT — siehe [LICENSE](LICENSE),
