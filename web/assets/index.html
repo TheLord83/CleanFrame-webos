@@ -299,6 +299,15 @@
         </select>
       </div>
       <div>
+        <label for="wxGap" data-t="int.wx.gap">Abstand zur Uhr</label>
+        <select id="wxGap">
+          <option value="20" data-t="int.wx.gapNear">nah</option>
+          <option value="72" data-t="int.wx.gapNormal">normal</option>
+          <option value="110" data-t="int.wx.gapWide">weit</option>
+          <option value="150" data-t="int.wx.gapWidest">sehr weit</option>
+        </select>
+      </div>
+      <div>
         <label for="wxSize" data-t="int.wx.size">Größe</label>
         <select id="wxSize">
           <option value="small" data-t="int.wx.sizeSmall">klein</option>
@@ -927,6 +936,7 @@
       $('wxLine').value = w.line === 'highlow' ? 'highlow' : 'temp';
       $('wxStyle').value = w.style || 'icon-temp';
       $('wxSize').value = w.size || 'normal';
+      $('wxGap').value = String(w.gap || 72);
       $('wxQuiet').checked = w.quiet !== false;
     }
     applySavedPlaceholders();
@@ -1400,6 +1410,7 @@
     w.line = $('wxLine').value === 'highlow' ? 'highlow' : 'temp';
     w.style = $('wxStyle').value;
     w.size = $('wxSize').value;
+    w.gap = parseInt($('wxGap').value, 10) || 72;
     w.quiet = $('wxQuiet').checked === true;
     /* Angezeigter Ort ohne Koordinaten: erst suchen lassen, sonst zeigt die
      * Zeile nichts und niemand weiss warum. */

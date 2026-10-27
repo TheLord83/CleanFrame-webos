@@ -1458,9 +1458,12 @@
     if (!wxEl) html = clk;
     else if (!clk) html = wxEl;
     else if (wxState.pos === 'below') html = clk + wxEl;
-    else if (wxState.pos === 'end') html = '<span class="clock-row wx-end">' + clk + wxEl + '</span>';
-    else if (wxState.pos === 'left') html = '<span class="clock-row">' + wxEl + clk + '</span>';
-    else html = '<span class="clock-row">' + clk + wxEl + '</span>';
+    else {
+      var rowStyle = ' style="gap:' + (wxState.gap | 0) + 'px"';
+      if (wxState.pos === 'end') html = '<span class="clock-row wx-end"' + rowStyle + '>' + clk + wxEl + '</span>';
+      else if (wxState.pos === 'left') html = '<span class="clock-row"' + rowStyle + '>' + wxEl + clk + '</span>';
+      else html = '<span class="clock-row"' + rowStyle + '>' + clk + wxEl + '</span>';
+    }
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
   }
@@ -2399,7 +2402,7 @@
   /* Weather line. Fetched by the hub (it holds the coordinates and the cache),
    * never by the television itself: the launcher has no business talking to the
    * internet. Off unless the settings page switched it on. */
-  var wxState = { enabled: false, line: 'temp', style: 'icon-temp', size: 'normal', quiet: true, pos: 'right', data: null, timer: 0, tried: 0 };
+  var wxState = { enabled: false, line: 'temp', style: 'icon-temp', size: 'normal', quiet: true, pos: 'right', gap: 72, data: null, timer: 0, tried: 0 };
   function rotationActive() { return !document.hidden && top().id === 'home' && S.c.bg === 'photo' && !S.pending && mode().min > 0; }
   function pauseRotation() {
     if (activeSince) { activeMs += Date.now() - activeSince; activeSince = 0; }
@@ -2463,10 +2466,14 @@
     var now = Date.now();
     if (!wxState.enabled) { wxState.data = null; return; }
     if (!window.FrameDevice || !FrameDevice.api) return;
-    if (!force && wxState.tried && now - wxState.tried < WX_EVERY) return;
+    /* Ohne Antwort zuerst nach einer Minute erneut fragen, nicht erst nach
+     * fuenfzehn: beim Start ist der Hub manchmal noch nicht fertig, und eine
+     * einzelne zu frueh gestellte Frage soll die Zeile nicht stumm lassen. */
+    var gap = wxState.data ? WX_EVERY : 60 * 1000;
+    if (!force && wxState.tried && now - wxState.tried < gap) return;
     wxState.tried = now;
     clearTimeout(wxState.timer);
-    wxState.timer = setTimeout(function () { loadWeather(true); }, WX_EVERY);
+    wxState.timer = setTimeout(function () { loadWeather(true); }, gap);
     FrameDevice.api('GET', '/api/weather', null, function (err, data) {
       /* A failing hub must not empty the line: the last value stays until a new
        * one arrives, and the clock keeps drawing regardless. */
@@ -2808,6 +2815,7 @@
         wxState.size = wcf.size || 'normal';
         wxState.quiet = wcf.quiet !== false;
         wxState.pos = wcf.pos || 'right';
+        wxState.gap = typeof wcf.gap === 'number' ? wcf.gap : 72;
         loadWeather();
       }
     }

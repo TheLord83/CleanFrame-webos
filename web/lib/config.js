@@ -63,7 +63,7 @@ function defaults() {
       /* Immer Celsius. Eine Einheitenwahl war der eine Schalter zu viel: wer
        * Fahrenheit liest, will es meist nicht selbst eingeschaltet haben. */
       weather: { enabled: false, place: '', lat: 0, lon: 0, line: 'temp',
-                 style: 'icon-temp', size: 'normal', quiet: true, pos: 'right' }
+                 style: 'icon-temp', size: 'normal', quiet: true, pos: 'right', gap: 72 }
     },
     createdAt: null,
     updatedAt: null
@@ -184,7 +184,15 @@ function validate(input) {
     quiet: we.quiet !== false,
     /* Wo die Zeile steht: neben der Uhr rechts, links davon, darunter oder am
      * rechten Rand der Beschriftungsflaeche. */
-    pos: ['left', 'right', 'below', 'end'].indexOf(we.pos) >= 0 ? we.pos : 'right'
+    pos: ['left', 'right', 'below', 'end'].indexOf(we.pos) >= 0 ? we.pos : 'right',
+    /* Abstand zur Uhr in Pixeln. 40 ist der Standard, weil 22 (der erste
+     * Versuch) auf dem Sofa wie an die Uhr geklebt wirkte, und 40 am Ende auch
+     * noch. Unsinn faellt auf den Standard zurueck, nicht auf 0. */
+    gap: (function () {
+      var g = Number(we.gap);
+      if (we.gap === undefined || !isFinite(g)) return 72;
+      return Math.round(Math.max(8, Math.min(160, g)));
+    })()
   };
 
   cfg.createdAt = isStr(src.createdAt, 40) && src.createdAt ? src.createdAt : null;

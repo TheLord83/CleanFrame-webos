@@ -45,7 +45,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .clock{font-variant-numeric:tabular-nums}
 /* Weather next to the clock: same line, quieter, so the time stays the thing
  * you read first from three metres away. */
-.clock-row{display:flex;align-items:center;gap:22px}
+.clock-row{display:flex;align-items:center;gap:72px}
 /* Ganz rechts in der Beschriftungsflaeche, mit der Uhr links. */
 /* Feste Breite, weil .caption als Flex-Spalte auf Inhaltsbreite schrumpft und
  * space-between ohne Breite nichts zu verteilen haette. 1040 ist die Breite,
