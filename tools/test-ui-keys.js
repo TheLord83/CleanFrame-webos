@@ -367,10 +367,19 @@ function run(wsUrl) {
                       evalJs('window.CleanFrameDebug.setClock24(true)', function () {
                         setTimeout(function () {
                           evalJs('window.CleanFrameDebug.language("en")', function () {
-                            setTimeout(function () {
+                            /* The switch reloads the interface, so the i18n object is
+                             * replaced while this runs. One read 500 ms later was green
+                             * locally and red in CI once ("t":"-") because the old object
+                             * still answered. Poll instead of guessing a delay. */
+                            var langTries = 0;
+                            (function readLang() {
                               evalJs('JSON.stringify({lang: (window.CleanFrameI18n || {}).lang, t: (window.CleanFrameI18n ? window.CleanFrameI18n.t("Language") : "-")})', function (x) {
                                 var o2 = {};
                                 try { o2 = JSON.parse(x); } catch (e) {}
+                                if (!(o2.lang === 'en' && o2.t === 'Language') && langTries++ < 14) {
+                                  setTimeout(readLang, 250);
+                                  return;
+                                }
                                 check('switching to English takes effect', o2.lang === 'en' && o2.t === 'Language', x);
                                 evalJs('window.CleanFrameDebug.language("de")', function () {
                                   /* language() reloads the interface — wait until the
@@ -378,7 +387,7 @@ function run(wsUrl) {
                                   setTimeout(function () { configTests(); }, 2600);
                                 });
                               });
-                            }, 500);
+                            })();
                           });
                         }, 700);
                       });
