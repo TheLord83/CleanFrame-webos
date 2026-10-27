@@ -104,6 +104,19 @@ URL and token by hand:
 curl -s -H "Authorization: Bearer <token>" https://<ha-host>/api/ | head -c 120
 ```
 
+**Home Assistant: "unable to verify the first certificate" or "self signed certificate"**
+Certificates are checked, and node 8.12 on webOS 6 does not know the ISRG roots that Let's Encrypt
+uses, so a valid certificate fails there too. Point the hub at a bundle:
+```sh
+ssh root@<tv-ip> 'echo CF_HA_CA=/etc/ssl/certs/ca-certificates.crt >> /var/lib/cleanframe/hub.env && /var/lib/cleanframe/cleanframectl restart'
+```
+If the certificate is genuinely self-signed and there is no bundle, `CF_HA_TLS_INSECURE=1` turns the
+check off, at the price that the token is readable by anything on the way.
+
+**`POST /api/ha/check` answers 400 with "braucht einen eigenen Token"**
+It refuses to send the stored token to an address that is not the stored one. Save the URL first, or
+pass the token for the new address along with the check.
+
 **The web interface shows 200 but the browser shows an old version**
 The hub serves `assets/index.html` from disk; after an update, restart the hub and
 reload with `Ctrl+Shift+R`. Check the build stamp in the header and

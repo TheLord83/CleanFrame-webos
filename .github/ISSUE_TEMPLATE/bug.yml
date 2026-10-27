@@ -1,0 +1,50 @@
+name: Something is broken
+description: The launcher or the hub does not do what the documentation says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you write: `docs/TROUBLESHOOTING.md` lists the failures that have actually happened,
+        each with the command that settles the cause. The hub shows model, webOS, launcher and hub
+        version under **System**.
+  - type: input
+    id: tv
+    attributes:
+      label: TV model and webOS version
+      placeholder: 43NANO779PA, webOS 6.5.0-2401
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Launcher and hub version
+      placeholder: launcher 0.5.2, hub 0.5.2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you did, what you expected, what the TV or the browser showed.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log and check output
+      description: |
+        `tools/check-all.sh` for anything without the TV, and on the TV
+        `ssh root@<tv-ip> '/var/lib/cleanframe/cleanframectl logs'`.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I read docs/TROUBLESHOOTING.md
+          required: true
+        - label: This is not a security problem (those go through the Security tab)
+          required: true

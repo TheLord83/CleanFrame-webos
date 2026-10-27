@@ -1,5 +1,7 @@
 # CleanFrame for webOS
 
+[![Checks](https://github.com/TheLord83/CleanFrame-webos/actions/workflows/checks.yml/badge.svg)](https://github.com/TheLord83/CleanFrame-webos/actions/workflows/checks.yml)
+
 Unofficial port of [CleanFrame](https://github.com/nthnclrk/CleanFrame) to LG TVs running webOS 6
 or newer. Not affiliated with the original project and not maintained by its author.
 
@@ -189,7 +191,8 @@ node 8 compatibility, icon, API, remote-key, live-apply and link checks in one g
 `app/device.js` is new. `app/main.js` has a contained delta (webOS app IDs, LG labels, remote
 handling, test hooks), `app/style.css` has Chromium 79 compatibility fixes, `app/i18n.js` and
 `app/appinfo.json` are new, and `app/config.xml` (Tizen packaging) is gone. Everything under
-`app/assets/` is byte-identical to the original.
+`app/assets/` keeps the original files untouched: everything that was there is byte-identical, apart
+from `SOURCES.json` and `PHOTO-CREDIT.md`, which were extended, and everything else is new.
 
 ## Warranty and risk
 

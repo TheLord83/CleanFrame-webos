@@ -273,7 +273,6 @@ window.CF_LANG.de = {
   'sys.dev.unknown': "unbekannt",
   'err.readFailed': "Konnte nicht gelesen werden: {msg}",
   'sys.dev.codename': "Plattform",
-  'sys.dev.serial': "Seriennummer",
   "sys.shot.title": "Bildschirmfoto",
   "sys.shot.hint": "Nimmt den ganzen Bildschirm auf, auch LGs eigene Seiten wie Einstellungen. Nichts auswählen nötig: was gerade zu sehen ist, wird fotografiert.",
   "sys.shot.take": "Aufnehmen",

@@ -2,6 +2,8 @@
 
 The root MIT licence covers CleanFrame's original code and documentation. Third-party material retains the terms below. Keep these notices and the adjacent licence texts when sharing source or a build.
 
+`LICENSE` holds the MIT text for this project and nothing else, because GitHub reads a single licence file for its badge and treated the appended block as an unknown licence. The terms of the material below live here.
+
 ## Fonts
 
 | Material | Terms and source record |
@@ -32,4 +34,4 @@ Photographers retain their rights. Wallpapers, thumbnails, panel backgrounds and
 
 Development dependencies retain the licences in their npm packages. They are not copied into the TV JavaScript runtime.
 
-`npm run export:public` excludes private fonts and includes this notice and the root MIT licence. Preserve the included font and icon licence texts. Before publishing a repository or a download, check three things: this notice and `LICENSE` are in the tree, the files listed in [asset sources](docs/asset-sources.md) still carry their licence texts, and no `.local/` font or original photo slipped into the package.
+`tools/build-public.sh` builds the source package and includes this notice plus the root MIT licence; private fonts are excluded by the copy list. Before publishing a repository or a download, check three things: this notice and `LICENSE` are in the tree, the files listed in [asset sources](docs/asset-sources.md) still carry their licence texts, and no `.local/` font or original photo slipped into the package.

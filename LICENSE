@@ -20,16 +20,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party material keeps its own terms; see THIRD_PARTY_NOTICES.md and the
-licence files next to the assets:
-
-* Fonts: Manrope, Geist, Newsreader - SIL Open Font License 1.1
-* Icons: Simple Icons (CC0), Custom Brand Icons (MIT), original CleanFrame
-  outlines (MIT). Brand marks remain trademarks of their owners; this project
-  claims no affiliation or endorsement.
-* Photographs: 15 Unsplash photos, Unsplash License, credits and source pages
-  in wallpaper-SOURCES.json. The Unsplash License does not permit selling
-  unmodified copies or building a competing image service.

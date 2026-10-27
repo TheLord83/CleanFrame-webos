@@ -219,6 +219,35 @@ launcher or another tab wrote in the meantime.
   the stored value, so the browser never has to hold it.
 - The file is written atomically (tmp + rename) with mode 0600.
 
+## Secrets and TLS
+
+The hub holds two secrets: the Home Assistant token and, if you use it, the MQTT password. Both
+live in `/var/lib/cleanframe/config.json` with mode `0600` and neither comes back out through
+`/api/config` or `/api/backup`; both answer with an empty string and `hasToken` / `hasPassword`
+instead. Reading the file over SSH is the only way to see them again.
+
+`POST /api/ha/check` tests the connection. The stored token is only ever sent to the stored URL:
+a check against a different address has to bring its own token, and a redirect is followed only
+inside the same host. Without those two rules the endpoint hands a long-lived token to whoever
+posts a URL.
+
+Certificates are verified. That is a problem on webOS 6, because node 8.12 ships a trust store from
+2018 and does not know the ISRG roots, so a Home Assistant behind Let's Encrypt fails the check even
+with a valid certificate. Two ways out, both for the whole process:
+
+| Setting | Effect |
+| --- | --- |
+| `CF_HA_CA=/etc/ssl/certs/ca-certificates.crt` | trust this bundle as well. `cleanframectl` sets it automatically when the file exists |
+| `CF_HA_TLS_INSECURE=1` | switch the check off. Blunt, and then anybody between TV and Home Assistant can read the token |
+
+Put either one in `/var/lib/cleanframe/hub.env`, one assignment per line; `cleanframectl` reads that
+file on every start. `CF_TOKEN` also belongs there rather than in a URL: a token passed as `?k=` ends
+up in logs and browser history.
+
+The traffic between browser and hub is plain HTTP on port 8484. Whoever types the Home Assistant
+token into the web interface sends it through the LAN in clear text, which is acceptable in a home
+network and nowhere else. Put TLS in front (a reverse proxy) if the network is shared.
+
 ## Tests without the TV
 
 ```sh

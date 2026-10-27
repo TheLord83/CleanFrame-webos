@@ -193,7 +193,7 @@ function Find-Tv {
 
 function Invoke-Ssh {
   param([string]$Command)
-  $out = & ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "root@$Tv" $Command 2>$null
+  $out = & ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 "root@$Tv" $Command 2>$null
   if ($null -eq $out) { return '' }
   return (($out | Out-String) -replace "`r", '').Trim()
 }
@@ -291,16 +291,16 @@ if ($doHub) {
   $web = Join-Path $RepoRoot 'web'
   Say (T copy)
   Invoke-Ssh 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets' | Out-Null
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'server.js') "root@${Tv}:/var/lib/cleanframe/server.js"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'lib\*.js') "root@${Tv}:/var/lib/cleanframe/lib/"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'assets\*.html') (Join-Path $web 'assets\*.json') "root@${Tv}:/var/lib/cleanframe/assets/"
-  & scp -q -r -o StrictHostKeyChecking=no (Join-Path $web 'assets\icons') "root@${Tv}:/var/lib/cleanframe/assets/"
-  & scp -q -r -o StrictHostKeyChecking=no (Join-Path $web 'assets\lang') "root@${Tv}:/var/lib/cleanframe/assets/"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'cleanframectl') "root@${Tv}:/var/lib/cleanframe/cleanframectl"
+  & scp -q -o StrictHostKeyChecking=accept-new (Join-Path $web 'server.js') "root@${Tv}:/var/lib/cleanframe/server.js"
+  & scp -q -o StrictHostKeyChecking=accept-new (Join-Path $web 'lib\*.js') "root@${Tv}:/var/lib/cleanframe/lib/"
+  & scp -q -o StrictHostKeyChecking=accept-new (Join-Path $web 'assets\*.html') (Join-Path $web 'assets\*.json') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -r -o StrictHostKeyChecking=accept-new (Join-Path $web 'assets\icons') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -r -o StrictHostKeyChecking=accept-new (Join-Path $web 'assets\lang') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -o StrictHostKeyChecking=accept-new (Join-Path $web 'cleanframectl') "root@${Tv}:/var/lib/cleanframe/cleanframectl"
   Invoke-Ssh 'chmod +x /var/lib/cleanframe/cleanframectl' | Out-Null
 
   Say (T autostart)
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'init.d\52-cleanframe') "root@${Tv}:/var/lib/webosbrew/init.d/52-cleanframe"
+  & scp -q -o StrictHostKeyChecking=accept-new (Join-Path $web 'init.d\52-cleanframe') "root@${Tv}:/var/lib/webosbrew/init.d/52-cleanframe"
   Invoke-Ssh 'chmod +x /var/lib/webosbrew/init.d/52-cleanframe' | Out-Null
 
   Say (T start)

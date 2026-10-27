@@ -72,6 +72,24 @@ def ar_member(name, payload, mtime):
     return header.encode() + body
 
 
+# Files that belong to development, not into a package: the icon preview page
+# carried file:///root/... paths into the 0.5.1 IPK, and a .pyc or a checker
+# scratch file is no better. Keep this list short and explicit.
+EXCLUDE_NAMES = {".packageinfo.json", ".DS_Store", "icons-preview.html"}
+EXCLUDE_DIRS = {"__pycache__", ".git"}
+EXCLUDE_SUFFIX = (".pyc", ".pyo", ".swp", ".orig", ".rej")
+
+
+def excluded(rel):
+    parts = rel.replace(os.sep, "/").split("/")
+    if any(p in EXCLUDE_DIRS for p in parts[:-1]):
+        return True
+    name = parts[-1]
+    if name in EXCLUDE_NAMES or name.endswith(EXCLUDE_SUFFIX):
+        return True
+    return False
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -90,11 +108,15 @@ def main():
 
     # data.tar.gz
     entries = []
+    skipped = []
     for root, dirs, files in os.walk(appdir):
         dirs.sort()
         rel_root = os.path.relpath(root, appdir)
         for name in sorted(files):
             rel = name if rel_root == "." else os.path.join(rel_root, name)
+            if excluded(rel):
+                skipped.append(rel)
+                continue
             entries.append(("usr/palm/applications/%s/%s" % (appid, rel.replace(os.sep, "/")),
                             os.path.join(root, name)))
     pkgjson_path = os.path.join(appdir, ".packageinfo.json")
@@ -136,6 +158,8 @@ def main():
     print("App-ID: %s  Version: %s" % (appid, version))
     print("Size:   %d bytes" % len(blob))
     print("SHA256: %s" % hashlib.sha256(blob).hexdigest())
+    if skipped:
+        print("Skipped: %s" % ", ".join(sorted(skipped)))
 
 
 if __name__ == "__main__":

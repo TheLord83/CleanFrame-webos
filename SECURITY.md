@@ -41,6 +41,13 @@ problems in them belong to their maintainers.
 
 - `config.json` and the SSAP client key are written with mode `0600`
 - the API refuses requests with a foreign `Origin` header, and only accepts JSON bodies
-- tokens and passwords are never returned by `GET /api/config`
-- the hub binds to the TV's LAN interface; nothing is sent anywhere else, there is no
-  telemetry and no cloud
+- tokens and passwords are returned by neither `GET /api/config` nor `GET /api/backup`; both answer
+  with an empty value and a `hasToken` / `hasPassword` flag
+- the stored Home Assistant token is only sent to the stored Home Assistant URL, and a redirect is
+  followed only inside that host
+- TLS certificates are verified; `CF_HA_CA` adds a bundle, `CF_HA_TLS_INSECURE=1` is the documented
+  opt-out for a self-signed certificate
+- `/api/tv/info` reports model, webOS, firmware, board and memory, but not the serial number, the
+  hardware ID or any file path
+- the hub binds to the TV's LAN interface; nothing is sent anywhere else, there is no telemetry and
+  no cloud

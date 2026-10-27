@@ -270,7 +270,6 @@ window.CF_LANG.en = {
   'sys.dev.unknown': "unknown",
   'err.readFailed': "Could not be read: {msg}",
   'sys.dev.codename': "Platform",
-  'sys.dev.serial': "Serial number",
   "sys.shot.title": "Screenshot",
   "sys.shot.hint": "Captures the whole screen, including LG's own pages such as settings. Nothing to select: whatever is on screen is captured.",
   "sys.shot.take": "Take screenshot",

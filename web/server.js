@@ -47,7 +47,7 @@ var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 
-var VERSION = '0.5.1';
+var VERSION = '0.5.2';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -233,7 +233,7 @@ function handle(req, res) {
       name: 'cleanframe-web',
       version: VERSION,
       uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
-      configPath: CONFIG_PATH,
+      configPath: path.basename(CONFIG_PATH),
       glasshouse: TV_BASE,
       tokenRequired: !!token && !fromTV(req)
     });
@@ -332,7 +332,7 @@ function handle(req, res) {
   }
 
   if (req.method === 'GET' && p === '/api/diag') {
-    return diag.run({ configPath: CONFIG_PATH }, function (out) {
+    return diag.run({ configPath: path.basename(CONFIG_PATH) }, function (out) {
       json(res, out.ok ? 200 : 200, out);
     });
   }
@@ -341,8 +341,18 @@ function handle(req, res) {
     if (!postGuard(req, res)) return;
     return readBody(req, function (body) {
       var current = store.read();
-      var haUrl = (body && body.url) || current.integrations.ha.url;
-      var haToken = (body && body.token) || current.integrations.ha.token;
+      var storedUrl = String(current.integrations.ha.url || '').replace(/\/+$/, '');
+      var haUrl = String((body && body.url) || storedUrl).replace(/\/+$/, '');
+      var haToken = (body && body.token) || '';
+      /* The stored token belongs to the stored URL and nowhere else. A check
+       * against another address has to bring its own token - otherwise this
+       * endpoint hands the Home Assistant token to whoever asks. */
+      if (!haToken) {
+        if (haUrl !== storedUrl) {
+          return json(res, 400, { ok: false, error: 'fuer eine andere URL als die gespeicherte braucht der Test einen eigenen Token' });
+        }
+        haToken = current.integrations.ha.token;
+      }
       diag.haCheck(haUrl, haToken, function (r) { json(res, 200, r); });
     });
   }
@@ -371,7 +381,10 @@ function handle(req, res) {
   }
 
   if (req.method === 'GET' && p === '/api/backup') {
-    var cfg2 = store.read();
+    /* Redacted like /api/config: a backup that anyone in the LAN can download
+     * must not contain the Home Assistant token or the MQTT password. Whoever
+     * needs those takes the live values out of /var/lib/cleanframe/config.json. */
+    var cfg2 = config.redact(store.read());
     var stamp = new Date().toISOString().slice(0, 10);
     return send(res, 200, JSON.stringify({ kind: 'cleanframe-backup', schemaVersion: config.VERSION, exportedAt: new Date().toISOString(), config: cfg2 }, null, 2), {
       'Content-Type': 'application/json; charset=utf-8',
@@ -445,7 +458,9 @@ function handle(req, res) {
      * CF_OS_INFO / CF_DEVICE_INFO point elsewhere for tests. */
     var osPath = process.env.CF_OS_INFO || '/var/run/nyx/os_info.json';
     var devPath = process.env.CF_DEVICE_INFO || '/var/run/nyx/device_info.json';
-    var info = { ok: false, osPath: osPath, devicePath: devPath };
+    /* Deliberately without the two paths: the reply is readable by anyone in the
+     * LAN, and a filesystem layout is none of its business. */
+    var info = { ok: false };
     try {
       info.os = JSON.parse(require('fs').readFileSync(osPath, 'utf8'));
       info.ok = true;
@@ -460,10 +475,10 @@ function handle(req, res) {
     var os = info.os || {};
     var dev = info.device || {};
     info.modelName = dev.product_id || '';            /* 43NANO779PA */
-    info.serial = dev.serial_number || '';
     info.board = dev.board_type || '';
-    info.hardwareId = dev.hardware_id || '';          /* HE_DTV_W21A_AFADATAA */
     info.ram = dev.ram_size || '';
+    /* serial_number and hardware_id stay out of the reply: model, webOS and
+     * firmware are enough to help somebody, the serial is a device identifier. */
     info.webOs = [os.webos_name, os.webos_release].filter(Boolean).join(' ') || '';
     info.firmware = os.webos_manufacturing_version || '';   /* 03.51.16 */
     info.kernel = os.core_os_kernel_version || '';

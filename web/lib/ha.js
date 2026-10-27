@@ -13,6 +13,17 @@ var http = require('http');
 var https = require('https');
 var urlmod = require('url');
 
+/* Certificate checks stay on. Two ways out, both deliberate and both for the whole
+ * process: CF_HA_CA points at a PEM bundle to trust in addition to (or instead of)
+ * the one node carries, and CF_HA_TLS_INSECURE=1 switches the check off. The second
+ * exists because node 8.12 on webOS 6 predates the ISRG roots, so a Home Assistant
+ * behind Let's Encrypt fails verification there even with a valid certificate. */
+var INSECURE_TLS = !!process.env.CF_HA_TLS_INSECURE;
+var CA_FILE = process.env.CF_HA_CA || '';
+var CA_PEM = null;
+try { if (CA_FILE) CA_PEM = require('fs').readFileSync(CA_FILE); } catch (e) { CA_PEM = null; }
+if (CA_FILE && !CA_PEM) console.log('warning: CF_HA_CA ' + CA_FILE + ' could not be read, using the built-in store');
+
 /* Domains that make sense on a tile. Everything else (automations, zones,
  * persons) is not offered: it has no display value. */
 var USEFUL = {
@@ -47,10 +58,12 @@ function request(cfg, method, path, body, timeout, cb) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = payload.length;
   }
-  var req = b.lib.request({
+  var opts = {
     host: b.host, port: b.port, path: b.base + path, method: method,
-    headers: headers, timeout: timeout || 5000, rejectUnauthorized: false
-  }, function (res) {
+    headers: headers, timeout: timeout || 5000, rejectUnauthorized: !INSECURE_TLS
+  };
+  if (CA_PEM && b.secure) opts.ca = CA_PEM;
+  var req = b.lib.request(opts, function (res) {
     var data = '';
     res.setEncoding('utf8');
     res.on('data', function (c) { data += c; if (data.length > 8 * 1024 * 1024) req.abort(); });
@@ -61,7 +74,13 @@ function request(cfg, method, path, body, timeout, cb) {
     });
   });
   req.on('timeout', function () { req.abort(); cb({ ok: false, error: 'timeout' }); });
-  req.on('error', function (e) { cb({ ok: false, error: e.code || String(e) }); });
+  req.on('error', function (e) {
+    var msg = e.code || String(e);
+    if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY|ALT_NAME/.test(msg)) {
+      msg += ' - the certificate is not trusted; CF_HA_CA=<bundle.pem> or CF_HA_TLS_INSECURE=1';
+    }
+    cb({ ok: false, error: msg });
+  });
   if (payload) req.write(payload);
   req.end();
 }

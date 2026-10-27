@@ -23,8 +23,9 @@ every file a key. 43 icons.
 **4. Configuration server.** `tools/test-web-api.py` starts the server with a stub catalogue and a
 temporary configuration, then checks every endpoint: `/api/health`, `/api/config` (GET, PUT, POST
 with 403, 409 and 415), `/api/schema`, `/api/wall/<id>`, `/api/apps`, `/api/diag`, the Home
-Assistant bridge including the rejected toggle, backup, and `/api/tv/key` with a long press. 40
-checks, one of them a separate server instance that has to survive a missing `luna-send`.
+Assistant bridge including the rejected toggle, backup, and `/api/tv/key` with a long press. 41
+checks: a backup that carries no secrets, a connection check that refuses to hand the stored token
+to a foreign URL, and a separate server instance that has to survive a missing `luna-send`.
 
 ## Interface
 
@@ -56,7 +57,7 @@ drives the real keys into the strip: `down` focuses a chip, `OK` toggles it and 
 carries no frame because a sensor cannot be switched, a hidden value loses its chip but keeps its
 name in the settings page. 17 checks.
 
-**Links.** `tools/check-links.py` checks every relative link and anchor in the documentation, 56 of
+**Links.** `tools/check-links.py` checks every relative link and anchor in the documentation, 62 of
 them at the moment. A licence note with a dead link is not a typo, which is why this one runs in CI.
 
 ## Two rules, both learned from failures

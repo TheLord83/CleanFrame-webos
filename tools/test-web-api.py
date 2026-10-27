@@ -249,9 +249,12 @@ def main():
             assert d["firmware"] == "03.51.16", d
             assert d["kernel"].startswith("4.4.84"), d
             assert d["codename"] == "kisscurl-koli", d
-            assert d["serial"] == "000MANJ00000", d
-            assert d["hardwareId"] == "HE_DTV_W21A_AFADATAA", d
-            assert d["hub"] and d["node"], d
+            assert "serial" not in d, "the serial number is nobody's business on the LAN"
+            assert "hardwareId" not in d, d
+            assert "osPath" not in d and "devicePath" not in d, d
+            assert d["board"] and d["ram"], d
+            assert d["hub"] == "0.5.2", d
+            assert d["node"], d
 
         def t_tv_screenshot():
             st, d, _ = req("POST", "/api/tv/screenshot", {"format": "PNG", "width": 1920, "height": 1080})
@@ -273,7 +276,7 @@ def main():
             assert st == 200, st
             assert d["ok"] is True
             assert d["name"] == "cleanframe-web"
-            assert d["configPath"] == cfg_path
+            assert d["configPath"] == os.path.basename(cfg_path), "no directories in the reply"
 
         def t_static():
             st, body, hdrs = req("GET", "/")
@@ -416,11 +419,41 @@ def main():
             assert st == 400, st
 
         def t_ha_check():
+            # A check against a foreign address has to bring its own token ...
             st, d, _ = req("POST", "/api/ha/check", {"url": f"http://127.0.0.1:{ha_port}", "token": "testtoken"})
             assert st == 200, st
             assert d["ok"] is True, d
+            # ... otherwise the stored token would travel to whatever URL the body names.
             st2, d2, _ = req("POST", "/api/ha/check", {"url": f"http://127.0.0.1:{ha_port}"})
-            assert d2["ok"] is True, d2
+            assert st2 == 400, f"foreign URL must not get the stored token, was {st2}: {d2}"
+            assert "eigenen Token" in d2.get("error", ""), d2
+            # The stored URL itself may be checked without a token.
+            st3, d3, _ = req("GET", "/api/config")
+            cfg = d3["config"]
+            cfg["integrations"]["ha"]["url"] = f"http://127.0.0.1:{ha_port}"
+            st4, d4, _ = req("PUT", "/api/config", {"config": cfg})
+            assert st4 == 200, (st4, d4)
+            st5, d5, _ = req("POST", "/api/ha/check", {"url": f"http://127.0.0.1:{ha_port}"})
+            assert st5 == 200 and d5["ok"] is True, (st5, d5)
+
+        def t_backup_has_no_secrets():
+            """The backup is a download anyone in the LAN can fetch."""
+            st, d, _ = req("GET", "/api/config")
+            cfg = d["config"]
+            cfg["integrations"]["ha"]["token"] = "HA-GEHEIM-123"
+            cfg["integrations"]["mqtt"]["password"] = "MQTT-GEHEIM-456"
+            st2, d2, _ = req("PUT", "/api/config", {"config": cfg})
+            assert st2 == 200, (st2, d2)
+            st3, d3, _ = req("GET", "/api/backup")
+            assert st3 == 200, st3
+            blob = json.dumps(d3["config"])
+            assert "HA-GEHEIM-123" not in blob, "backup hands out the HA token"
+            assert "MQTT-GEHEIM-456" not in blob, "backup hands out the MQTT password"
+            assert d3["config"]["integrations"]["ha"]["hasToken"] is True, d3["config"]["integrations"]["ha"]
+            # and the file on disk still has them
+            with open(cfg_path, encoding="utf-8") as f:
+                raw = json.load(f)
+            assert raw["integrations"]["ha"]["token"] == "HA-GEHEIM-123"
 
         def t_ha_entities():
             # Set credentials so the server uses them
@@ -639,6 +672,7 @@ def main():
             ("foreign origin is rejected (403)", t_cross_origin_refused),
             ("broken JSON is rejected (400)", t_invalid_json),
             ("backup is served as a download", t_backup_download),
+            ("backup contains no secrets", t_backup_has_no_secrets),
             ("backup can be imported", t_backup_import),
             ("foreign backup file is rejected", t_backup_wrong_kind),
             ("self-test in the server is green", t_selftest),

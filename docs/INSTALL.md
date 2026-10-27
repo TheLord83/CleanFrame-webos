@@ -72,6 +72,9 @@ The third line is the autostart hook. Without it the hub is gone after the next 
 `tools/install-hub.sh` does the same and refuses a TV that is not rooted; it is experimental, see
 the end of this page.
 
+Settings for the service (a token, a certificate bundle) go into `/var/lib/cleanframe/hub.env`, one
+assignment per line; `cleanframectl` reads it on every start. Details in [WEB.md](WEB.md).
+
 What lands where:
 
 | Path | Content |

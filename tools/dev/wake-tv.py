@@ -8,11 +8,11 @@ stack keeps listening.
 
     python3 tools/wake-tv.py                          # broadcast to 255.255.255.255
     python3 tools/wake-tv.py 192.168.1.50             # and unicast to the TV
-    python3 tools/wake-tv.py 192.168.1.50 --mac 00:00:00:00:00:00 --wait 20
+    python3 tools/wake-tv.py 192.168.1.50 --mac aa:bb:cc:dd:ee:ff --wait 20
 
-Without --mac the packet is sent to the broadcast address with the two MACs Stefan's
-43NANO779PA answers on (wired and wireless); the interesting one is the wired MAC from the
-TV menu. Exit code 0 = at least one packet went out, 1 = nothing could be sent.
+The MAC is required. It is in the TV menu under *Network*, or on the router's client list; the
+wired one is the one that wakes a TV on a cable. Exit code 0 = at least one packet went out,
+1 = nothing could be sent.
 """
 import argparse
 import socket
@@ -46,12 +46,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Wake an LG TV (Wake-on-LAN)")
     parser.add_argument("ip", nargs="?", default="", help="address of the TV (optional)")
     parser.add_argument("--mac", action="append", default=[],
-                        help="MAC address, can be given twice (default: the two of our TV)")
+                        help="MAC address, can be given twice (cable and wireless)")
     parser.add_argument("--wait", type=int, default=0,
                         help="seconds to wait afterwards, then report whether port 22 answers")
     args = parser.parse_args(argv)
 
-    macs = args.mac or ["00:00:00:00:00:00", "00:00:00:00:00:00"]
+    macs = args.mac
+    if not macs:
+        sys.exit("no MAC given: python3 tools/wake-tv.py 192.168.1.50 --mac aa:bb:cc:dd:ee:ff")
     dests = ["255.255.255.255"]
     if args.ip:
         dests.append(args.ip)

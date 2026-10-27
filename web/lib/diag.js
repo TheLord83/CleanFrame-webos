@@ -82,6 +82,12 @@ function run(opts, cb) {
 
 /* Checks a Home Assistant instance against /api/ and reports the version —
  * so the interface knows right away on entry whether URL and token fit. */
+/* Self-signed certificates are a deliberate exception for this process, not the
+ * default: the token that goes out here is a long-lived one. */
+var INSECURE_TLS = !!process.env.CF_HA_TLS_INSECURE;
+var CA_PEM = null;
+try { if (process.env.CF_HA_CA) CA_PEM = require('fs').readFileSync(process.env.CF_HA_CA); } catch (e) { CA_PEM = null; }
+
 function haCheck(url, token, cb, tiefe) {
   /* Home Assistant often runs behind HTTPS. This used to always call http.get
    * — with an https URL the proxy therefore answered 301 and the check
@@ -93,14 +99,19 @@ function haCheck(url, token, cb, tiefe) {
   var secure = u.protocol === 'https:';
   var lib = secure ? https : http;
   var path = u.pathname && u.pathname !== '/' ? u.pathname : '/api/';
-  var req = lib.get({
+  var opts = {
     host: u.hostname,
     port: u.port || (secure ? 443 : 80),
     path: path,
     headers: token ? { Authorization: 'Bearer ' + token } : {},
     timeout: 6000,
-    rejectUnauthorized: false
-  }, function (res) {
+    /* Certificates are checked. A Home Assistant with a self-signed certificate
+     * needs CF_HA_TLS_INSECURE=1, which is a decision the operator makes for the
+     * whole process - not the default for a token that never expires. */
+    rejectUnauthorized: !INSECURE_TLS
+  };
+  if (CA_PEM && secure) opts.ca = CA_PEM;
+  var req = lib.get(opts, function (res) {
     var b = '';
     res.on('data', function (c) { b += c; });
     res.on('end', function () {
@@ -108,6 +119,12 @@ function haCheck(url, token, cb, tiefe) {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && stufe < 3) {
         var ziel = res.headers.location;
         if (ziel.charAt(0) === '/') ziel = (secure ? 'https://' : 'http://') + u.host + ziel;
+        /* A redirect to another host would take the Authorization header with it.
+         * Follow only within the same origin. */
+        var z = urlmod.parse(ziel);
+        if (!z.hostname || z.hostname !== u.hostname) {
+          return cb({ ok: false, status: res.statusCode, error: 'umleitung auf einen anderen Host abgelehnt' });
+        }
         return haCheck(ziel, token, cb, stufe + 1);
       }
       var j = null;

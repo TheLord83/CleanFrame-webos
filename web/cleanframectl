@@ -34,7 +34,22 @@ start() {
   [ -f "$APP" ] || { echo "FEHLER: $APP fehlt"; return 1; }
   [ -x "$NODE" ] || NODE=$(command -v node) || { echo "FEHLER: node nicht gefunden"; return 1; }
   mkdir -p "$DIR" /var/run
-  CF_PORT="$PORT" CF_CONFIG="${CF_CONFIG:-$DIR/config.json}" "$NODE" "$APP" >>"$LOG" 2>&1 &
+
+  # Optional Umgebung: $DIR/hub.env, eine Zuweisung pro Zeile (CF_HA_CA=...,
+  # CF_HA_TLS_INSECURE=1, CF_TOKEN=...). Der Zertifikatsspeicher von node 8.12
+  # kennt die ISRG-Roots nicht, deshalb ist das Systembuendel hier der Standard,
+  # sobald es existiert - damit bleibt die Zertifikatspruefung an.
+  HA_CA="${CF_HA_CA:-}"
+  [ -n "$HA_CA" ] || { [ -f /etc/ssl/certs/ca-certificates.crt ] && HA_CA=/etc/ssl/certs/ca-certificates.crt; }
+  if [ -f "$DIR/hub.env" ]; then
+    set -a
+    . "$DIR/hub.env"
+    set +a
+  fi
+
+  CF_PORT="$PORT" CF_CONFIG="${CF_CONFIG:-$DIR/config.json}" \
+  CF_HA_CA="${CF_HA_CA:-$HA_CA}" \
+  "$NODE" "$APP" >>"$LOG" 2>&1 &
   echo $! > "$PIDFILE"
   sleep 1
   if running; then echo "gestartet (pid $(cat "$PIDFILE"), Port $PORT)"; else echo "FEHLER: nicht gestartet, siehe $LOG"; return 1; fi

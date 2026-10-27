@@ -66,7 +66,7 @@ if [ -z "$TV" ]; then
 fi
 msg found "$TV"
 
-ssh_uid() { ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o LogLevel=ERROR "root@$TV" 'id -u' 2>/dev/null | tr -d '\r'; }
+ssh_uid() { ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o LogLevel=ERROR "root@$TV" 'id -u' 2>/dev/null | tr -d '\r'; }
 
 # ---- --info is a report, never a step ---------------------------------------
 if [ "$DO_INFO" = "1" ]; then
@@ -79,7 +79,7 @@ if [ "$DO_INFO" = "1" ]; then
   UID_="$(ssh_uid)"
   if [ -n "${UID_:-}" ] && [ "$UID_" = "0" ]; then
     printf '    root:     yes\n'
-    printf '    node:     %s\n' "$(ssh -o StrictHostKeyChecking=no "root@$TV" '/usr/bin/node -v' 2>/dev/null | tr -d '\r')"
+    printf '    node:     %s\n' "$(ssh -o StrictHostKeyChecking=accept-new "root@$TV" '/usr/bin/node -v' 2>/dev/null | tr -d '\r')"
   else
     printf '    root:     no (the launcher runs without it, the hub does not)\n'
   fi

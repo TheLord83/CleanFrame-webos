@@ -23,6 +23,9 @@
 #   ./tools/root/root-it.sh --tv 192.168.1.50 --dry-run              # gate only
 #
 # Requires: bash, ssh, scp, python3, git (SlopBro is fetched on demand).
+#
+# SlopBro is checked out at SLOPBRO_COMMIT below. The default is the commit that was verified on
+# the 43NANO779PA in this repository's notes; a different one is a decision, not an update.
 # See docs/ROOTING.md.
 set -uo pipefail
 
@@ -68,7 +71,7 @@ fi
 
 is_rooted() {
   timeout 3 bash -c "echo >/dev/tcp/$TV/22" 2>/dev/null || return 1
-  [ "$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes "root@$TV" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
+  [ "$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o BatchMode=yes "root@$TV" 'id -u' 2>/dev/null | tr -d '\r')" = "0" ]
 }
 
 if is_rooted; then
@@ -127,6 +130,7 @@ fi
 
 # ---- SlopBro ----------------------------------------------------------------
 say "==> Rooting (SlopBro)"
+SLOPBRO_COMMIT="${SLOPBRO_COMMIT:-21023d56ca424607bb03d2939609cc658c655fc7}"  # 2026-09-28, the one verified here
 if [ "$DRY" = "1" ]; then
   say "    [dry run] python3 slopbro.py $TV"
   say "(dry run: gate checked, nothing changed)"
@@ -143,8 +147,12 @@ if [ -z "$SB" ]; then
   SB="$HOME/.cache/cleanframe/slopbro"
   mkdir -p "$HOME/.cache/cleanframe"
   say "    fetching SlopBro into $SB"
-  git clone -q --depth 1 https://github.com/throwaway96/slopbro.git "$SB" \
+  # Pinned: an exploit that runs as root on the TV should not change under us.
+  # Bumping this line is a deliberate decision, not a side effect of `git pull`.
+  git clone -q https://github.com/throwaway96/slopbro.git "$SB" \
     || fail "could not fetch SlopBro (no git or no network)"
+  ( cd "$SB" && git -c advice.detachedHead=false checkout -q "$SLOPBRO_COMMIT" ) \
+    || fail "SlopBro has no commit $SLOPBRO_COMMIT - the pin in this script needs a look"
 fi
 ( cd "$SB" && python3 slopbro.py "$TV" ) || say "    SlopBro exited with an error - still looking for a root shell"
 say "    waiting for the root shell ..."

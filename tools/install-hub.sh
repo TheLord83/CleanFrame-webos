@@ -60,8 +60,8 @@ if [ -z "$TV" ]; then
 fi
 msg found "$TV"
 
-SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o LogLevel=ERROR root@$TV"
-SCP="scp -q -o StrictHostKeyChecking=no -o LogLevel=ERROR"
+SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o LogLevel=ERROR root@$TV"
+SCP="scp -q -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR"
 UID_="$($SSH 'id -u' 2>/dev/null | tr -d '\r')" || true
 [ -n "${UID_:-}" ] || { msg ssh_fail "$TV" >&2; exit 1; }
 [ "$UID_" = "0" ] || { msg not_root "$UID_" >&2; exit 1; }

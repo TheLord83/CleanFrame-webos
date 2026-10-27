@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/TheLord83/CleanFrame-webos/security/advisories/new
+    about: Private vulnerability reporting. Please do not open a public issue.
+  - name: Installation help
+    url: https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md
+    about: From a stock TV to a running start screen, and what to do when a step fails.
