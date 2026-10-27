@@ -45,25 +45,53 @@ var serverProc = null;
 function ensureServer(cb) {
   req('GET', SERVER + '/api/health', null, function (err, code) {
     if (code === 200) { console.log('    using the running config server on 8484'); return cb(true); }
-    var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'cf-strip-'));
-    var env = Object.assign({}, process.env, {
-      CF_PORT: '8484',
-      CF_CONFIG: path.join(tmp, 'config.json'),
-      CF_CLIENT_LOG: path.join(tmp, 'client.log'),
-      CF_STUB_APPS: path.join(REPO, 'web', 'test', 'fixtures', 'apps-stub.json'),
-      CF_WALL_DIR: path.join(REPO, 'app', 'assets', 'wallpapers'),
-      CF_GLASSHOUSE: 'http://127.0.0.1:9'
+    /* A server from an earlier stage may still be dying; a second listener on
+     * 8484 fails with EADDRINUSE and this stage then measures against nothing.
+     * So: wait for the port to be free, and keep the child's output for the case
+     * that it still does not come up (a silent stage is worth nothing). */
+    waitForFreePort(0, function () {
+      startOwnServer(1, cb);
     });
-    serverProc = require('child_process').spawn('node', ['server.js'], { cwd: path.join(REPO, 'web'), env: env, stdio: 'ignore' });
-    var start = Date.now();
-    (function poll() {
-      req('GET', SERVER + '/api/health', null, function (e2, c2) {
-        if (c2 === 200) { console.log('    started an own config server on 8484'); return cb(true); }
-        if (Date.now() - start > 15000) return cb(false);
-        setTimeout(poll, 200);
-      });
-    })();
   });
+}
+
+function waitForFreePort(attempt, done) {
+  req('GET', SERVER + '/api/health', null, function (e, code) {
+    if (code !== 200 || attempt >= 15) return done();
+    setTimeout(function () { waitForFreePort(attempt + 1, done); }, 300);
+  });
+}
+
+function startOwnServer(tryNo, cb) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'cf-strip-'));
+  var logPath = path.join(tmp, 'server.log');
+  var env = Object.assign({}, process.env, {
+    CF_PORT: '8484',
+    CF_CONFIG: path.join(tmp, 'config.json'),
+    CF_CLIENT_LOG: path.join(tmp, 'client.log'),
+    CF_STUB_APPS: path.join(REPO, 'web', 'test', 'fixtures', 'apps-stub.json'),
+    CF_WALL_DIR: path.join(REPO, 'app', 'assets', 'wallpapers'),
+    CF_GLASSHOUSE: 'http://127.0.0.1:9'
+  });
+  var out = fs.openSync(logPath, 'a');
+  serverProc = require('child_process').spawn('node', ['server.js'], {
+    cwd: path.join(REPO, 'web'), env: env, stdio: ['ignore', out, out]
+  });
+  var start = Date.now();
+  (function poll() {
+    req('GET', SERVER + '/api/health', null, function (e2, c2) {
+      if (c2 === 200) { console.log('    started an own config server on 8484'); return cb(true); }
+      if (Date.now() - start > 15000) {
+        var tail = '';
+        try { tail = fs.readFileSync(logPath, 'utf8').split('\n').slice(-8).join('\n'); } catch (e3) {}
+        console.log('    own config server did not come up (attempt ' + tryNo + '), server log:\n' + tail);
+        try { if (serverProc) serverProc.kill('SIGKILL'); } catch (e4) {}
+        if (tryNo < 2) return setTimeout(function () { startOwnServer(tryNo + 1, cb); }, 2000);
+        return cb(false);
+      }
+      setTimeout(poll, 200);
+    });
+  })();
 }
 
 function appPath() {
