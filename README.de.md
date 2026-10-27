@@ -206,9 +206,9 @@ unter [Welche Fernseher](#welche-fernseher).
 ## Probleme und Fragen
 
 Für alles, was kein Sicherheitsproblem ist, ein
-[Issue](https://github.com/TheLord83/CleanFrame-webos/issues) aufmachen oder an
-**193955790+TheLord83@users.noreply.github.com** schreiben. Eine Meldung ist zehnmal so viel wert mit Modell, webOS-Version
-und einem Foto vom Bildschirm.
+[Issue](https://github.com/TheLord83/CleanFrame-webos/issues) aufmachen. Eine Meldung ist zehnmal so
+viel wert mit Modell, webOS-Version und einem Foto vom Bildschirm. Sicherheitsprobleme gehören in
+den Tab **Security** des Repos, *Report a vulnerability*, nicht in ein öffentliches Issue.
 
 ## Lizenz und Grenzen
 

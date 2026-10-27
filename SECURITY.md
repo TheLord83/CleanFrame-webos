@@ -7,7 +7,9 @@ the browser (`GET /api/config` returns them empty and only says *set*).
 
 ## Reporting a problem
 
-Do not open a public issue for a security problem. Write to **193955790+TheLord83@users.noreply.github.com** with:
+Do not open a public issue for a security problem. The repository's **Security** tab has
+*Report a vulnerability*, which opens a private advisory
+([direct link](https://github.com/TheLord83/CleanFrame-webos/security/advisories/new)). Describe:
 
 - what you found, and what an attacker could do with it
 - the version (`/api/health`, or **System** in the hub)
