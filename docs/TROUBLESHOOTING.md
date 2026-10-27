@@ -117,6 +117,20 @@ check off, at the price that the token is readable by anything on the way.
 It refuses to send the stored token to an address that is not the stored one. Save the URL first, or
 pass the token for the new address along with the check.
 
+**After installing from the channel there is no settings page on port 8484**
+The bundled hub did not start. Three candidates, in this order: the Homebrew Channel's service is not
+running (`luna://org.webosbrew.hbchannel.service/exec` is what starts it), `node` is missing on the TV,
+or the package was built without `--hub web`, in which case there is no `hub/` directory inside the app.
+The log says which:
+```sh
+ssh root@<tv-ip> 'tail -20 /var/lib/cleanframe/hub-bundled.log'
+```
+Starting CleanFrame again is enough; it retries on every start.
+
+**The settings page disappears when I close the launcher**
+That is the bundled mode by design. Install the hub for good if the page should stay:
+`./tools/install-hub.sh --tv <tv-ip>`.
+
 **The web interface shows 200 but the browser shows an old version**
 The hub serves `assets/index.html` from disk; after an update, restart the hub and
 reload with `Ctrl+Shift+R`. Check the build stamp in the header and

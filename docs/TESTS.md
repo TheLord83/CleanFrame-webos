@@ -57,6 +57,14 @@ drives the real keys into the strip: `down` focuses a chip, `OK` toggles it and 
 carries no frame because a sensor cannot be switched, a hidden value loses its chip but keeps its
 name in the settings page. 17 checks.
 
+**Bundled hub.** Two checks, because this is the piece a Channel install depends on.
+`tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three
+decisions: a hub that already answers on 8484 is not started a second time, a free port gets exactly
+one start command that names the bundled `server.js` and detaches with `setsid`, and the stop command
+matches only the copy inside the app directory, never a hub installed for good. `tools/check-ipk-hub.py`
+builds a package and looks inside it: `hub/server.js`, `hub/lib/ha.js`, `hub/assets/index.html` and
+`hubboot.js` have to be in there, and no `.pyc` or preview page. 13 and 7 checks.
+
 **Links.** `tools/check-links.py` checks every relative link and anchor in the documentation, 62 of
 them at the moment. A licence note with a dead link is not a typo, which is why this one runs in CI.
 

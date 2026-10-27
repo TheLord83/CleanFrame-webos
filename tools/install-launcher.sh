@@ -74,7 +74,7 @@ if [ -z "$IPK" ]; then
   else
     msg ipk_build
     mkdir -p "$ROOT/dist"
-    python3 "$ROOT/tools/build-ipk.py" "$ROOT/app" "$IPK" >/dev/null || { echo "IPK build failed" >&2; exit 1; }
+    python3 "$ROOT/tools/build-ipk.py" "$ROOT/app" "$IPK" --hub "$ROOT/web" >/dev/null || { echo "IPK build failed" >&2; exit 1; }
   fi
 else
   [ -f "$IPK" ] || { echo "no such file: $IPK" >&2; exit 1; }

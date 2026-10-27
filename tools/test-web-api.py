@@ -253,7 +253,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.5.2", d
+            assert d["hub"] == "0.5.3", d
             assert d["node"], d
 
         def t_tv_screenshot():

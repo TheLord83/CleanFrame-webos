@@ -41,9 +41,10 @@ Die Installation ist zweiteilig, weil die beiden Teile unterschiedlich viel brau
 
 Der Launcher ist eine normale webOS-App. Er braucht einmal Root, weil das Installieren eines Pakets
 auf einem unveränderten Fernseher über den App-Installer läuft und der nur über eine Root-Shell
-erreichbar ist. Danach läuft die App ohne Root. Der Hub bleibt root-only: er liegt in
-`/var/lib/cleanframe`, startet sich beim Booten selbst und liest für das Live-Bild die Interna des
-Fernsehers.
+erreichbar ist. Danach läuft die App ohne Root. Der mitgelieferte Hub läuft ebenfalls ohne
+dauerhafte Rechte: er liegt im App-Verzeichnis und wird über den Dienst des Homebrew Channels
+gestartet, der ohnehin als root läuft. Nur wer ihn dauerhaft haben will, legt ihn nach
+`/var/lib/cleanframe` und gibt ihm einen Autostart-Eintrag.
 
 Root ist damit eine Voraussetzung, keine Funktion dieses Projekts. Wie man dahin kommt, steht beim
 [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel): deren Anleitung deckt die
@@ -95,8 +96,8 @@ Zwei Wege, die funktionieren, und die Scripts, die experimentell sind und nicht 
 | Von Hand | Glasshouse → Apps → *install from a file* | das IPK | neues IPK wieder installieren |
 | Scripts | `tools/install-launcher.sh`, `tools/install-hub.sh` | `curl`, `python3`, SSH | **experimentell** |
 
-Der Launcher ist ein IPK. Der Hub ist optional und braucht SSH, denn er ist eine Kopie plus
-Autostart.
+Der Launcher ist ein IPK, und seit 0.5.3 steckt der Hub mit drin. Er startet mit der App und endet
+mit ihr, dafür braucht es keine Shell. Ihn dauerhaft laufen zu lassen ist der optionale zweite Schritt.
 
 ### 1. Homebrew Channel
 
@@ -127,22 +128,45 @@ Sinnvoll, solange der Channel noch nicht installiert ist, oder wenn du genau seh
 Datei auf den Fernseher geht.
 
 1. das IPK aus dem [aktuellen Release](https://github.com/TheLord83/CleanFrame-webos/releases/latest)
-   holen, oder selbst bauen: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`
+   holen, oder selbst bauen: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk --hub web`
 2. Glasshouse → Apps → *install from a file* → IPK wählen → Versionsabfrage bestätigen
 3. CleanFrame einmal aus der App-Liste starten
 
-### Der Hub (optional, braucht eine Root-Shell)
+### Die Einstellungsseite im Browser
 
-Der Hub ist für die, die die Einstellungsseite im Browser wollen, also dort, wo die
-Home-Assistant-Werte, MQTT und die Fernbedienung wohnen. Er ist ein node-Prozess und braucht root:
+Der Hub ist der Teil mit der Weboberfläche: Home-Assistant-Werte, die Auswahl der Entitäten, MQTT,
+die Fernbedienung, Sicherung und Wiederherstellung. Er ist ein node-Prozess auf dem Fernseher, und
+das IPK bringt ihn mit. Nach der Installation aus dem Channel öffnest du also
+
+```text
+http://<tv-ip>:8484/
+```
+
+und die Seite ist da. `app/hubboot.js` startet den Server beim Start von CleanFrame über den Dienst
+des Homebrew Channels, wartet, bis er antwortet, und beendet ihn, wenn die App zumacht. Auf dem
+Fernseher passiert dabei nichts Dauerhaftes: keine Shell, kein Root, kein Autostart-Eintrag.
+
+Der Preis ist Zeit. Ein mitgelieferter Hub lebt so lange wie der Launcher: App zu, Seite weg, und
+nach einem Neustart läuft nichts, bis CleanFrame einmal startet. Zum Einrichten und für die
+Home-Assistant-Leiste, solange der Launcher auf dem Bildschirm ist, reicht das.
+
+Wer die Seite auch dann will, wenn der Fernseher etwas anderes zeigt, installiert den Hub dauerhaft.
+Das braucht eine Root-Shell und legt den Autostart an:
+
+```sh
+./tools/install-hub.sh --tv <tv-ip>
+```
+
+oder von Hand:
 
 ```sh
 scp -r web root@<tv-ip>:/var/lib/cleanframe
 ssh root@<tv-ip> 'chmod +x /var/lib/cleanframe/cleanframectl && /var/lib/cleanframe/cleanframectl restart'
 ```
 
-Danach `http://<tv-ip>:8484/` öffnen. Einzelheiten samt Autostart-Hook:
-[docs/INSTALL.md](docs/INSTALL.md).
+Beide Wege nutzen dieselbe Konfigurationsdatei, und ein dauerhaft installierter Hub hat Vorrang: der
+mitgelieferte sieht Port 8484 belegt und bleibt still, es läuft also nie ein zweiter Server.
+Einzelheiten samt Autostart-Hook: [docs/INSTALL.md](docs/INSTALL.md).
 
 ### 3. Die Scripts (experimentell)
 
@@ -168,7 +192,7 @@ kein Hub. `--dry-run` zeigt den Plan, `--lang de` antwortet deutsch, `--help` de
 ## Bauen und prüfen
 
 ```sh
-python3 tools/build-ipk.py app ipk/cleanframe_all.ipk   # IPK
+python3 tools/build-ipk.py app ipk/cleanframe_all.ipk --hub web   # IPK, Hub inklusive
 tools/check-all.sh                                      # alle Prüfungen, ohne Fernseher
 tools/make-port-patch.sh                                # docs/PORT-CHANGES.patch neu erzeugen
 ```

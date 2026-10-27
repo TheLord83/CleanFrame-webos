@@ -5,10 +5,13 @@
 > Issues and questions: <https://github.com/TheLord83/CleanFrame-webos/issues>.
 
 Two things end up on the TV. The launcher is the start screen itself, an ordinary app in an IPK.
-The CleanFrame Hub is the settings page in the browser, a node process on the TV that needs root.
+The CleanFrame Hub is the settings page in the browser, a node process on the TV, and since 0.5.3 the
+same IPK carries it.
 
-The launcher works without the hub. The hub does not work without root. That is why this page
-installs them separately, and why only one of the two needs SSH.
+The bundled hub starts with the app and stops with it, so a channel install alone gives you a working
+settings page and no SSH at all. Installing the hub for good is the second, optional step: it needs a
+root shell and adds an autostart entry, and in return the page answers while the TV shows something
+else.
 
 ## What you need
 
@@ -16,8 +19,8 @@ installs them separately, and why only one of the two needs SSH.
   [ROOTING.md](ROOTING.md) explains why the Homebrew Channel is the answer and not this repository
 - [Glasshouse](https://github.com/rorygallagher2024/glasshouse) installed and opened once. It
   accepts the IPK, and the launcher reads its app list from it
-- a computer in the same network. For the launcher a shell with `curl` is enough; for the hub you
-  also need `ssh`, `scp` and `python3` (Linux, macOS), or PowerShell with the OpenSSH client
+- a computer in the same network, only if you want the hub to run permanently or use one of the
+  scripts. Setting things up through the browser needs nothing but the TV
   (Windows)
 
 ## Three ways to get the launcher on the TV
@@ -51,15 +54,36 @@ URL.
 
 ## By hand, five minutes
 
-1. get an IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, or the file from a release
+1. get an IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk --hub web`, or the file from a
+   release. The `--hub` part is what puts the settings page into the package
 2. Glasshouse → **Apps** → *install from a file* → pick the IPK → confirm the version
-3. start CleanFrame once from the app list; it writes its configuration on first start
-4. the hub is optional
+3. start CleanFrame once from the app list; it writes its configuration on first start and starts the
+   bundled hub
+4. open `http://<tv-ip>:8484/` from a phone or a laptop in the same network
+5. the next section is optional: it makes that page survive the app
 
-## The hub (optional, needs root)
+## The hub, bundled
 
-The hub serves the settings page on port 8484, keeps the configuration, sends a live picture of the
-TV and holds the remote. It is the only part that needs SSH, and it is four commands:
+The IPK carries the hub under `hub/` next to the app. `app/hubboot.js` asks port 8484 first; if
+nothing answers there it starts the server through `luna://org.webosbrew.hbchannel.service/exec`, which
+is the Homebrew Channel's service and runs as root, waits until `/api/health` answers, and only then
+lets the launcher read its configuration. When the app goes away it stops the process again.
+
+Three things follow from that, and all three are intended:
+
+- the configuration is the same file a permanent hub uses (`/var/lib/cleanframe/config.json`), so
+  switching between the two modes keeps your settings
+- a hub installed for good wins. The bundled one sees the port taken and does nothing, and the stop
+  call only ever matches the copy inside the app directory
+- without the Homebrew service, or without `node` on the TV, nothing happens: the launcher runs on its
+  localStorage configuration exactly as before, and the settings page is simply not there. The reason
+  lands in `/var/lib/cleanframe/hub-bundled.log`
+
+## The hub, for good (optional, needs root)
+
+Installed this way the hub serves the settings page on port 8484 permanently, keeps the
+configuration, sends a live picture of the TV and holds the remote. It is the only part that needs
+SSH, and it is four commands:
 
 ```sh
 ssh root@<tv-ip> 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets'
@@ -80,7 +104,9 @@ What lands where:
 | Path | Content |
 | --- | --- |
 | `/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe` | the launcher |
-| `/var/lib/cleanframe/server.js`, `lib/`, `assets/` | the hub |
+| `/var/lib/cleanframe/server.js`, `lib/`, `assets/` | the hub, when installed for good |
+| `.../applications/com.blackpearl.cleanframe/hub/` | the same hub inside the app package |
+| `/var/lib/cleanframe/hub-bundled.log` | what the bundled hub said when it started |
 | `/var/lib/cleanframe/config.json` | the whole configuration, `0600` |
 | `/var/lib/cleanframe/cleanframe.log`, `client.log` | hub log, browser messages |
 | `/var/lib/webosbrew/init.d/52-cleanframe` | autostart at boot |

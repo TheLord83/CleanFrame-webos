@@ -6,7 +6,11 @@ Structure as with the Homebrew packages (verified on the Lumen release):
   data:       usr/palm/applications/<id>/**  +  usr/palm/packages/<id>/packageinfo.json
   control:    Package, Version, Architecture, Description, webOS-Package-Format-Version 2
 
-Usage: python3 build-ipk.py <app-directory> [target.ipk]
+Usage: python3 build-ipk.py <app-directory> [target.ipk] [--hub <hub-directory>]
+
+With --hub the directory is packaged as <app>/hub/, which is how the settings page
+travels with the app instead of needing SSH. The app starts it through the Homebrew
+service and stops it again when the app goes away.
 """
 import gzip
 import hashlib
@@ -91,16 +95,24 @@ def excluded(rel):
 
 
 def main():
-    if len(sys.argv) < 2:
+    argv = sys.argv[1:]
+    hubdir = None
+    if "--hub" in argv:
+        i = argv.index("--hub")
+        if i + 1 >= len(argv):
+            sys.exit("--hub needs a directory")
+        hubdir = os.path.abspath(argv[i + 1])
+        del argv[i:i + 2]
+    if not argv:
         sys.exit(__doc__)
-    appdir = os.path.abspath(sys.argv[1])
+    appdir = os.path.abspath(argv[0])
     appinfo_path = os.path.join(appdir, "appinfo.json")
     with open(appinfo_path, encoding="utf-8") as fh:
         appinfo = json.load(fh)
 
     appid = appinfo["id"]
     version = appinfo["version"]
-    target = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
+    target = argv[1] if len(argv) > 1 else os.path.join(
         os.path.dirname(appdir), "ipk",
         "%s_%s_all.ipk" % (appid.replace(".", "_"), version))
     os.makedirs(os.path.dirname(target), exist_ok=True)
@@ -119,6 +131,20 @@ def main():
                 continue
             entries.append(("usr/palm/applications/%s/%s" % (appid, rel.replace(os.sep, "/")),
                             os.path.join(root, name)))
+    hub_files = 0
+    if hubdir:
+        for root, dirs, files in os.walk(hubdir):
+            dirs.sort()
+            rel_root = os.path.relpath(root, hubdir)
+            for name in sorted(files):
+                rel = name if rel_root == "." else os.path.join(rel_root, name)
+                if excluded(rel):
+                    skipped.append(os.path.join("hub", rel))
+                    continue
+                entries.append(("usr/palm/applications/%s/hub/%s" % (appid, rel.replace(os.sep, "/")),
+                                os.path.join(root, name)))
+                hub_files += 1
+
     pkgjson_path = os.path.join(appdir, ".packageinfo.json")
     with open(pkgjson_path, "w", encoding="utf-8") as fh:
         json.dump({"id": appid, "version": version, "app": appid}, fh, indent=2)
@@ -158,6 +184,8 @@ def main():
     print("App-ID: %s  Version: %s" % (appid, version))
     print("Size:   %d bytes" % len(blob))
     print("SHA256: %s" % hashlib.sha256(blob).hexdigest())
+    if hubdir:
+        print("Hub:    %d files from %s" % (hub_files, hubdir))
     if skipped:
         print("Skipped: %s" % ", ".join(sorted(skipped)))
 

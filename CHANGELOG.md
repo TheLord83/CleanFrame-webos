@@ -3,6 +3,22 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.3
+
+The settings page comes with the app.
+
+- The IPK carries the hub under `hub/`. `app/hubboot.js` starts it through the Homebrew Channel's
+  service when CleanFrame starts, waits for `/api/health`, and stops it when the app goes away. A
+  Channel install now has a working settings page on port 8484 without SSH and without anything
+  permanent on the TV. Build it with `--hub web`; without that flag the package has no hub and the
+  app falls back to its localStorage configuration.
+- A hub installed for good (`tools/install-hub.sh`) still wins: the bundled one sees port 8484 taken
+  and stays quiet, and its stop command only matches its own path.
+- Both modes share `/var/lib/cleanframe/config.json`; the bundled one logs to
+  `/var/lib/cleanframe/hub-bundled.log`.
+- `tools/check-all.sh` gained a stage for this: `tools/test-hubboot.js` (the three decisions, stubbed
+  browser) and `tools/check-ipk-hub.py` (builds a package, looks inside).
+
 ## 0.5.2
 
 Security, and the paperwork around it.

@@ -219,6 +219,20 @@ launcher or another tab wrote in the meantime.
   the stored value, so the browser never has to hold it.
 - The file is written atomically (tmp + rename) with mode 0600.
 
+## Two ways the hub runs
+
+Bundled, it is a child of the launcher: `app/hubboot.js` starts it through the Homebrew Channel's
+service, waits for `/api/health`, and kills it when the app closes. Its log is
+`/var/lib/cleanframe/hub-bundled.log`. Nothing in `/etc` or `init.d` belongs to it, and `cleanframectl`
+does not know about it. That is why `hub.env` only takes effect in the second mode: a bundled hub is
+started directly by `node`, not by `cleanframectl`.
+
+Installed for good, it is a service: `cleanframectl start|stop|restart|status|logs`, an init.d hook,
+and `hub.env` for the environment.
+
+Both read and write the same `/var/lib/cleanframe/config.json`. If both were asked to, the one that
+owns port 8484 answers; the other one notices the port is taken and stays quiet.
+
 ## Secrets and TLS
 
 The hub holds two secrets: the Home Assistant token and, if you use it, the MQTT password. Both

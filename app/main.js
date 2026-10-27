@@ -2799,8 +2799,7 @@
     if (S.syncPending) { var pending = S.syncPending; S.syncPending = null; syncServer(pending); }
   }
 
-  if (window.FrameDevice && FrameDevice.loadConfig) {
-    startTimer = setTimeout(startApp, 1200);
+  function readConfigThenStart() {
     try {
       FrameDevice.loadConfig(function (err, cfg) {
         if (cfg) applyServerConfig(cfg);
@@ -2808,6 +2807,19 @@
       });
     } catch (e) {
       startApp();
+    }
+  }
+
+  if (window.FrameDevice && FrameDevice.loadConfig) {
+    startTimer = setTimeout(startApp, 1200);
+    /* The bundled hub may be starting in the same second. Its answer is the
+     * configuration; asking too early would paint from localStorage and then
+     * jump. whenReady gives up after about three seconds, so a TV without the
+     * Homebrew service behaves exactly as before. */
+    if (window.CleanFrameHubBoot && window.CleanFrameHubBoot.whenReady) {
+      window.CleanFrameHubBoot.whenReady(readConfigThenStart);
+    } else {
+      readConfigThenStart();
     }
   } else {
     startApp();

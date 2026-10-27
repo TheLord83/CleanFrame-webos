@@ -96,7 +96,8 @@ Two routes that work, and the scripts, which are experimental and not the place 
 | By hand | Glasshouse → Apps → *install from a file* | the IPK | install the new IPK again |
 | Scripts | `tools/install-launcher.sh`, `tools/install-hub.sh` | `curl`, `python3`, SSH | **experimental** |
 
-The launcher is one IPK. The hub is optional and needs SSH, since it is a copy plus an autostart.
+The launcher is one IPK, and since 0.5.3 the hub travels inside it. It starts with the app and stops
+with it, which needs no shell at all. Running the hub all the time is the optional second step.
 
 ### 1. Homebrew Channel
 
@@ -125,22 +126,45 @@ Useful when the channel is not installed yet, or when you want to see exactly wh
 the TV.
 
 1. get the IPK from the [latest release](https://github.com/TheLord83/CleanFrame-webos/releases/latest),
-   or build one: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`
+   or build one: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk --hub web`
 2. Glasshouse → Apps → *install from a file* → pick the IPK → confirm the version prompt
 3. start CleanFrame once from the app list
 
-### The hub (optional, needs a root shell)
+### The settings page in the browser
 
-The hub is for the people who want the settings page in the browser, which is where the Home
-Assistant values, MQTT and the remote live. It is a node process and needs root:
+The hub is the part with the browser interface: Home Assistant values, the entity selection, MQTT,
+the remote, backup and restore. It is a node process on the TV, and the IPK carries it, so after an
+install from the channel you open
+
+```text
+http://<tv-ip>:8484/
+```
+
+and the page is there. `app/hubboot.js` starts the server through the Homebrew Channel's service when
+CleanFrame starts, waits until it answers, and stops it when the app goes away. Nothing permanent
+happens on the TV, no shell, no root, no autostart entry.
+
+The trade is time. A bundled hub lives as long as the launcher does: close the app and the page is
+gone, and after a reboot nothing runs until CleanFrame starts once. For setting things up, and for the
+Home Assistant strip while the launcher is on screen, that is enough.
+
+If you want the page to answer while the TV is showing something else, install the hub for good. That
+needs a root shell and installs the autostart hook:
+
+```sh
+./tools/install-hub.sh --tv <tv-ip>
+```
+
+or by hand:
 
 ```sh
 scp -r web root@<tv-ip>:/var/lib/cleanframe
 ssh root@<tv-ip> 'chmod +x /var/lib/cleanframe/cleanframectl && /var/lib/cleanframe/cleanframectl restart'
 ```
 
-Then open `http://<tv-ip>:8484/`. Details, including the autostart hook:
-[docs/INSTALL.md](docs/INSTALL.md).
+Both modes use the same configuration file, and a hub installed for good wins: the bundled one sees
+port 8484 taken and stays quiet, so there is never a second server. Details, including the autostart
+hook: [docs/INSTALL.md](docs/INSTALL.md).
 
 ### 3. The scripts (experimental)
 
@@ -166,7 +190,7 @@ They stop instead of guessing: no Glasshouse means no install, a non-root sessio
 ## Build and test
 
 ```sh
-python3 tools/build-ipk.py app ipk/cleanframe_all.ipk   # IPK
+python3 tools/build-ipk.py app ipk/cleanframe_all.ipk --hub web   # IPK, hub included
 tools/check-all.sh                                      # all checks, no TV required
 tools/make-port-patch.sh                                # refresh docs/PORT-CHANGES.patch
 ```
