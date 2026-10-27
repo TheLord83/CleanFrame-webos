@@ -67,16 +67,38 @@ downgrade is out of scope here. Details and the manual path: [docs/INSTALL.md](d
 
 Where the firmware number is on the TV — with the two ways to find it: [docs/FIRMWARE.md](docs/FIRMWARE.md).
 
-## Requirements
+## What you need
 
-- LG TV with webOS 6 or newer, **rooted** (Homebrew Channel installed)
-- Glasshouse on the TV, reachable at `127.0.0.1:8080`
-- IPK installation through `luna://com.webos.appInstallService/dev/install` or the Glasshouse
-  dashboard (Apps → Sideload)
+- an LG TV running webOS, **rooted**. In practice that means the
+  [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel); how to root a TV is
+  its guide's job, not this README's
+- [Glasshouse](https://github.com/rorygallagher2024/glasshouse) installed and running on the TV,
+  its dashboard answering on port 8080. The launcher takes its app list from there; without it
+  you get an empty dock
+- a way to get an IPK onto the TV: the install script below, or by hand through Glasshouse
+  (Apps, install from a file) or webOS Dev Manager
+
+### Which TVs
+
+| | TVs | What to expect |
+| --- | --- | --- |
+| **Tested** | LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401, Chromium 79, Glasshouse 0.118.0 | Everything in this README |
+| **Very likely** | other webOS 6 sets (2021, "webOS 6.0") | Same browser engine, not tried |
+| **Untested** | webOS 7, 9, 10, 11 ("webOS 23" to "webOS 26"), OLED C and G series | No idea. That is what testers are for |
+| **Not supported** | a TV without root, without the Homebrew Channel or without Glasshouse | The launcher is an app, but the hub needs a root shell |
 
 ## Install
 
-### Linux and macOS
+Three ways in. All of them end with the same two parts on the TV: the launcher (an app) and the
+hub (a service that serves the settings page).
+
+| Route | Needs | Updates |
+| --- | --- | --- |
+| Install script | a computer with SSH, Python 3 | run it again |
+| By hand | Glasshouse or webOS Dev Manager | install the new IPK again |
+| Homebrew Channel repository | the public release (not yet) | the channel does it |
+
+### 1a. From a computer: Linux and macOS
 
 ```sh
 ./tools/install.sh                  # find the TV, install launcher and hub
@@ -111,7 +133,7 @@ Proceed? [Y/n] y
     interface: http://192.168.1.50:8484/
 ```
 
-### Windows (PowerShell)
+### 1b. From a computer: Windows (PowerShell)
 
 ```powershell
 .\tools\install.ps1                # find the TV, install launcher and hub
@@ -137,7 +159,33 @@ PS> .\tools\install.ps1 -DryRun
 (dry run: nothing was changed)
 ```
 
-### What it does in both cases
+### 2. By hand, without the script
+
+1. get the IPK: `python3 tools/build-ipk.py app ipk/cleanframe_all.ipk`, or the file from a release
+2. install it on the TV: Glasshouse, Apps, install from a file, or webOS Dev Manager
+3. open CleanFrame once from the app list, so it sets itself up
+4. the hub is optional and needs a root shell:
+   `./tools/install.sh --no-launcher` puts `/var/lib/cleanframe` in place, sets the autostart and
+   starts the service on port 8484
+
+### 3. Homebrew Channel repository
+
+Not yet. That route needs a public release: all the other launchers in the scene ship a
+repository file, the Homebrew Channel reads it under *Settings*, *Add repository*, and everyone
+gets updates from there.
+
+The file itself is no work, `tools/make-apps-json.py` writes it from a built IPK (hash, size,
+manifest, download URL):
+
+```sh
+python3 tools/build-ipk.py app ipk/cleanframe_all.ipk
+python3 tools/make-apps-json.py --ipk ipk/cleanframe_all.ipk --tag v0.4.41
+```
+
+What is missing is the release it points at. Until then the IPK comes from a build, or from
+whoever you got this from.
+
+### What the script does in both cases
 
 It asks the TV for its model, asks you for the firmware, and checks that firmware against the
 published exploit table before it offers anything — a patched TV is not touched. If not, it offers to root it
@@ -186,14 +234,12 @@ handling, test hooks); `app/style.css` has Chromium 79 compatibility fixes; `app
 `app/appinfo.json` are new; `app/config.xml` (Tizen packaging) is gone. Everything under
 `app/assets/` is byte-identical to the original.
 
-## Tested on
+## Warranty and risk
 
-- LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401 (`kisscurl-koli`), Chromium 79, rooted
-- Glasshouse 0.118.0 as the device bridge
-- Installed through the Glasshouse sideload path, app ID `com.blackpearl.cleanframe`
-
-No promise for other models. Rooting and sideloading third-party packages can affect warranty
-and DRM features; install at your own risk.
+Rooting and sideloading third-party packages can affect warranty and DRM features; install at
+your own risk. The app ID is `com.blackpearl.cleanframe` and it installs through Glasshouse's
+sideload path like any other homebrew app. What is tested and what is not: see
+[Which TVs](#which-tvs).
 
 ## Licence and credits
 
