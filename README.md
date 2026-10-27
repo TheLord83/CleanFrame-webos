@@ -19,6 +19,9 @@ no chrome from the TV around it.*
 *The hub in the browser: every setting of the app, saved as you change it — plus a live
 picture of the TV and a remote control for the cases where walking to the TV is too far.*
 
+**[Download the latest release](https://github.com/TheLord83/CleanFrame-webos/releases/latest)** —
+it is one IPK, Glasshouse installs it, five minutes. The settings page next to it is optional.
+
 ## Two parts
 
 | Part | What it is | Where it runs |
@@ -95,8 +98,8 @@ optional and needs SSH, it is a copy plus an autostart.
 
 ### 1. By hand, five minutes
 
-1. get an IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, or the file from a
-   release
+1. get the IPK from the [latest release](https://github.com/TheLord83/CleanFrame-webos/releases/latest),
+   or build one: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`
 2. Glasshouse → **Apps** → *install from a file* → pick the IPK → confirm the version prompt
 3. start CleanFrame once from the app list; it writes its configuration on first start
 4. done. The start page runs, no hub needed

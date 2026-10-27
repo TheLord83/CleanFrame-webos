@@ -20,6 +20,9 @@ ersetzt nur die Geräteanbindung: `app/device.js` spricht den lokal auf dem Fern
 *Der Hub im Browser: jede Einstellung der App, gespeichert beim Ändern — dazu ein Live-Bild
 des Fernsehers und eine Fernbedienung für die Fälle, in denen der Weg zum Sofa zu weit ist.*
 
+**[Aktuelles Release herunterladen](https://github.com/TheLord83/CleanFrame-webos/releases/latest)** —
+ein IPK, Glasshouse installiert es, fünf Minuten. Die Einstellungsseite daneben ist optional.
+
 ## Zwei Teile
 
 | Teil | Was es ist | Wo es läuft |
@@ -96,8 +99,8 @@ ist optional und braucht SSH: eine Kopie plus Autostart.
 
 ### 1. Von Hand, fünf Minuten
 
-1. IPK holen: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, oder die Datei aus einem
-   Release
+1. das IPK aus dem [aktuellen Release](https://github.com/TheLord83/CleanFrame-webos/releases/latest)
+   holen, oder selbst bauen: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`
 2. Glasshouse → **Apps** → *install from a file* → IPK wählen → Versionsabfrage bestätigen
 3. CleanFrame einmal aus der App-Liste starten, damit es sich einrichtet
 4. fertig. Die Startseite läuft, ohne Hub
@@ -118,9 +121,13 @@ Danach `http://<tv-ip>:8484/` öffnen. Einzelheiten samt Autostart-Hook:
 
 Sobald es ein öffentliches Release gibt, wird das der normale Weg: die anderen Launcher in der
 Szene liefern eine Repository-Datei mit, der Homebrew Channel liest sie unter *Settings*, *Add
-repository*, und die Updates kommen von dort. Die Datei schreibt `tools/make-apps-json.py` aus
-einem gebauten IPK (Hash, Größe, Manifest, Download-URL). Bis das Release existiert, zeigt sie
-auf nichts.
+repository*, und die Updates kommen von dort. Die Datei liegt im Repo als [`repo/apps.json`](repo/apps.json) und
+wird von `tools/make-apps-json.py` aus dem gebauten IPK geschrieben (Hash, Größe, Manifest,
+Download-URL):
+
+```text
+https://raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/repo/apps.json
+```
 
 ### 3. Die Scripts — experimentell, und deshalb hier unten
 
