@@ -23,8 +23,8 @@ every file a key. 43 icons.
 **4. Configuration server.** `tools/test-web-api.py` starts the server with a stub catalogue and a
 temporary configuration, then checks every endpoint: `/api/health`, `/api/config` (GET, PUT, POST
 with 403, 409 and 415), `/api/schema`, `/api/wall/<id>`, `/api/apps`, `/api/diag`, the Home
-Assistant bridge including the rejected toggle, backup, and `/api/tv/key` with a long press. 39
-checks.
+Assistant bridge including the rejected toggle, backup, and `/api/tv/key` with a long press. 40
+checks, one of them a separate server instance that has to survive a missing `luna-send`.
 
 ## Interface
 
@@ -44,6 +44,12 @@ starting configuration, changes it over HTTP and measures the visible result in 
 - senior mode at 100 % → 110 px, off → 88 px
 - tile name in the bottom dock
 - spinner in the web interface: runs, then stops
+
+**Interface self-test.** `tools/check-selftest.py` opens the hub with `?selftest=ui` in a throwaway
+tab. The page then clicks itself: add a tile, save it, read the configuration back, walk the wizard,
+switch the language, and check that a stale tab only sends the fields it changed. 13 steps, reported
+in the page title. It runs only outside CI, because the extra tab needs a browser that reaches the
+test server.
 
 **Status strip.** `tools/test-ha-strip.js` runs the home screen against a stub Home Assistant and
 drives the real keys into the strip: `down` focuses a chip, `OK` toggles it and the second chip

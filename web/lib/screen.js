@@ -96,7 +96,7 @@ function capture(opts, cb) {
     }
     var payload = JSON.stringify({ path: file, method: 'DISPLAY', format: format,
       width: width, height: height });
-    var child;
+    var child, timer = null;
     try {
       child = spawn(LUNA, ['-n', '1', '-f', 'luna://' + service + '/executeOneShot', payload],
         { detached: true, stdio: ['ignore', fs.openSync(reply, 'w'), fs.openSync(reply, 'a')] });
@@ -104,6 +104,14 @@ function capture(opts, cb) {
       attempts.push(service + ': ' + e.message);
       return tryNext();
     }
+    /* A missing binary arrives as an 'error' event, not as a thrown exception -
+     * without this listener the hub dies with "Unhandled 'error' event" the first
+     * time it captures a screen on a machine that is not the TV. */
+    child.on('error', function (e) {
+      if (timer) { clearInterval(timer); timer = null; }
+      attempts.push(service + ': ' + (e.code || e.message));
+      tryNext();
+    });
     child.unref();
 
     /* The service writes the file while it answers, so "size > 0" means nothing: the first

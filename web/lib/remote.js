@@ -45,9 +45,13 @@ function openForward(cb) {
       var parts = FORWARD_CMD.split(' ');
       var bin = parts.shift();
       var args = parts.concat([String(port), 'nc', '127.0.0.1', String(DEVTOOLS_PORT)]);
-      var child;
-      try { child = spawn(bin, args, { stdio: ['ignore', 'ignore', 'ignore'] }); } catch (e) { return cb(String(e)); }
-      cb(null, { port: port, child: child });
+      var child, answered = false;
+      function once(err, out) { if (answered) return; answered = true; cb(err, out); }
+      try { child = spawn(bin, args, { stdio: ['ignore', 'ignore', 'ignore'] }); } catch (e) { return once(String(e)); }
+      /* Same trap as in screen.js: ENOENT for the forward command comes as an
+       * event, and an unhandled one takes the whole hub down. */
+      child.on('error', function (e) { once(String(e.code || e.message)); });
+      once(null, { port: port, child: child });
     });
     return;
   }

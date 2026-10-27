@@ -573,6 +573,50 @@ def main():
             assert st == 202, st
             assert d["restarting"] is True
 
+        def t_missing_luna_send_is_an_error_not_a_crash():
+            """0.5.1 died on this: the capture helper was missing, the spawn error
+            arrived as an event, and the unhandled 'error' took the hub with it.
+            The endpoint has to answer 502 and the process has to stay up."""
+            port2 = free_port()
+            tmp2 = tempfile.mkdtemp(prefix="cf-luna-")
+            env2 = dict(os.environ)
+            env2.update({
+                "CF_PORT": str(port2),
+                "CF_CONFIG": os.path.join(tmp2, "config.json"),
+                "CF_STUB_APPS": STUB,
+                "CF_GLASSHOUSE": "http://127.0.0.1:9",
+                "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
+                "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
+                "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
+                "CF_OS_INFO": OSINFO,
+                "CF_DEVICE_INFO": DEVINFO,
+                "CF_LUNA_SEND": "/nonexistent/luna-send",
+                "CF_SHOT_DIR": tmp2,
+                "CF_DEVTOOLS_PORT": str(free_port()),
+                "CF_FORWARD_CMD": "",
+            })
+            env2.pop("CF_SCREENSHOT_STUB", None)
+            p2 = subprocess.Popen(["node", "server.js"], cwd=WEB, env=env2,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            try:
+                wait_up(port2)
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{port2}/api/tv/screenshot.png", timeout=40) as r:
+                        st, body = r.status, r.read().decode("utf-8", "replace")
+                except urllib.error.HTTPError as e:
+                    st, body = e.code, e.read().decode("utf-8", "replace")
+                assert st == 502, f"expected 502 without luna-send, got {st}: {body[:200]}"
+                assert "ENOENT" in body, body[:200]
+                assert p2.poll() is None, "the hub died on a missing luna-send"
+                with urllib.request.urlopen(f"http://127.0.0.1:{port2}/api/health", timeout=5) as r:
+                    assert r.status == 200, r.status
+            finally:
+                p2.send_signal(signal.SIGTERM)
+                try:
+                    p2.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    p2.kill()
+
         for name, fn in [
             ("/ serves the interface", t_static),
             ("/api/health reports path and version", t_health),
@@ -613,6 +657,7 @@ def main():
             ("views on the TV: list and rejection", t_tv_views),
             ("restart is accepted (202)", t_restart),
             ("stale revision is rejected (409)", t_rev_conflict),
+            ("a missing luna-send is an error, not a crash", t_missing_luna_send_is_an_error_not_a_crash),
         ]:
             check(name, fn)
 
