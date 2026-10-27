@@ -19,6 +19,10 @@
 # missing, the script says so and points at Glasshouse's own "install from a file".
 #
 # See also: install-hub.sh (the settings page, needs root), docs/ROOTING.md (root).
+#
+# STATUS: experimental. Written and run against exactly one TV (43NANO779PA, webOS 6.5,
+# Chromium 79) on Linux. The manual paths in docs/INSTALL.md are the ones that have been
+# seen to work. Treat these scripts as convenient, not as supported.
 set -uo pipefail
 
 TV="${TV:-}"

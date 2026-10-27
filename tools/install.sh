@@ -19,6 +19,10 @@
 # Normal use is the two scripts this one calls:
 #   ./tools/install-launcher.sh <tv>     # the app, no SSH, no root
 #   ./tools/install-hub.sh <tv>          # the settings page, SSH as root
+#
+# STATUS: experimental. Written and run against exactly one TV (43NANO779PA, webOS 6.5,
+# Chromium 79) on Linux. The manual paths in docs/INSTALL.md are the ones that have been
+# seen to work. Treat these scripts as convenient, not as supported.
 set -uo pipefail
 
 TV="${TV:-}"

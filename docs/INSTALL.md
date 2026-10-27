@@ -25,16 +25,16 @@ installs the two separately, and only one of them needs SSH.
 
 ## Three ways to get the launcher on the TV
 
-| | How | Needs | Updates |
+| | How | Needs | Status |
 | --- | --- | --- | --- |
-| by hand | Glasshouse → Apps → *install from a file* | the IPK | install the new IPK again |
-| script | `./tools/install-launcher.sh --tv <ip>` | `curl`, `python3` to build the IPK | run it again |
-| Homebrew Channel | a repository file from a release | nothing, the channel has it | the channel does it |
+| **by hand** | Glasshouse → Apps → *install from a file* | the IPK | works |
+| Homebrew Channel | a repository file from a release | nothing, the channel has it | needs the release |
+| script | `./tools/install-launcher.sh --tv <ip>` | `curl`, `python3` | **experimental**, see the end of this page |
 
-The third one is how the other webOS launchers are distributed and how this one will be
-once there is a public release. Until then: the first or the second.
+The second one is how the other webOS launchers are distributed and how this one will be once
+there is a public release. Until then: do it by hand, it is five minutes.
 
-## Way 1 — by hand, five minutes
+## By hand, five minutes
 
 1. get an IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, or the file from
    a release
@@ -42,74 +42,21 @@ once there is a public release. Until then: the first or the second.
 3. start CleanFrame once from the app list; it writes its configuration on first start
 4. done. The hub is optional
 
-## Way 2 — the launcher script
-
-No SSH, no root, nothing to be root for: it talks to Glasshouse on port 8080, the same door
-the Homebrew Channel uses.
-
-### Linux and macOS
-
-```sh
-./tools/install-launcher.sh                    # find the TV, build the IPK, install it
-./tools/install-launcher.sh --tv 192.168.1.50
-./tools/install-launcher.sh --ipk cleanframe_all.ipk   # a release IPK instead
-./tools/install-launcher.sh --dry-run          # find and print the plan only
-./tools/install-launcher.sh --lang de          # German prompts
-```
-
-```text
-$ ./tools/install-launcher.sh
-Looking for the TV on the network ...
-TV: 192.168.1.50
-Glasshouse answers (192.168.1.50:8080)
-Building the IPK from app/ ...
-Installing com.blackpearl.cleanframe
-Installed: com.blackpearl.cleanframe 0.4.41
-Started. The start page should be on the TV now.
-Next: the settings (values on the start page, Home Assistant) need the hub:
-./tools/install-hub.sh 192.168.1.50
-```
-
-### Windows (PowerShell)
-
-`tools/install.ps1` does the same with the same stages; the flags differ only in spelling
-(`-Tv`, not `--tv`).
-
-```powershell
-.\tools\install.ps1 -Tv 192.168.1.50
-.\tools\install.ps1 -Tv 192.168.1.50 -LauncherOnly
-.\tools\install.ps1 -Tv 192.168.1.50 -DryRun -Lang de
-```
-
 ## The hub — optional, needs root
 
-The hub serves the settings page on port 8484, keeps the configuration, sends a live
-picture of the TV and holds the remote. It is the only part that needs SSH:
+The hub serves the settings page on port 8484, keeps the configuration, sends a live picture of
+the TV and holds the remote. It is the only part that needs SSH, and it is four commands:
 
 ```sh
-./tools/install-hub.sh --tv 192.168.1.50
-./tools/install-hub.sh --tv 192.168.1.50 --lang de
+ssh root@<tv-ip> 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets'
+scp -r web/server.js web/lib web/assets web/cleanframectl root@<tv-ip>:/var/lib/cleanframe/
+scp web/init.d/52-cleanframe root@<tv-ip>:/var/lib/webosbrew/init.d/
+ssh root@<tv-ip> 'chmod +x /var/lib/cleanframe/cleanframectl /var/lib/webosbrew/init.d/52-cleanframe && /var/lib/cleanframe/cleanframectl restart'
 ```
 
-```text
-$ ./tools/install-hub.sh --tv 192.168.1.50
-TV: 192.168.1.50
-SSH as root, uid=0
-node 8.12.0 on the TV
-Copying the hub to /var/lib/cleanframe ...
-Setting up the autostart ...
-Starting the service ...
-Hub is running: http://192.168.1.50:8484/   (API: /api/health, /api/config, /api/apps)
-Removal: ./tools/uninstall-web.sh 192.168.1.50 (the launcher stays).
-```
-
-Against a TV that is not rooted it stops instead of trying:
-
-```text
-SSH answers, but the session is not root (uid=1000). The hub writes to /var/lib and needs
-root. Rooting is not part of this script: see docs/ROOTING.md, or install only the launcher
-with ./tools/install-launcher.sh.
-```
+The autostart hook is the third line: without it the hub is gone after the next reboot. There is
+also `tools/install-hub.sh`, which does exactly this and refuses a TV that is not rooted — it is
+experimental, see the end of this page.
 
 What lands where:
 
@@ -131,22 +78,6 @@ ssh root@<tv-ip> '/var/lib/cleanframe/cleanframectl logs'       # last 40 lines
 ```
 
 Removal: `./tools/uninstall-web.sh <tv-ip>`. The launcher stays installed.
-
-## Both parts in one run
-
-`tools/install.sh` wraps the two scripts above: the launcher always, the hub only when the
-TV is rooted. It never roots a TV itself.
-
-```sh
-./tools/install.sh                    # launcher, plus hub when rooted
-./tools/install.sh --launcher-only    # no SSH at all
-./tools/install.sh --hub-only         # hub on an already installed launcher
-./tools/install.sh --info             # model, webOS, node, root — changes nothing
-./tools/install.sh --dry-run
-./tools/install.sh --lang de
-```
-
-`--info` is a report, never a step: it prints what the TV answers and exits.
 
 ## Step 3 — first start
 
@@ -211,6 +142,40 @@ ssh root@<ip> 'chmod +x /var/lib/cleanframe/cleanframectl && /var/lib/cleanframe
 Do not try `luna-send` from the SSH shell: on webOS 6.5 it has no `-w`, and even
 `applicationManager/listApps` returns nothing with exit code 0. Glasshouse's installer is
 the reliable path, and it is the same one the Homebrew Channel uses.
+
+## The scripts — experimental
+
+`tools/install-launcher.sh`, `tools/install-hub.sh` and `tools/install.sh` (both of the others
+in one run, never rooting anything) are the convenient way in. They are also the least tested
+part of this repository: written against one TV, one webOS version, one network, on Linux.
+
+Use them if you want to debug them or install the same thing more than once. Otherwise the
+manual paths above are shorter, because you can see what happens.
+
+```sh
+# Linux and macOS
+./tools/install-launcher.sh --tv <tv-ip>          # the app: no SSH, no root
+./tools/install-hub.sh --tv <tv-ip>               # the settings page: SSH as root
+./tools/install.sh --tv <tv-ip>                   # both
+./tools/install.sh --tv <tv-ip> --info            # model, webOS, node, root state
+./tools/install-launcher.sh --dry-run             # find and print the plan only
+```
+
+```powershell
+# Windows (PowerShell): same stages, same switches, one dash
+.\tools\install.ps1 -Tv <tv-ip>
+.\tools\install.ps1 -Tv <tv-ip> -LauncherOnly
+.\tools\install.ps1 -Tv <tv-ip> -DryRun -Lang de
+```
+
+What they do, in order: find the TV (ARP table, then a sweep of the local /24 for a host that
+answers Glasshouse's `/api/apps`), check that Glasshouse answers, build the IPK if you did not
+pass one, upload it through Glasshouse's installer, read the app list back to prove the version,
+start the app once. The hub script does the same check for root, refuses a non-root session, and
+copies the server.
+
+They stop instead of guessing: no Glasshouse means no install, a non-root session means no hub.
+`--dry-run` prints the plan, `--lang de` answers in German, `--help` lists the rest.
 
 ## Troubleshooting
 

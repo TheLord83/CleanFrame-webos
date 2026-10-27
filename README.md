@@ -14,7 +14,7 @@ TV instead of the Tizen API.
 *The start screen: one photo, the clock, the apps you actually use. Rendered at 1920×1080,
 no chrome from the TV around it.*
 
-![CleanFrame Hub: appearance settings with the wallpaper library](docs/img/hub.jpg)
+![CleanFrame Hub: the home screen tab, tiles with order, name and icon, and the live picture of the TV beside it](docs/img/hub-home.jpg)
 
 *The hub in the browser: every setting of the app, saved as you change it — plus a live
 picture of the TV and a remote control for the cases where walking to the TV is too far.*
@@ -81,110 +81,63 @@ Where the firmware number is on the TV — with the two ways to find it: [docs/F
 
 ## Install
 
-Three ways to the launcher, and one optional part after it. Only the hub needs SSH.
+One way that works today, one that comes with the release, and the scripts — which are
+experimental and not the place to start.
 
-| Route | Command | Needs | Updates |
+| Route | How | Needs | Status |
 | --- | --- | --- | --- |
-| By hand | Glasshouse → Apps → *install from a file* | the IPK | install the new IPK again |
-| Launcher script | `./tools/install-launcher.sh --tv <ip>` | `curl`, `python3` | run it again |
-| Homebrew Channel | the repository file from a release | — | the channel does it |
-| The hub (optional) | `./tools/install-hub.sh --tv <ip>` | SSH as root | run it again |
+| **By hand** | Glasshouse → Apps → *install from a file* | the IPK | works, five minutes |
+| Homebrew Channel | a repository file from a release | — | not yet, needs the public release |
+| Scripts | `tools/install-launcher.sh`, `tools/install-hub.sh` | `curl`, `python3`, SSH | **experimental** |
 
-The Homebrew Channel route is how the other webOS launchers are distributed and how this one will
-be, once there is a public release. Until then: by hand, or the script.
+The launcher is one IPK and Glasshouse installs it. That is the whole installation. The hub is
+optional and needs SSH, it is a copy plus an autostart.
 
-### 1. From a computer: Linux and macOS
+### 1. By hand, five minutes
 
-No SSH needed for the launcher — the script talks to Glasshouse on port 8080:
+1. get an IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, or the file from a
+   release
+2. Glasshouse → **Apps** → *install from a file* → pick the IPK → confirm the version prompt
+3. start CleanFrame once from the app list; it writes its configuration on first start
+4. done. The start page runs, no hub needed
 
-```sh
-./tools/install-launcher.sh                 # find the TV, build the IPK, install it
-./tools/install-launcher.sh --tv 192.168.1.50
-./tools/install-launcher.sh --ipk cleanframe_all.ipk   # a release IPK
-./tools/install-launcher.sh --dry-run       # find and print the plan only
-./tools/install-launcher.sh --lang de       # German prompts
-
-./tools/install-hub.sh --tv 192.168.1.50    # optional: the settings page, needs root
-./tools/install.sh --tv 192.168.1.50        # both, if you like
-```
-
-Real output of a launcher run:
-
-```text
-$ ./tools/install-launcher.sh --tv 192.168.1.50
-TV: 192.168.1.50
-Glasshouse answers (192.168.1.50:8080)
-Building the IPK from app/ ...
-Installing com.blackpearl.cleanframe
-   package cleanframe_all.ipk for com.blackpearl.cleanframe
-   uploading 15802724 bytes
-   confirming com.blackpearl.cleanframe 0.5.0
-   installed: com.blackpearl.cleanframe 0.5.0 (16770618 bytes)
-Installed: com.blackpearl.cleanframe 0.5.0
-Started. The start page should be on the TV now.
-Next: the settings (values on the start page, Home Assistant) need the hub:
-./tools/install-hub.sh 192.168.1.50
-```
-
-And the hub, which does need SSH:
-
-```text
-$ ./tools/install-hub.sh --tv 192.168.1.50
-TV: 192.168.1.50
-SSH as root, uid=0
-node 8.12.0 on the TV
-Copying the hub to /var/lib/cleanframe ...
-Setting up the autostart ...
-Starting the service ...
-Hub is running: http://192.168.1.50:8484/   (API: /api/health, /api/config, /api/apps)
-```
-
-### 2. From a computer: Windows (PowerShell)
-
-`tools/install.ps1` runs the same stages; the flags differ only in spelling (`-Tv`, not `--tv`).
-It needs the OpenSSH client (a Windows feature) and Python 3 on `PATH` for the network search.
-
-```powershell
-.\tools\install.ps1 -Tv 192.168.1.50
-.\tools\install.ps1 -Tv 192.168.1.50 -LauncherOnly
-.\tools\install.ps1 -Tv 192.168.1.50 -DryRun -Lang de
-```
-
-### 3. By hand, without the script
-
-1. get the IPK: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`, or the file from a release
-2. install it on the TV: Glasshouse, Apps, install from a file
-3. open CleanFrame once from the app list, so it sets itself up
-4. the hub is optional and needs a root shell: `./tools/install-hub.sh --tv <ip>`
-
-### 4. Homebrew Channel repository
-
-Not yet. That route needs a public release: the other launchers in the scene ship a repository
-file, the Homebrew Channel reads it under *Settings*, *Add repository*, and updates come from
-there.
-
-The file itself is no work, `tools/make-apps-json.py` writes it from a built IPK (hash, size,
-manifest, download URL):
+The hub is for the people who want the settings page in the browser (that is where the Home
+Assistant values, MQTT and the remote live). It is a node process and needs a root shell:
 
 ```sh
-python3 tools/build-ipk.py app dist/cleanframe_all.ipk
-python3 tools/make-apps-json.py --ipk dist/cleanframe_all.ipk --tag v0.5.0
+scp -r web root@<tv-ip>:/var/lib/cleanframe
+ssh root@<tv-ip> 'chmod +x /var/lib/cleanframe/cleanframectl && /var/lib/cleanframe/cleanframectl restart'
 ```
 
-What is missing is the release it points at. Until then the IPK comes from a build, or from
-whoever you got this from.
+Then open `http://<tv-ip>:8484/`. Details, including the autostart hook: [docs/INSTALL.md](docs/INSTALL.md).
 
-### What the scripts do, and why the address is optional
+### 2. Homebrew Channel repository
 
-The launcher script searches the network when you do not pass an address: the ARP table first,
-then a sweep of the local /24 for a host that answers Glasshouse's `/api/apps`. The hub script does
-the same and then proves that SSH answers as root before it copies anything.
+Once there is a public release, this becomes the normal way: the other launchers in the scene
+ship a repository file, the Homebrew Channel reads it under *Settings*, *Add repository*, and
+updates arrive from there. The file is generated by `tools/make-apps-json.py` from a built IPK
+(hash, size, manifest, download URL). Until the release exists, it points at nothing.
 
-Both stop instead of guessing: no Glasshouse means no install, a non-root session means no hub.
+### 3. The scripts — experimental, and hidden here for a reason
 
-`tools/install.sh` is the wrapper that runs both parts; it installs the hub only when the TV is
-rooted, and never roots anything itself. `--dry-run` prints the plan, `--info` prints model, webOS,
-node and root state, `--launcher-only` touches nothing but the IPK.
+There are three: `install-launcher.sh` (IPK through Glasshouse, no SSH), `install-hub.sh` (the
+hub over SSH) and `install.sh` (both, never roots anything). They are written, they run, and
+they have been used on exactly **one** TV — the 43NANO779PA in this README. No second model, no
+second webOS version, no Windows machine, no macOS.
+
+So: use the way above unless you want to debug them. They find the TV on the network, build the
+IPK, upload it and verify the result, which is convenient — but every one of those steps is a
+guess in your network, not in mine.
+
+```sh
+./tools/install-launcher.sh --tv <tv-ip>     # the app, no SSH
+./tools/install-hub.sh --tv <tv-ip>          # the settings page, SSH as root
+./tools/install.sh --tv <tv-ip>              # both
+./tools/install.sh --info                    # model, webOS, node, root state
+```
+
+They stop instead of guessing: no Glasshouse means no install, a non-root session means no hub.
+`--dry-run` prints the plan, `--lang de` answers in German, `--help` lists the rest.
 
 ## Build and test
 

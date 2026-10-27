@@ -11,6 +11,10 @@
 
   Rooting is not part of this script. See docs/ROOTING.md.
 
+  STATUS: experimental. Written and run against exactly one TV (43NANO779PA, webOS 6.5)
+  on Linux; the PowerShell side has never been through a full run on Windows. The manual
+  paths in docs/INSTALL.md are the ones that have been seen to work.
+
 .PARAMETER Tv
   Address of the TV. Without it the local network is searched for a host answering Glasshouse
   on port 8080.
