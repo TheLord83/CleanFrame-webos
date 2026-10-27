@@ -32,4 +32,4 @@ Photographers retain their rights. Wallpapers, thumbnails, panel backgrounds and
 
 Development dependencies retain the licences in their npm packages. They are not copied into the TV JavaScript runtime.
 
-`npm run export:public` excludes private fonts and includes this notice and the root MIT licence. Preserve the included font and icon licence texts. Review [public release preparation](docs/public-release.md) before publishing a repository or download.
+`npm run export:public` excludes private fonts and includes this notice and the root MIT licence. Preserve the included font and icon licence texts. Before publishing a repository or a download, check three things: this notice and `LICENSE` are in the tree, the files listed in [asset sources](docs/asset-sources.md) still carry their licence texts, and no `.local/` font or original photo slipped into the package.

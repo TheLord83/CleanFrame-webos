@@ -65,30 +65,30 @@ run() {
 }
 
 # ---------------------------------------------------------------- Syntax
-step "1/12 source syntax"
+step "1/13 source syntax"
 for f in app/*.js web/*.js web/lib/*.js web/assets/lang/*.js tools/*.js; do
   node --check "$f" || { echo "  syntax error: $f"; FAILED=1; }
 done
 [ "$FAILED" = "0" ] && echo "  --> all JavaScript files parse"
 
 # ------------------------------------------------- Interface translations
-step "2/12 interface translations (de/en)"
+step "2/13 interface translations (de/en)"
 run "translation keys" node tools/check-lang.js
 
 # ------------------------------------------------- node 8 (Fernseher)
-step "3/12 compatibility with node 8.12 (TV)"
+step "3/13 compatibility with node 8.12 (TV)"
 run "node-8 check" python3 tools/check-node8.py
 
 # --------------------------------------------------------------- Icons
-step "4/12 icon library"
+step "4/13 icon library"
 run "icon check" python3 tools/check-icons.py
 
 # ------------------------------------------------------------ API-Tests
-step "5/12 config server (API)"
+step "5/13 config server (API)"
 run "API checks" python3 tools/test-web-api.py
 
 # --------------------------------------- Server + Chrome fuer die UI-Tests
-step "6/12 interface (keys and live adoption)"
+step "6/13 interface (keys and live adoption)"
 if ! curl -sf -m 3 "http://127.0.0.1:$PORT_SERVER/api/health" >/dev/null 2>&1; then
   echo "  starting config server on port $PORT_SERVER"
   CF_PORT="$PORT_SERVER" \
@@ -147,26 +147,29 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
 fi
 
 # --------------------------------------- Home Assistant status strip
-step "7/12 status strip (chosen entities on the home screen)"
+step "7/13 status strip (chosen entities on the home screen)"
 if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "status strip" node tools/test-ha-strip.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)
-step "8/12 rooted-TV setup (fake Telnet shell)"
+step "8/13 rooted-TV setup (fake Telnet shell)"
 run "tv setup" python3 tools/test_tvsetup.py
 
-step "9/12 television search (what counts as a TV)"
+step "9/13 television search (what counts as a TV)"
 run "discovery" python3 tools/test_discover.py
 
-step "10/12 rooting: what the TV says without root"
+step "10/13 rooting: what the TV says without root"
 run "tv info" python3 tools/test_tvinfo.py
 
-step "11/12 rooting: does an exploit still match?"
+step "11/13 rooting: does an exploit still match?"
 run "root advice" python3 tools/test_rootaly.py
 
-step "12/12 rooting: patched firmware is refused"
+step "12/13 rooting: patched firmware is refused"
 run "root gate" python3 tools/test-install-gate.py
+
+step "13/13 links in the documentation"
+run "documentation links" python3 tools/check-links.py
 
 # ------------------------------------------------------------- Ergebnis
 printf '\n'
