@@ -131,6 +131,21 @@ Starting CleanFrame again is enough; it retries on every start.
 That is the bundled mode by design. Install the hub for good if the page should stay:
 `./tools/install-hub.sh --tv <tv-ip>`.
 
+**`luna-send` over SSH prints nothing, not even for `getSystemInfo`**
+That is not your mistake and not a broken TV. On webOS 6.5 the call answers into a bus session the SSH
+shell does not have, so you get exit code 0 and an empty screen. Do not conclude the service is missing
+from that. Use what works: the hub's own endpoints, and Glasshouse for launching and closing apps:
+
+```sh
+curl -sS http://<tv-ip>:8080/api/control -X POST -H 'Content-Type: application/json' \
+  -d '{"action":"launchApp","value":"com.blackpearl.cleanframe"}'
+curl -sS http://<tv-ip>:8080/api/control -X POST -H 'Content-Type: application/json' \
+  -d '{"action":"closeApp","value":"com.blackpearl.cleanframe"}'
+```
+
+The same applies to the Homebrew service's `exec`: it works from inside the app, and the app is where
+`app/hubboot.js` calls it.
+
 **The web interface shows 200 but the browser shows an old version**
 The hub serves `assets/index.html` from disk; after an update, restart the hub and
 reload with `Ctrl+Shift+R`. Check the build stamp in the header and

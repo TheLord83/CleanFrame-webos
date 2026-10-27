@@ -3,7 +3,7 @@
 set -eu
 HOST="${1:-}"
 [ -n "$HOST" ] || { echo "Usage: $0 <tv-ip>"; exit 2; }
-SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 root@$HOST"
+SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 root@$HOST"
 echo "==> stopping service"
 $SSH '/var/lib/cleanframe/cleanframectl stop || true'
 echo "==> removing autostart and files"

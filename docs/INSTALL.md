@@ -242,4 +242,11 @@ You do not need the network search when you know the address. The container in
 network: Debian slim with `python3`, `openssh-client`, `curl` and `git`, the repo mounted in, and
 `--network host`.
 
+## Removing it
+
+Uninstalling the app leaves one thing behind if the bundled hub ran: `/var/lib/cleanframe/config.json`
+with the Home Assistant token and the MQTT password. That directory is shared with a permanent install,
+so no uninstall script deletes it on its own. `ssh root@<tv-ip> 'rm -rf /var/lib/cleanframe'` does. A
+permanent hub comes off cleanly with `./tools/uninstall-web.sh <tv-ip>`.
+
 More in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).

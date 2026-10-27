@@ -188,6 +188,20 @@ about your network.
 They stop instead of guessing: no Glasshouse means no install, a non-root session means no hub.
 `--dry-run` prints the plan, `--lang de` answers in German, `--help` lists the rest.
 
+## Removing it
+
+Uninstall CleanFrame from the channel or from Glasshouse, and the app is gone. If the bundled hub
+ran, one thing stays behind: `/var/lib/cleanframe/config.json`, which holds the Home Assistant token
+and the MQTT password. That directory belongs to a permanent install as well, so nothing deletes it
+automatically. Remove it yourself if you want it gone:
+
+```sh
+ssh root@<tv-ip> 'rm -rf /var/lib/cleanframe'
+```
+
+A permanent hub is removed properly by `./tools/uninstall-web.sh <tv-ip>`: it stops the service,
+drops the autostart hook and deletes the directory in one go.
+
 ## Build and test
 
 ```sh

@@ -191,6 +191,20 @@ dein Netz.
 Sie halten an, statt zu raten: kein Glasshouse heißt kein Installieren, eine Sitzung ohne root heißt
 kein Hub. `--dry-run` zeigt den Plan, `--lang de` antwortet deutsch, `--help` den Rest.
 
+## Entfernen
+
+CleanFrame im Channel oder in Glasshouse deinstallieren, und die App ist weg. Wenn der gebündelte Hub
+gelaufen ist, bleibt eines liegen: `/var/lib/cleanframe/config.json` mit dem Home-Assistant-Token und
+dem MQTT-Passwort. Dasselbe Verzeichnis gehört auch zu einer dauerhaften Installation, deshalb löscht
+es nichts automatisch. Wer es weg haben will:
+
+```sh
+ssh root@<tv-ip> 'rm -rf /var/lib/cleanframe'
+```
+
+Eine dauerhafte Installation räumt `./tools/uninstall-web.sh <tv-ip>` sauber ab: Dienst stoppen,
+Autostart-Haken weg, Verzeichnis löschen.
+
 ## Bauen und prüfen
 
 ```sh
