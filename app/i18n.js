@@ -13,6 +13,32 @@
 
   var DICT = {
     de: {
+      /* Einstellungen auf dem Fernseher: Textgroesse und Wetterzeile */
+      'Text size': 'Schriftgröße',
+      'Weather': 'Wetter',
+      'Shown as': 'Anzeige',
+      'Where it sits': 'Wo sie steht',
+      'Size': 'Größe',
+      'Distance from the clock': 'Abstand zur Uhr',
+      'Small': 'Klein',
+      'Normal': 'Normal',
+      'Large': 'Groß',
+      'Close': 'Nah',
+      'Wide': 'Weit',
+      'Very wide': 'Sehr weit',
+      'Symbol and temperature': 'Symbol und Temperatur',
+      'Symbol only': 'Nur Symbol',
+      'Symbol, temperature and word': 'Symbol, Temperatur und Wort',
+      'Text only': 'Nur Text',
+      'Before the clock': 'Vor der Uhr',
+      'Next to the clock': 'Neben der Uhr',
+      'Under the clock': 'Unter der Uhr',
+      'Right edge': 'Rechter Rand',
+      'Senior mode': 'Senioren-Modus',
+      'No place': 'Kein Ort',
+      'Clock and language': 'Uhr und Sprache',
+      'Clock': 'Uhr',
+      'Senior mode keeps the text at 125 % or more.': 'Der Senioren-Modus hält die Schrift bei mindestens 125 %.',
       /* Home Assistant states: the value text on the status strip. The English
          word is the key (see the header), so only German needs an entry. */
       'On': 'An',

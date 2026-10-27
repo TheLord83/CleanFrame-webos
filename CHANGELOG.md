@@ -3,6 +3,24 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.8
+
+The television can now set what the browser could set, and senior mode stays where it belongs.
+
+- **Text size on the television.** Settings -> Typography has the factor the browser already had:
+  20 to 200 percent, applied while you watch. With senior mode on the factor never drops below
+  125 percent, and the page says so instead of silently ignoring a smaller choice.
+- **Weather on the television.** Settings -> Weather: what is shown (symbol and temperature, symbol
+  alone, symbol with the word, text only), where it sits (before the clock, next to it, under it, at
+  the right edge), the size, and the distance from the clock in four steps. Before this the
+  television only had the switch and everything else lived in the browser.
+- **Senior mode no longer inflates the settings.** It used to blow up labels that were already sized
+  for the panel, so the values collided; the large text belongs to the start page, and the settings
+  keep their own proportions.
+- The settings list measures itself: eleven groups switch to the tighter pitch instead of letting the
+  last row slide under the footer hint.
+- German texts for the new rows, and the clock section finally has one too.
+
 ## 0.5.6
 
 The weather line stops being a sentence and becomes a mark.

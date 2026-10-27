@@ -434,11 +434,16 @@ function run(wsUrl, haPort) {
       key('right', function () {
         key('right', function () {     /* -> settings */
           key('ok', function () {
-            key('down', function () { key('down', function () { key('down', function () {
-              key('down', function () { key('down', function () { key('down', function () {
-                key('ok', function () { cb(); });
-              }); }); });
-            }); }); });
+            /* Die Zeile der Werte-Liste wird gesucht, nicht gezaehlt: neue
+             * Gruppen davor haben den Weg schon einmal um eine Zeile verschoben,
+             * und ein Test, der Zeilen zaehlt, bricht dann ohne echten Fehler. */
+            (function toRow(step) {
+              evalJs("(document.querySelector('#sheetView .settings-group.is-focus .settings-group-name')||{}).textContent", function (name) {
+                if (String(name || '').indexOf('Werte') === 0) return key('ok', function () { cb(); });
+                if (step > 12) return cb();
+                key('down', function () { toRow(step + 1); });
+              });
+            })(0);
           });
         });
       });

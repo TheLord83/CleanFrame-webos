@@ -55,7 +55,7 @@
   var LOOK_KEYS = ['bg', 'layout', 'apps', 'font', 'controls', 'focus', 'material'];
   var LOOK_VALUES = { bg: ['dark', 'light', 'photo'], layout: ['list', 'dock'], apps: ['icons', 'both', 'text'], font: Object.keys(FONTS).filter(function (id) { return id === 'manrope' || PRIVATE_FONTS.indexOf(id) >= 0; }), controls: ['icons', 'both', 'text'], focus: ['type', 'glass'], material: ['soft', 'frost', 'tint'] };
   var LOOK_NAMES = { bg: T('Background'), layout: T('Layout'), apps: 'Apps', font: T('Font'), controls: T('Home controls'), focus: T('Focus'), material: T('Material') };
-  var VALUE_NAMES = { dark: T('Dark'), light: T('Light'), photo: T('Photo'), list: T('List'), dock: T('Dock'), type: 'Type', glass: T('Glass'), soft: T('Soft'), frost: T('Frost'), tint: T('Clear tint'), icons: T('Icons'), both: T('Icons and text'), text: T('Text') };
+  var VALUE_NAMES = { dark: T('Dark'), light: T('Light'), photo: T('Photo'), list: T('List'), dock: T('Dock'), type: 'Type', glass: T('Glass'), soft: T('Soft'), frost: T('Frost'), tint: T('Clear tint'), icons: T('Icons'), both: T('Icons and text'), text: T('Text'), '20': '', small: T('Small'), normal: T('Normal'), large: T('Large') };
   var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], settings: [T('Settings'), 'settings'] };
   var MSG = {
     leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] }
@@ -1030,6 +1030,8 @@
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
+      { id: 'text', label: T('Text size'), value: textSizeLabel() },
+      { id: 'weather', label: T('Weather'), value: weatherSummary() },
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
@@ -1050,6 +1052,8 @@
   };
   function settingsOk(id) {
     if (id === 'ent') openEntities();
+    else if (id === 'text') openAppearance('typography');
+    else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') runSetupAgain();
     else openAppearance(id);
@@ -1083,6 +1087,56 @@
     for (var i = 0; i < LANGS.length; i++) if (LANGS[i].id === code) return LANGS[i].name;
     return LANGS[0].name;
   }
+  /* Textgroesse und Wetterzeile teilen sich einen Weg: Konfiguration kopieren,
+   * speichern, und nur den Teil der Oberflaeche neu zeichnen, der davon abhaengt.
+   * Kein Neuladen, weil ein Reload beim Einstellen unangenehm ist. */
+  var lastTextChoice = 0;
+  function applyConfig(patchCfg, after) {
+    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
+    patchCfg(cfg);
+    S.serverCfg = cfg;
+    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { if (after) after(); });
+    else if (after) after();
+  }
+  function applyTextScale(value) {
+    /* Senior mode promises at least 125 %, so a smaller choice is raised instead of
+     * silently ignored — otherwise the setting looks broken on the television. */
+    var ui = (S.serverCfg && S.serverCfg.ui) || {};
+    var v = parseInt(value, 10);
+    if (!isFinite(v)) return;
+    lastTextChoice = v;
+    if (ui.senior && v < 125) v = 125;
+    applyConfig(function (cfg) { cfg.ui = cfg.ui || {}; cfg.ui.textScale = v; }, function () {
+      applyTextScaleVisual(v);
+      render();
+    });
+  }
+  function applyTextScaleVisual(value) {
+    var scale = value / 100;
+    uiScale = scale > 0 ? scale : 1;
+    if (scale !== 1) {
+      stage.style.setProperty('--cf-scale', String(scale));
+      document.documentElement.style.setProperty('--cf-scale', String(scale));
+    } else {
+      stage.style.removeProperty('--cf-scale');
+      document.documentElement.style.setProperty('--cf-scale', '1');
+    }
+  }
+  function applyWeatherChoice(axis, value) {
+    var field = axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : axis === 'wxSize' ? 'size' : 'gap';
+    var v = field === 'gap' ? parseInt(value, 10) : value;
+    applyConfig(function (cfg) {
+      cfg.integrations = cfg.integrations || {};
+      cfg.integrations.weather = cfg.integrations.weather || {};
+      cfg.integrations.weather[field] = v;
+    }, function () {
+      if (field === 'style') wxState.style = v;
+      else if (field === 'pos') wxState.pos = v;
+      else if (field === 'size') wxState.size = v;
+      else wxState.gap = v;
+      render();
+    });
+  }
   function setLanguage(code) {
     if (window.CleanFrameI18n && window.CleanFrameI18n.set) window.CleanFrameI18n.set(code === 'system' ? 'de' : code);
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
@@ -1092,10 +1146,43 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), setup: T('Run setup again'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
+  }
+  /* Wetterzeile: die Auswahl kommt aus der Konfiguration des Hubs, Beschriftungen
+   * aus der Sprache. Eigene Action-Praefixe, weil setLook nur Aussehen kennt und
+   * die Wetterzeile in den Integrationen wohnt. */
+  var WX_LABELS = {
+    wxStyle: { 'icon-temp': T('Symbol and temperature'), icon: T('Symbol only'), 'icon-temp-text': T('Symbol, temperature and word'), 'temp-text': T('Text only') },
+    wxPos: { left: T('Before the clock'), right: T('Next to the clock'), below: T('Under the clock'), end: T('Right edge') },
+    wxSize: { small: T('Small'), normal: T('Normal'), large: T('Large') },
+    wxGap: { '20': T('Close'), '72': T('Normal'), '110': T('Wide'), '150': T('Very wide') }
+  };
+  function wxConf() {
+    var c = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+    return { style: c.style || 'icon-temp', pos: c.pos || 'right', size: c.size || 'normal', gap: c.gap || 72 };
+  }
+  function wxChoices(axis, values) {
+    var cur = wxConf();
+    return values.map(function (v) {
+      var key = axis === 'wxGap' ? String(v) : v;
+      return { action: 'wx.' + axis + '.' + key, axis: axis, value: key,
+        label: (WX_LABELS[axis] || {})[key] || String(v),
+        applied: String(axis === 'wxGap' ? cur.gap : cur[axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : 'size']) === key };
+    });
+  }
+  function textSizeLabel() {
+    var ui = (S.serverCfg && S.serverCfg.ui) || {};
+    var scale = parseInt(ui.textScale, 10);
+    if (!isFinite(scale)) scale = 100;
+    return scale + ' %' + (ui.senior ? ' · ' + T('Senior mode') : '');
+  }
+  function weatherSummary() {
+    var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+    if (!w.enabled) return T('Off');
+    return (w.place || T('No place')) + ' · ' + (WX_LABELS.wxStyle[w.style] || '');
   }
   function detailSections(t) {
     var flat = S.c.bg !== 'photo', inactive = !materialApplies();
@@ -1110,7 +1197,18 @@
       { id: 'apps', title: T('App display'), horizontal: true, items: options('apps', ['text', 'icons', 'both']) },
       { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
-    if (t.group === 'typography') return [{ id: 'font', title: '', items: options('font', LOOK_VALUES.font) }];
+    if (t.group === 'typography') return [{ id: 'font', title: '', items: options('font', LOOK_VALUES.font) },
+      { id: 'text', title: T('Text size'), horizontal: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
+        var item = choice('textScale', v, false);
+        item.label = v + ' %';
+        return item;
+      }), reason: T('Senior mode keeps the text at 125 % or more.') }];
+    if (t.group === 'weather') return [
+      { id: 'wxStyle', title: T('Shown as'), horizontal: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      { id: 'wxPos', title: T('Where it sits'), horizontal: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
+      { id: 'wxSize', title: T('Size'), horizontal: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
+      { id: 'wxGap', title: T('Distance from the clock'), horizontal: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
+    ];
     if (t.group === 'focus') return [
       { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
       { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
@@ -1169,6 +1267,8 @@
       if (error && error.row === 'mode') applyRotation(error.patch.mode);
       else if (error) setLook(error.patch, { row: error.row });
     } else if (item.axis === 'mode') applyRotation(item.value);
+    else if (item.axis === 'textScale') applyTextScale(parseInt(item.value, 10));
+    else if (item.axis && item.axis.indexOf('wx') === 0) applyWeatherChoice(item.axis, item.value);
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
@@ -1180,7 +1280,7 @@
   V.appearance = {
     norm: function (t) {
       var rows = detailRows(t), exists = false, applied = null;
-      var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus', rotation: 'mode' }[t.group];
+      var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus', rotation: 'mode', weather: 'wxStyle' }[t.group];
       rows.forEach(function (items) { items.forEach(function (item) {
         if (item.action === t.f.action) exists = true;
         if (item.axis === axis && item.value === S.c[axis]) applied = item;
@@ -1971,7 +2071,8 @@
     appearanceTitle.textContent = DETAIL_NAMES[t.group];
     var at = detailLocation(t), selected = at.item, error = S.lookError, status = '', hint;
     function command(item, inner, cls) {
-      var applied = (item.axis && S.c[item.axis] === item.value)
+      var applied = item.applied === true || (item.axis && item.axis !== 'wxStyle' && item.axis !== 'wxPos' && item.axis !== 'wxSize' && item.axis !== 'wxGap' && item.axis !== 'textScale' && S.c[item.axis] === item.value)
+        || (item.axis === 'textScale' && String(parseInt(((S.serverCfg || {}).ui || {}).textScale, 10) || 100) === String(item.value))
         || (item.action === 'clock.set.24' && S.c.clock24 !== false)
         || (item.action === 'clock.set.12' && S.c.clock24 === false)
         || (item.action.indexOf && item.action.indexOf('language.set.') === 0 && S.serverCfg && S.serverCfg.lang === item.action.slice('language.set.'.length));
@@ -2240,8 +2341,9 @@
       });
       setHTML(el.list, html);
       /* Nine rows no longer fit above the footer hint; a tighter pitch keeps the
-       * last one reachable instead of letting it slide under the hint. */
-      el.list.className = 'settings-overview' + (settingsRows().length > 8 ? ' is-dense' : '');
+       * last one reachable instead of letting it slide under the hint. Eleven need a
+       * second stage: normal height pushed the last row under the hint (434 > 392). */
+      el.list.className = 'settings-overview' + (settingsRows().length >= 11 ? ' is-dense2' : settingsRows().length > 8 ? ' is-dense' : '');
     },
     entities: function (t, el) {
       var all = haAll(), f = t.f, html = '';
@@ -2667,10 +2769,14 @@
     },
     listGeom: function () {
       var rows = [].slice.call(document.querySelectorAll('#sheetView .settings-group'));
+      /* Die erste Lade-Messung trifft die Liste noch nicht, dann gibt es null
+       * Zeilen und der Test wertet das als Ueberlappung. Die Klassen verraten,
+       * ob schon gezeichnet wurde. */
+      var list = document.querySelector('#sheetView .settings-overview');
       var hint = document.querySelector('#sheetView .settings-overview-hint');
       var last = rows[rows.length - 1], r = last ? last.getBoundingClientRect() : null, h = hint ? hint.getBoundingClientRect() : null;
       return { zeilen: rows.length, letzteUnten: r ? Math.round(r.bottom) : null, hinweisOben: h ? Math.round(h.top) : null,
-               ueberlappt: r && h ? r.bottom > h.top : null };
+               ueberlappt: r && h ? r.bottom > h.top : null, listClass: list ? list.className : null };
     },
     language: function (code) { setLanguage(code); return true; },
     openEntities: function () {

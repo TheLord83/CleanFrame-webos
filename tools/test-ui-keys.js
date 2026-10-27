@@ -335,7 +335,7 @@ function run(wsUrl) {
                 return;
               }
               check('settings list does not cover the control hint', o.ueberlappt === false,
-                    'last row bottom ' + o.letzteUnten + ', hint top ' + o.hinweisOben + ', rows ' + o.zeilen);
+                    'last row bottom ' + o.letzteUnten + ', hint top ' + o.hinweisOben + ', rows ' + o.zeilen + ', class ' + o.listClass);
             });
           }, 600);
         }(3));
