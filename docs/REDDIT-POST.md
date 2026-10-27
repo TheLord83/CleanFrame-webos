@@ -7,8 +7,9 @@ Two images go with the post as a gallery:
 1. `docs/img/launcher.jpg` (1920x1080), the start page
 2. `docs/img/hub-home.jpg` (1744x1372), the hub in a browser
 
-Inside the body are two placeholder lines in italics. Upload both images to the post, then delete
-those two lines. Reddit keeps the pictures where the editor put them.
+Inside the body are two placeholder lines in italics, each followed by its caption. Upload the
+image, delete the placeholder line, and the caption stays under the picture, which is as close to a
+caption as a Reddit gallery gets.
 
 Approval: the mod "webos channel icon" answered the modmail with "Sure, you can post it".
 
@@ -23,9 +24,11 @@ CleanFrame: a photo, a clock and your apps as a webOS launcher, now for LG (open
 ```
 I ported [CleanFrame](https://github.com/TheLord83/CleanFrame-webos) to LG webOS. It is a launcher for rooted LG TVs: the start page is a photo, the clock and your apps. If you run Home Assistant, its values sit on that page too and you can switch lamps with the remote. The mods here said a post about it is fine.
 
-*[image 1 goes here: docs/img/launcher.jpg, the start page]*
+*[image 1 goes here: docs/img/launcher.jpg]*
+*The start page. A photo, the clock, and the apps you put there yourself.*
 
-*[image 2 goes here: docs/img/hub-home.jpg, the hub in a browser]*
+*[image 2 goes here: docs/img/hub-home.jpg]*
+*The hub in any browser on your network: order and names of the tiles on the left, a live picture of the TV and a remote on the right.*
 
 ## What it does
 
