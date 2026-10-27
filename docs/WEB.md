@@ -13,7 +13,7 @@ from `assets/`, optional token, and local requests always allowed.
 
 ```sh
 ./tools/install.sh 192.168.1.50          # launcher and hub, with verification
-./tools/install-web.sh 192.168.1.50      # hub only
+./tools/install-hub.sh 192.168.1.50      # hub only
 ```
 
 That copies the server to `/var/lib/cleanframe/`, installs the boot hook

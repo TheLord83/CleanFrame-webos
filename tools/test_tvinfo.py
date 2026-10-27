@@ -55,10 +55,10 @@ class TvinfoTest(unittest.TestCase):
     def test_collect_marks_incomplete_without_firmware(self):
         tvinfo.ssdp_search = lambda ip, timeout=2.0: {
             "description": tvinfo._xml_fields(LG_DESCRIPTION),
-            "descriptionUrl": "http://192.168.178.33:1900/"}
+            "descriptionUrl": "http://192.168.1.51:1900/"}
         tvinfo.airplay = lambda ip, timeout=2.0: {}
         tvinfo.ssap_handshake = lambda ip, port=3000, timeout=2.0: True
-        info = tvinfo.collect("192.168.178.33")
+        info = tvinfo.collect("192.168.1.51")
         self.assertEqual(info["modelName"], "LG 43NANO779PA")
         self.assertEqual(info["firmware"], "")
         self.assertFalse(info["complete"])

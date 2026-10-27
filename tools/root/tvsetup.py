@@ -13,8 +13,8 @@ a computer:
   5. verifies: ssh with the key works, node is present, Telnet is gone
 
 Usage:
-    python3 tools/tvsetup.py --tv 192.168.1.50 --key ~/.ssh/lgtv.pub
-    python3 tools/tvsetup.py --tv 192.168.1.50 --key ~/.ssh/id_ed25519.pub --dry-run
+    python3 tools/root/tvsetup.py --tv 192.168.1.50 --key ~/.ssh/lgtv.pub
+    python3 tools/root/tvsetup.py --tv 192.168.1.50 --key ~/.ssh/id_ed25519.pub --dry-run
 
 Exit codes: 0 = verified, 1 = failed, 2 = bad arguments.
 """

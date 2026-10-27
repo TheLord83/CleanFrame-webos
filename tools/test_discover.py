@@ -69,17 +69,17 @@ class DiscoverTest(unittest.TestCase):
 
     def test_ssap_handshake_makes_a_host(self):
         self.stub(
-            ssdp={"192.168.178.42": {"ip": "192.168.178.42", "ssdp": True,
-                                     "location": "http://192.168.178.42:1900/desc.xml"}},
-            open_ports={"192.168.178.42": [3000, 3001, 22, 8080]},
-            ssap=["192.168.178.42"],
-            names={"http://192.168.178.42:1900/desc.xml": "[LG] webOS TV OLED55C47LA"},
+            ssdp={"192.168.1.50": {"ip": "192.168.1.50", "ssdp": True,
+                                     "location": "http://192.168.1.50:1900/desc.xml"}},
+            open_ports={"192.168.1.50": [3000, 3001, 22, 8080]},
+            ssap=["192.168.1.50"],
+            names={"http://192.168.1.50:1900/desc.xml": "[LG] webOS TV OLED55C47LA"},
         )
         result = discover.find(timeout=0.01)
         self.assertEqual(result["rejected"], [])
         self.assertEqual(len(result["hosts"]), 1)
         host = result["hosts"][0]
-        self.assertEqual(host["ip"], "192.168.178.42")
+        self.assertEqual(host["ip"], "192.168.1.50")
         self.assertEqual(host["name"], "[LG] webOS TV OLED55C47LA")
         self.assertTrue(host["rooted"])
         self.assertTrue(host["glasshouse"])
@@ -118,9 +118,9 @@ class DiscoverTest(unittest.TestCase):
         self.assertEqual(len(payload["rejected"]), 1)
 
     def test_exit_code_zero_when_a_tv_is_found(self):
-        self.stub(ssdp={"192.168.178.42": {"ip": "192.168.178.42"}},
-                  open_ports={"192.168.178.42": [3000]},
-                  ssap=["192.168.178.42"])
+        self.stub(ssdp={"192.168.1.50": {"ip": "192.168.1.50"}},
+                  open_ports={"192.168.1.50": [3000]},
+                  ssap=["192.168.1.50"])
         buffer = io.StringIO()
         with redirect_stdout(buffer):
             code = discover.main(["--json"])

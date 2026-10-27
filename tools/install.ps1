@@ -1,470 +1,316 @@
 <#
 .SYNOPSIS
-  Install CleanFrame (launcher) and the CleanFrame Hub (configuration server) on a
-  rooted LG TV running webOS 6 or newer, from Windows.
+  Install CleanFrame (the launcher) on an LG TV, and optionally the hub next to it.
 
 .DESCRIPTION
-  Same flow as tools/install.sh: detect -> check -> plan -> confirm -> install ->
-  verify -> report. Nothing is changed before the confirmation.
+  The launcher is an IPK: this script hands it to Glasshouse on port 8080, the same door the
+  Homebrew Channel uses. No SSH, no root, nothing to be root for.
 
-  What it cannot do: the rooting itself needs a person with the remote control
-  (see docs/INSTALL.md). Everything after that is handled here.
+  The hub (the settings page) is a node process on the TV and needs root, so it is installed
+  over SSH - and only when you do not pass -LauncherOnly.
 
-  Requires OpenSSH client (ssh, scp - part of Windows 10/11) and a checkout of this
-  repository (the hub files and the IPK come from it). PowerShell 5.1 or 7+.
+  Rooting is not part of this script. See docs/ROOTING.md.
+
+.PARAMETER Tv
+  Address of the TV. Without it the local network is searched for a host answering Glasshouse
+  on port 8080.
+
+.PARAMETER Ipk
+  Use this IPK instead of building one from app/.
+
+.PARAMETER LauncherOnly
+  Only the launcher: no SSH, no hub.
+
+.PARAMETER HubOnly
+  Only the hub, for a launcher that is already installed.
+
+.PARAMETER Info
+  Report model, webOS, node and root state. Changes nothing.
+
+.PARAMETER DryRun
+  Find, check and print the plan. Changes nothing.
+
+.PARAMETER Lang
+  Prompt language: en (default) or de.
 
 .EXAMPLE
   .\tools\install.ps1 -Tv 192.168.1.50
-  .\tools\install.ps1 -Tv 192.168.1.50 -DryRun
-  .\tools\install.ps1 -Tv 192.168.1.50 -Lang de -Ipk .\dist\cleanframe_all.ipk
+
+.EXAMPLE
+  .\tools\install.ps1 -Tv 192.168.1.50 -LauncherOnly -Lang de
+
+.EXAMPLE
+  .\tools\install.ps1 -DryRun
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Position = 0)][string]$Tv,
+  [string]$Tv,
   [string]$Ipk,
-  [ValidateSet('en', 'de')][string]$Lang = 'en',
+  [switch]$LauncherOnly,
+  [switch]$HubOnly,
+  [switch]$Info,
   [switch]$DryRun,
   [switch]$Yes,
-  [switch]$NoLauncher,
-  [switch]$NoHub,
-  [switch]$Root,
-  [switch]$NoRoot,
-  [switch]$Info,
-  [string]$SshKey,
-  [string]$Model,
-  [string]$Firmware,
-  [switch]$ForceRoot
+  [ValidateSet('en', 'de')][string]$Lang = 'en'
 )
 
 $ErrorActionPreference = 'Stop'
-$AppIdDefault = 'com.blackpearl.cleanframe'
-# The switch -Root must stay a switch: the repo root gets its own variable.
-$RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$Tools = Join-Path $RepoRoot 'tools'
+# Not $Root: a parameter and a variable with the same name is a silent trap in PowerShell.
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$AppId = 'com.blackpearl.cleanframe'
 
-# ---- texts -------------------------------------------------------------------
-$Text = @{
+$M = @{
   en = @{
-    need_tv       = 'usage: install.ps1 -Tv <ip> [-Lang de] [-DryRun]'
-    detect        = '==> Looking for the TV'
-    tv_off        = '    port 22 closed. TV in standby? Wake it by hand (network standby must be on).'
-    tv_on         = '    TV answers (SSH open)'
-    check         = '==> Checking prerequisites'
-    no_ssh        = 'ERROR: cannot ssh root@{0}. Is the TV rooted and the key installed? See https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md'
-    node_ok       = '    node {0}'
-    no_node       = 'ERROR: node missing on the TV or too old (found: {0}, need: 8+)'
-    glass_ok      = '    Glasshouse answers ({0}:8080)'
-    no_glass      = 'ERROR: Glasshouse does not answer on port 8080 - without it no IPK can be installed. Install Glasshouse from the Homebrew Channel: https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md'
-    plan          = '==> Plan'
-    plan_launcher = '    install the launcher IPK: {0}'
-    plan_hub      = '    set up the hub: /var/lib/cleanframe, autostart, port 8484'
-    ask           = 'Proceed? [Y/n]'
-    aborted       = 'Aborted, nothing changed.'
-    launcher      = '==> Installing the launcher'
-    hub           = '==> Setting up the hub'
-    verify        = '==> Verifying'
-    ok_health     = '    hub answers: {0}'
-    fail_health   = 'ERROR: hub does not answer on port 8484'
-    ok_app        = '    launcher is in the app list: {0} {1}'
-    fail_app      = 'ERROR: install reported, but {0} is missing from the app list'
-    no_ipk        = 'ERROR: no IPK found. Build one on Linux (tools/build-ipk.py) and pass -Ipk <file>.'
-    report        = '==> Result'
-    dry           = '(dry run: nothing was changed)'
-    need_ssh      = 'ERROR: ssh/scp not found. Install the OpenSSH client (Windows optional feature).'
-    need_python   = 'ERROR: python3 not found. Rooting and the network search use the upstream Python tools.'
-    find          = '==> Looking for a TV on the network'
-    find_one      = '    found: {0}'
-    find_many     = '    several candidates - pick one with -Tv <ip>:'
-    find_none     = 'ERROR: no LG TV found. Awake? Same network? See docs/TROUBLESHOOTING.md'
-    info          = '==> State of the TV'
-    root_check    = '==> Checking root'
-    root_ok       = '    root: yes, SSH answers'
-    root_missing  = '    root: no, no root shell answers'
-    root_offer    = 'Root it now? On a stock TV nothing can be installed without root - the app installer needs it. Afterwards the launcher runs without root, the hub does not. [Y/n]'
-    root_declined = '    without root: hub skipped, launcher only'
-    root_no_root  = '    -NoRoot given: hub skipped'
-    root_no_tty   = '    no terminal to ask: hub skipped. Pass -Root to root first.'
-    glass_ok_install = '    Glasshouse answers on port 8080: installing works without a root shell'
-    ask_fw        = 'Firmware version from the TV - Settings > All Settings > General > Devices > TV Management > TV Information (docs/FIRMWARE.md), empty = skip:'
-    fw_link       = '    direct link: {0}'
-    root_refused  = 'ERROR: by the published rules this firmware is patched - not rooting. Use -ForceRoot to try anyway.'
-    nothing_without_root = 'ERROR: without root nothing can be installed - no root shell (22) and no Glasshouse (8080). Start again with -Root.'
-    root_stage    = '==> Rooting (SlopBro)'
-    root_skip     = '    already rooted, SSH works'
-    root_pair     = '    A pairing prompt will appear on the TV - accept it with the remote.'
-    root_wait     = '    waiting for the root shell (Telnet 23) ...'
-    root_timeout  = 'ERROR: no root shell. Check the SlopBro output above.'
-    root_setup    = '==> Installing the SSH key, closing Telnet, blocking updates'
-    key_missing   = 'ERROR: public key not found: {0} (pass -SshKey)'
+    find        = 'Looking for the TV on the network ...'
+    found       = 'TV: {0}'
+    find_none   = 'No TV answering on port 8080. Pass the address: -Tv <ip>. Glasshouse has to be running.'
+    no_glass    = 'No Glasshouse on {0}. The app cannot be installed without it - install it first (see README, "What you need").'
+    glass_ok    = 'Glasshouse answers ({0}:8080)'
+    ipk_build   = 'Building the IPK from app/ ...'
+    no_python   = 'python3 is missing. Install python3, or install the IPK by hand in Glasshouse (Apps, install from a file).'
+    plan        = 'Plan: install {0} on {1}'
+    plan_build  = 'Plan: build the IPK from app/, then install it on {0}'
+    ask         = 'Continue? [Y/n] '
+    aborted     = 'Aborted.'
+    dry         = 'Dry run: nothing changed.'
+    installed   = 'Installed: {0} {1}'
+    verify_fail = 'The IPK reported success, but {0} is not in Glasshouse app list.'
+    launched    = 'Started. The start page should be on the TV now.'
+    launch_fail = 'Installed, but starting it did not work. Open CleanFrame from the app list.'
+    hub_note    = 'Next: the settings (values on the start page, Home Assistant) need the hub, which needs SSH and root.'
+    ssh_fail    = 'No SSH on {0}. The hub needs a rooted TV with SSH - see docs/ROOTING.md.'
+    not_root    = 'SSH answers, but the session is not root (uid={0}). The hub writes to /var/lib and needs root. Rooting is not part of this script: see docs/ROOTING.md.'
+    rooted      = 'SSH as root, uid={0}'
+    no_node     = 'The TV has no usable node (found: {0}, need >= 8).'
+    copy        = 'Copying the hub to /var/lib/cleanframe ...'
+    autostart   = 'Setting up the autostart ...'
+    start       = 'Starting the service ...'
+    health_fail = 'The hub does not answer on port 8484.'
+    hub_ready   = 'Hub is running: http://{0}:8484/   (API: /api/health, /api/config, /api/apps)'
+    info        = 'State of the TV'
+    hub_skipped = 'Hub skipped: it needs root, the launcher does not.'
   }
   de = @{
-    need_tv       = 'Aufruf: install.ps1 -Tv <ip> [-Lang de] [-DryRun]'
-    detect        = '==> Fernseher suchen'
-    tv_off        = '    Port 22 zu. Fernseher im Standby? Von Hand wecken (Netzwerk-Standby muss an sein).'
-    tv_on         = '    Fernseher antwortet (SSH offen)'
-    check         = '==> Voraussetzungen pruefen'
-    no_ssh        = 'FEHLER: SSH auf root@{0} nicht moeglich. Ist der Fernseher gerootet und der Schluessel hinterlegt? Siehe https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md'
-    node_ok       = '    node {0}'
-    no_node       = 'FEHLER: node fehlt auf dem Fernseher oder ist zu alt (gefunden: {0}, gebraucht: 8+)'
-    glass_ok      = '    Glasshouse antwortet ({0}:8080)'
-    no_glass      = 'FEHLER: Glasshouse antwortet nicht auf Port 8080 - ohne Glasshouse laesst sich kein IPK installieren. Glasshouse im Homebrew Channel installieren: https://github.com/TheLord83/CleanFrame-webos/blob/main/docs/INSTALL.md'
-    plan          = '==> Vorhaben'
-    plan_launcher = '    Launcher als IPK installieren: {0}'
-    plan_hub      = '    Hub einrichten: /var/lib/cleanframe, Autostart, Port 8484'
-    ask           = 'Ausfuehren? [J/n]'
-    aborted       = 'Abgebrochen, nichts veraendert.'
-    launcher      = '==> Launcher installieren'
-    hub           = '==> Hub einrichten'
-    verify        = '==> Nachpruefen'
-    ok_health     = '    Hub antwortet: {0}'
-    fail_health   = 'FEHLER: Hub antwortet nicht auf Port 8484'
-    ok_app        = '    Launcher haengt im Katalog: {0} {1}'
-    fail_app      = 'FEHLER: Installation gemeldet, aber {0} fehlt im Katalog'
-    no_ipk        = 'FEHLER: kein IPK gefunden. Auf Linux bauen (tools/build-ipk.py) und -Ipk <Datei> angeben.'
-    report        = '==> Ergebnis'
-    dry           = '(Probelauf: nichts wurde veraendert)'
-    need_ssh      = 'FEHLER: ssh/scp nicht gefunden. OpenSSH-Client als Windows-Feature nachinstallieren.'
-    need_python   = 'FEHLER: python3 nicht gefunden. Rooten und Netzweite Suche nutzen die Python-Werkzeuge.'
-    find          = '==> Fernseher im Netz suchen'
-    find_one      = '    gefunden: {0}'
-    find_many     = '    mehrere Kandidaten - mit -Tv <ip> auswaehlen:'
-    find_none     = 'FEHLER: kein LG-Fernseher gefunden. Wach? Gleiches Netz? Siehe docs/TROUBLESHOOTING.md'
-    info          = '==> Zustand des Fernsehers'
-    root_check    = '==> Root pruefen'
-    root_ok       = '    root: ja, SSH antwortet'
-    root_missing  = '    root: nein, es antwortet keine Root-Shell'
-    root_offer    = 'Jetzt rooten? Auf einem unveraenderten Fernseher laesst sich ohne root gar nichts installieren - der App-Installer braucht es. Danach laeuft der Launcher ohne root, der Hub nicht. [J/n]'
-    root_declined = '    ohne root: Hub wird uebersprungen, Launcher wird installiert'
-    root_no_root  = '    -NoRoot gesetzt: Hub wird uebersprungen'
-    root_no_tty   = '    keine Eingabe moeglich: Hub wird uebersprungen. Mit -Root wird vorher gerootet.'
-    glass_ok_install = '    Glasshouse antwortet auf Port 8080: installieren geht auch ohne root-Shell'
-    ask_fw        = 'Firmware-Version vom Fernseher - Einstellungen > Alle Einstellungen > Allgemein > Geraete > TV-Management > TV-Informationen (docs/FIRMWARE.de.md), leer = ueberspringen:'
-    fw_link       = '    direkter Link: {0}'
-    root_refused  = 'FEHLER: nach den veroeffentlichten Regeln ist diese Firmware gepatcht - ich roote nicht. Mit -ForceRoot trotzdem versuchen.'
-    nothing_without_root = 'FEHLER: ohne root laesst sich nichts installieren - keine Root-Shell (22) und kein Glasshouse (8080). Mit -Root neu starten.'
-    root_stage    = '==> Rooten (SlopBro)'
-    root_skip     = '    schon gerootet, SSH funktioniert'
-    root_pair     = '    Gleich erscheint am Fernseher ein Kopplungsdialog - mit der Fernbedienung bestaetigen.'
-    root_wait     = '    warte auf die Root-Shell (Telnet 23) ...'
-    root_timeout  = 'FEHLER: keine Root-Shell bekommen. SlopBro-Ausgabe oben pruefen.'
-    root_setup    = '==> SSH-Schluessel setzen, Telnet schliessen, Updates sperren'
-    key_missing   = 'FEHLER: oeffentlicher Schluessel fehlt: {0} (mit -SshKey angeben)'
+    find        = 'Suche den Fernseher im Netz ...'
+    found       = 'Fernseher: {0}'
+    find_none   = 'Kein Fernseher gefunden, der auf Port 8080 antwortet. Adresse angeben: -Tv <ip>, und Glasshouse muss laufen.'
+    no_glass    = 'Auf {0} antwortet kein Glasshouse. Ohne Glasshouse laesst sich die App nicht installieren - installiere es zuerst.'
+    glass_ok    = 'Glasshouse antwortet ({0}:8080)'
+    ipk_build   = 'Baue das IPK aus app/ ...'
+    no_python   = 'python3 fehlt. Entweder python3 installieren oder das IPK von Hand ueber Glasshouse installieren (Apps, install from a file).'
+    plan        = 'Plan: {0} auf {1} installieren'
+    plan_build  = 'Plan: IPK aus app/ bauen, dann auf {0} installieren'
+    ask         = 'Weiter? [J/n] '
+    aborted     = 'Abgebrochen.'
+    dry         = 'Probelauf: nichts geaendert.'
+    installed   = 'Installiert: {0} {1}'
+    verify_fail = 'Das IPK wurde gemeldet, aber {0} steht nicht in der App-Liste von Glasshouse.'
+    launched    = 'Gestartet. Die Startseite sollte jetzt auf dem Fernseher stehen.'
+    launch_fail = 'Installiert, aber das Starten hat nicht geklappt. Oeffne CleanFrame in der App-Liste.'
+    hub_note    = 'Tipp: die Einstellungen brauchen den Hub, und der braucht SSH und root.'
+    ssh_fail    = 'Kein SSH auf {0}. Der Hub braucht eine gerootete Glotze mit SSH - siehe docs/ROOTING.md.'
+    not_root    = 'SSH antwortet, aber die Sitzung ist nicht root (uid={0}). Der Hub schreibt nach /var/lib und braucht root. Rooten ist nicht Teil dieses Skripts: siehe docs/ROOTING.md.'
+    rooted      = 'SSH als root, uid={0}'
+    no_node     = 'Auf dem Fernseher fehlt ein brauchbares node (gefunden: {0}, gebraucht: >= 8).'
+    copy        = 'Kopiere den Hub nach /var/lib/cleanframe ...'
+    autostart   = 'Autostart einrichten ...'
+    start       = 'Dienst starten ...'
+    health_fail = 'Der Hub antwortet nicht auf Port 8484.'
+    hub_ready   = 'Hub laeuft: http://{0}:8484/'
+    info        = 'Zustand des Fernsehers'
+    hub_skipped = 'Hub uebersprungen: er braucht root, der Launcher nicht.'
   }
 }
 
 function T {
-  # $Args is an automatic variable in PowerShell - do not name a parameter that way.
   param([string]$Key, [object[]]$Vals = @())
-  $s = $Text[$Lang][$Key]
-  if ($null -eq $s) { return $Key }
-  if ($Vals.Count -gt 0) { return ($s -f $Vals) }
-  return $s
+  $text = $M[$Lang][$Key]
+  if ($null -eq $text) { return "[$Key]" }
+  if ($Vals.Count -gt 0) { return ($text -f $Vals) }
+  return $text
 }
 function Say { param([string]$Message) Write-Host $Message }
 function Fail { param([string]$Message) Write-Error $Message; exit 1 }
 
-# ---- 0. tools present --------------------------------------------------------
-foreach ($tool in 'ssh', 'scp') {
-  if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Fail (T 'need_ssh') }
-}
-# Rooting uses the upstream tools, and those are Python (SlopBro has no other
-# implementation). Same for discovery, so a Windows box needs Python 3 on PATH.
 function Get-Python {
-  foreach ($candidate in 'python3', 'python') {
-    $found = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($found) { return $found.Source }
+  foreach ($candidate in @('python3', 'python')) {
+    $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
   }
   return $null
 }
 
-$Python = Get-Python
-
-# ---- 0. find the TV when no address was given --------------------------------
-if (-not $Tv) {
-  if (-not $Python) { Fail (T 'need_python') }
-  Say (T 'find')
-  $json = & $Python (Join-Path $Tools 'discover.py') --json 2>$null | Out-String
-  $found = $null
-  try { $found = ($json | ConvertFrom-Json).hosts } catch { $found = $null }
-  $count = if ($found) { @($found).Count } else { 0 }
-  if ($count -eq 0) { Fail (T 'find_none') }
-  if ($count -eq 1) {
-    $Tv = @($found)[0].ip
-    Say (T 'find_one' @($Tv))
-  } else {
-    Say (T 'find_many')
-    foreach ($host in $found) {
-      Say ("      {0,-15} {1}" -f $host.ip, ($host.name + ' ' + $host.model).Trim())
-    }
-    exit 2
-  }
-}
-
-$sshBase = @('-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=8', '-o', 'BatchMode=yes', "root@$Tv")
-
-function Test-Port {
-  param([int]$Port)
-  $client = New-Object System.Net.Sockets.TcpClient
+function Test-Glasshouse {
+  param([string]$HostAddress)
   try {
-    $task = $client.ConnectAsync($Tv, $Port)
-    return ($task.Wait(3000) -and $client.Connected)
-  } catch { return $false } finally { $client.Dispose() }
+    $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://${HostAddress}:8080/api/apps"
+    return ($r.Content -match 'installed')
+  } catch { return $false }
 }
 
-# ---- state / root ------------------------------------------------------------
+function Find-Tv {
+  $client = New-Object System.Net.Http.HttpClient
+  $client.Timeout = [TimeSpan]::FromMilliseconds(1200)
+  $prefix = $null
+  try {
+    $addr = (Get-NetIPAddress -AddressFamily IPv4 |
+      Where-Object { $_.IPAddress -notlike '127.*' } |
+      Select-Object -First 1).IPAddress
+    if ($addr) { $prefix = ($addr -replace '\.\d+$', '.') }
+  } catch { }
+  if (-not $prefix) { return $null }
+  $tasks = @{}
+  foreach ($i in 1..254) {
+    $ip = "$prefix$i"
+    try { $tasks[$ip] = $client.GetAsync("http://${ip}:8080/api/apps") } catch { }
+  }
+  $deadline = (Get-Date).AddMilliseconds(1800)
+  $found = $null
+  foreach ($ip in $tasks.Keys) {
+    $remaining = ($deadline - (Get-Date)).TotalMilliseconds
+    if ($remaining -lt 50) { break }
+    try {
+      if ($tasks[$ip].Wait([int]$remaining)) {
+        $content = $tasks[$ip].Result.Content.ReadAsStringAsync().Result
+        if ($content -match 'installed') { $found = $ip; break }
+      }
+    } catch { }
+  }
+  $client.Dispose()
+  if ($found) { return $found }
+  foreach ($line in (arp -a | Select-Object -Skip 3)) {
+    if ($line -match '(\d+\.\d+\.\d+\.\d+)') {
+      $ip = $Matches[1]
+      if (Test-Glasshouse $ip) { return $ip }
+    }
+  }
+  return $null
+}
+
+function Invoke-Ssh {
+  param([string]$Command)
+  $out = & ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "root@$Tv" $Command 2>$null
+  if ($null -eq $out) { return '' }
+  return (($out | Out-String) -replace "`r", '').Trim()
+}
+
+if (-not $Tv) {
+  Say (T find)
+  $Tv = Find-Tv
+  if (-not $Tv) { Fail (T find_none) }
+}
+Say ((T found) -f $Tv)
+
+$python = Get-Python
+
 if ($Info) {
-  Say (T 'info')
-  if (Test-Port 22) {
-    & ssh @sshBase 'echo model: $(grep -o "\"modelName\"[^,]*" /var/run/nyx/os_info.json | head -1); echo webos: $(grep -o "\"webos_name\"[^,]*" /var/run/nyx/os_info.json | head -1); echo node: $(/usr/bin/node -v)'
-    Say ("    rooted: yes")
+  Say (T info)
+  $launcherVersion = '?'
+  $versionFile = Join-Path $RepoRoot 'VERSION'
+  if (Test-Path $versionFile) { $launcherVersion = (Get-Content $versionFile -Raw).Trim() }
+  Say ("    launcher: {0} (this repo)" -f $launcherVersion)
+  if ($python) {
+    & $python (Join-Path $PSScriptRoot 'tvinfo.py') $Tv 2>$null | ForEach-Object { Say "    $_" }
+  }
+  $uid = Invoke-Ssh 'id -u'
+  if ($uid -eq '0') {
+    Say '    root:     yes'
+    Say ("    node:     {0}" -f (Invoke-Ssh '/usr/bin/node -v'))
   } else {
-    Say ("    rooted: no")
+    Say '    root:     no (the launcher runs without it, the hub does not)'
   }
   exit 0
 }
 
-# ---- can it be rooted at all? ask the firmware, then judge ----------------------
-$tvModel = $Model
-if (-not $tvModel -and $Python) {
-  try {
-    $probe = (& $Python (Join-Path $Tools 'tvinfo.py') $Tv --json 2>$null | Out-String)
-    $tvModel = ($probe | ConvertFrom-Json).modelName
-  } catch { $tvModel = $null }
-}
-$tvFirmware = $Firmware
-if (-not $tvFirmware -and -not [Console]::IsInputRedirected) {
-  $answer = Read-Host (T 'ask_fw')
-  if ($answer -match '^[0-9]+\.[0-9]+') { $tvFirmware = $answer }
-}
-if ($Python -and $tvModel) {
-  $adviceArgs = @('--model', $tvModel, '--json')
-  if ($tvFirmware) { $adviceArgs += @('--firmware', $tvFirmware) }
-  $advice = (& $Python (Join-Path $Tools 'rootaly.py') @adviceArgs 2>$null | Out-String) | ConvertFrom-Json
-  Say ("    verdict:   " + $advice.verdict)
-  if ($advice.method) { Say ("    method:    " + $advice.method) }
-  Say ("    reason:    " + $advice.reason)
-  if ($advice.link) { Say (T 'fw_link' @($advice.link)) }
-  if ($advice.verdict -eq 'no' -and -not $ForceRoot) { Fail (T 'root_refused') }
-}
+$doLauncher = -not $HubOnly
+$doHub = -not $LauncherOnly
 
-Say (T 'root_check')
-$rooted = $false
-if (Test-Port 22) {
-  $uid = (& ssh @sshBase 'id -u' 2>$null | Out-String).Trim()
-  if ($uid -eq '0') { $rooted = $true }
-}
-
-if ($rooted) {
-  Say (T 'root_ok')
-} else {
-  Say (T 'root_missing')
-  $rootNow = $false
-  if ($NoRoot) {
-    Say (T 'root_no_root')
-    $NoHub = $true
-  } elseif ($Root -or $Yes) {
-    $rootNow = $true
-  } elseif ([Console]::IsInputRedirected) {
-    # No terminal to ask: never root on our own
-    $NoHub = $true
-    $noTty = $true
+if ($doLauncher) {
+  if (-not (Test-Glasshouse $Tv)) { Fail ((T no_glass) -f $Tv) }
+  Say ((T glass_ok) -f $Tv)
+  if ($Ipk) {
+    $ipkPath = (Resolve-Path $Ipk).Path
+    Say ((T plan) -f $ipkPath, $Tv)
   } else {
-    $answer = Read-Host (T 'root_offer')
-    if ($answer -match '^(y|yes|j|ja)$') { $rootNow = $true }
-  }
-  if ($noTty) {
-    Say (T 'root_no_tty')
-  } elseif (-not $rootNow -and -not $NoRoot) {
-    Say (T 'root_declined')
-    $NoHub = $true
-  }
-  if ($rootNow) {
-    Say (T 'root_stage')
-    if (-not $Python) { Fail (T 'need_python') }
-    # LOCALAPPDATA exists on Windows only; fall back so the script also runs on Linux/macOS
-    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path $HOME '.cache' }
-    $SlopBro = Join-Path $base 'cleanframe/slopbro'
-    if (-not (Test-Path (Join-Path $SlopBro 'slopbro.py'))) {
-      Say ("    fetching SlopBro into $SlopBro")
-      New-Item -ItemType Directory -Force -Path (Split-Path $SlopBro) | Out-Null
-      & git clone --depth 1 https://github.com/throwaway96/slopbro.git $SlopBro
-      if (-not (Test-Path (Join-Path $SlopBro 'slopbro.py'))) { Fail 'could not fetch SlopBro (git missing?)' }
-    }
-    Say (T 'root_pair')
-    if ($DryRun) {
-      Say ("    [dry run] $Python " + (Join-Path $SlopBro "slopbro.py") + " $Tv")
-    } else {
-      Push-Location $SlopBro
-      try { & $Python 'slopbro.py' $Tv } finally { Pop-Location }
-      Say (T 'root_wait')
-      $up = $false
-      foreach ($i in 1..60) {
-        if ((Test-Port 23) -or (Test-Port 22)) { $up = $true; break }
-        Start-Sleep -Seconds 3
-      }
-      if (-not $up) { Fail (T 'root_timeout') }
-    }
-    Say (T 'root_setup')
-    if (-not $SshKey) {
-      foreach ($candidate in (Join-Path $HOME '.ssh\lgtv.pub'), (Join-Path $HOME '.ssh\id_ed25519.pub'), (Join-Path $HOME '.ssh\id_rsa.pub')) {
-        if (Test-Path $candidate) { $SshKey = $candidate; break }
-      }
-    }
-    if (-not $SshKey -or -not (Test-Path $SshKey)) { Fail (T 'key_missing' @('~/.ssh/lgtv.pub')) }
-    $argv = @((Join-Path $Tools 'tvsetup.py'), '--tv', $Tv, '--key', $SshKey)
-    if ($DryRun) { $argv += '--dry-run' }
-    & $Python @argv
-    if ($LASTEXITCODE -ne 0) { Fail 'SSH key or Telnet step failed' }
+    if (-not $python) { Fail (T no_python) }
+    $ipkPath = Join-Path $RepoRoot 'dist\cleanframe_all.ipk'
+    Say ((T plan_build) -f $Tv)
   }
 }
 
-# Without root the only way in is an already installed Glasshouse. If that does not
-# answer either, there is nothing to install.
-if (-not $rooted -and -not $rootNow) {
-  $glass = $false
-  try {
-    $resp = Invoke-WebRequest -Uri "http://$($Tv):8080/api/apps" -TimeoutSec 6 -UseBasicParsing
-    if ($resp.Content -match 'installed') { $glass = $true }
-  } catch { }
-  if ($glass) { Say (T 'glass_ok_install') } else { Fail (T 'nothing_without_root') }
+if ($doHub) {
+  $uid = Invoke-Ssh 'id -u'
+  if (-not $uid) { Say ((T ssh_fail) -f $Tv); $doHub = $false }
+  elseif ($uid -ne '0') { Say ((T not_root) -f $uid); $doHub = $false }
+  else { Say ((T rooted) -f $uid) }
 }
 
-# ---- IPK ---------------------------------------------------------------------
-if (-not $NoLauncher) {
-  if (-not $Ipk) {
-    foreach ($candidate in (Join-Path $RepoRoot 'dist\cleanframe_all.ipk'), (Join-Path $RepoRoot 'ipk\cleanframe_all.ipk')) {
-      if (Test-Path $candidate) { $Ipk = $candidate; break }
-    }
-  }
-  if (-not $Ipk -or -not (Test-Path $Ipk)) { Fail (T 'no_ipk') }
-}
+if ($DryRun) { Say (T dry); exit 0 }
 
-# ---- 1. detect ---------------------------------------------------------------
-Say (T 'detect')
-if (-not (Test-Port 22)) {
-  Say (T 'tv_off')
-  if ($DryRun) { Say ''; Say (T 'dry'); exit 0 }
-  Fail (T 'no_ssh' @($Tv))
-}
-Say (T 'tv_on')
-
-# ---- 2. check ----------------------------------------------------------------
-Say (T 'check')
-$nodeRaw = & ssh @sshBase '/usr/bin/node -v' 2>$null
-if ($LASTEXITCODE -ne 0 -or -not $nodeRaw) { Fail (T 'no_ssh' @($Tv)) }
-$nodeVer = ($nodeRaw -join '').Trim().TrimStart('v')
-$major = 0
-if (-not [int]::TryParse(($nodeVer -split '\.')[0], [ref]$major) -or $major -lt 8) {
-  Fail (T 'no_node' @($nodeVer))
-}
-Say (T 'node_ok' @($nodeVer))
-
-try {
-  $glass = Invoke-RestMethod -Uri "http://$Tv`:8080/api/apps" -TimeoutSec 8
-} catch { Fail (T 'no_glass') }
-Say (T 'glass_ok' @($Tv))
-
-# ---- 3. plan -----------------------------------------------------------------
-Say (T 'plan')
-if (-not $NoLauncher) { Say (T 'plan_launcher' @($Ipk)) }
-if (-not $NoHub) { Say (T 'plan_hub') }
-
-if ($DryRun) { Say ''; Say (T 'dry'); exit 0 }
-
-# ---- 4. confirm --------------------------------------------------------------
 if (-not $Yes) {
-  $answer = Read-Host (T 'ask')
-  if ($answer -match '^(n|no|nein)$') { Say (T 'aborted'); exit 0 }
+  $answer = Read-Host (T ask)
+  if ($answer -match '^(n|N|no|nein)') { Say (T aborted); exit 0 }
 }
 
-# ---- 5. install --------------------------------------------------------------
-if (-not $NoLauncher) {
-  Say (T 'launcher')
-  # Upload through Glasshouse's own installer - the same path the Homebrew Channel
-  # uses. luna-send does not work from the webOS shell on 6.5.
-  $bytes = [System.IO.File]::ReadAllBytes($Ipk)
-  Invoke-RestMethod -Method Post -Uri "http://$Tv`:8080/api/apps/install/sideload" `
-    -ContentType 'application/json' -Body '{"enabled":true}' -TimeoutSec 30 | Out-Null
-  $job = Invoke-RestMethod -Method Post -Uri "http://$Tv`:8080/api/apps/install/upload" `
-    -ContentType 'application/octet-stream' -Body $bytes -TimeoutSec 900
-  $jobId = $job.install.jobId
-  if (-not $jobId) { Fail ('upload rejected: ' + ($job | ConvertTo-Json -Compress)) }
-  $deadline = (Get-Date).AddMinutes(5)
-  $confirmed = $false
-  $state = '?'
-  while ((Get-Date) -lt $deadline) {
-    $status = Invoke-RestMethod -Uri "http://$Tv`:8080/api/apps/install/status" -TimeoutSec 20
-    $state = $status.state
-    if ($state -eq 'awaiting-confirm' -and -not $confirmed) {
-      Invoke-RestMethod -Method Post -Uri "http://$Tv`:8080/api/apps/install/confirm" `
-        -ContentType 'application/json' -Body (@{ jobId = $jobId } | ConvertTo-Json) -TimeoutSec 30 | Out-Null
-      $confirmed = $true
-    } elseif ($state -in @('installed', 'done')) { break }
-    elseif ($state -in @('failed', 'error', 'cancelled')) { Fail ('install failed: ' + ($status | ConvertTo-Json -Compress)) }
-    Start-Sleep -Seconds 3
+if ($doLauncher) {
+  if (-not $Ipk) {
+    Say (T ipk_build)
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ipkPath) | Out-Null
+    & $python (Join-Path $PSScriptRoot 'build-ipk.py') (Join-Path $RepoRoot 'app') $ipkPath
+    if ($LASTEXITCODE -ne 0) { Fail 'IPK build failed' }
   }
-  Invoke-RestMethod -Method Post -Uri "http://$Tv`:8080/api/apps/install/sideload" `
-    -ContentType 'application/json' -Body '{"enabled":false}' -TimeoutSec 20 | Out-Null
-}
+  if (-not $python) { Fail (T no_python) }
+  & $python (Join-Path $PSScriptRoot 'install-ipk.py') --tv $Tv --ipk $ipkPath
+  if ($LASTEXITCODE -ne 0) { exit 1 }
 
-if (-not $NoHub) {
-  Say (T 'hub')
-  # scp needs forward slashes on the remote side
-  & ssh @sshBase 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets /var/lib/webosbrew/init.d'
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\server.js') "root@$($Tv):/var/lib/cleanframe/server.js"
-  # scp expands no wildcards by itself - the file list has to come from PowerShell.
-  $libFiles = Get-ChildItem -Path (Join-Path $RepoRoot 'web\lib') -Filter '*.js' | ForEach-Object { $_.FullName }
-  # -Include only works together with a wildcard path
-  $assetFiles = @(
-    Get-ChildItem -Path (Join-Path $RepoRoot 'web\assets\*') -Include '*.html', '*.json' -File |
-      ForEach-Object { $_.FullName }
-  )
-  if ($assetFiles.Count -eq 0) { Fail 'ERROR: no hub assets found under web/assets' }
-  & scp -q -o StrictHostKeyChecking=no $libFiles "root@$($Tv):/var/lib/cleanframe/lib/"
-  & scp -q -o StrictHostKeyChecking=no $assetFiles "root@$($Tv):/var/lib/cleanframe/assets/"
-  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\assets\icons') "root@$($Tv):/var/lib/cleanframe/assets/"
-  # Language files live in their own directory; without them the interface shows keys.
-  & scp -r -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\assets\lang') "root@$($Tv):/var/lib/cleanframe/assets/"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\cleanframectl') "root@$($Tv):/var/lib/cleanframe/cleanframectl"
-  & scp -q -o StrictHostKeyChecking=no (Join-Path $RepoRoot 'web\init.d\52-cleanframe') "root@$($Tv):/var/lib/webosbrew/init.d/52-cleanframe"
-  & ssh @sshBase 'chmod +x /var/lib/cleanframe/cleanframectl /var/lib/webosbrew/init.d/52-cleanframe; /var/lib/cleanframe/cleanframectl restart'
-}
+  $apps = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 "http://${Tv}:8080/api/apps"
+  $appVersion = $null
+  foreach ($app in ($apps.Content | ConvertFrom-Json).installed) {
+    if ($app.id -eq $AppId) { $appVersion = $app.version; break }
+  }
+  if (-not $appVersion) { Fail ((T verify_fail) -f $AppId) }
+  Say ((T installed) -f $AppId, $appVersion)
 
-# ---- 6. verify ---------------------------------------------------------------
-Say (T 'verify')
-$health = $null
-foreach ($i in 1..15) {
   try {
-    $health = Invoke-RestMethod -Uri "http://$Tv`:8484/api/health" -TimeoutSec 6
-    if ($health.ok) { break }
-  } catch { Start-Sleep -Seconds 1 }
+    $body = @{ action = 'launchApp'; value = $AppId } | ConvertTo-Json -Compress
+    Invoke-WebRequest -UseBasicParsing -Method Post -ContentType 'application/json' `
+      -Body $body -TimeoutSec 10 "http://${Tv}:8080/api/control" | Out-Null
+    Say (T launched)
+  } catch { Say (T launch_fail) }
 }
-if (-not $health -or -not $health.ok) { Fail (T 'fail_health') }
-Say (T 'ok_health' @(($health | ConvertTo-Json -Compress).Substring(0, [Math]::Min(120, ($health | ConvertTo-Json -Compress).Length))))
 
-if (-not $NoLauncher) {
-  $apps = (Invoke-RestMethod -Uri "http://$Tv`:8080/api/apps" -TimeoutSec 15).installed
-  $mine = $apps | Where-Object { $_.id -eq $AppIdDefault } | Select-Object -First 1
-  if (-not $mine) { Fail (T 'fail_app' @($AppIdDefault)) }
-  Say (T 'ok_app' @($AppIdDefault, $mine.version))
+if ($doHub) {
+  $nodeVersion = Invoke-Ssh '/usr/bin/node -v'
+  if (-not ($nodeVersion -match 'v(\d+)')) { Fail ((T no_node) -f $nodeVersion) }
+  if ([int]$Matches[1] -lt 8) { Fail ((T no_node) -f $nodeVersion) }
 
-  # Installing replaces the app folder, so start it and wait for a picture: that is
-  # the difference between "installed" and "on screen".
-  Invoke-RestMethod -Method Post -Uri "http://$Tv`:8080/api/control" -ContentType 'application/json' `
-    -Body (@{ action = 'launchApp'; value = $AppIdDefault } | ConvertTo-Json) -TimeoutSec 20 | Out-Null
-  $shot = $null
-  foreach ($i in 1..20) {
-    try {
-      Invoke-WebRequest -Uri "http://$Tv`:8484/api/tv/snapshot" -TimeoutSec 8 -OutFile ([System.IO.Path]::GetTempFileName()) | Out-Null
-      $shot = 200; break
-    } catch { Start-Sleep -Seconds 1 }
+  $web = Join-Path $RepoRoot 'web'
+  Say (T copy)
+  Invoke-Ssh 'mkdir -p /var/lib/cleanframe/lib /var/lib/cleanframe/assets' | Out-Null
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'server.js') "root@${Tv}:/var/lib/cleanframe/server.js"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'lib\*.js') "root@${Tv}:/var/lib/cleanframe/lib/"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'assets\*.html') (Join-Path $web 'assets\*.json') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -r -o StrictHostKeyChecking=no (Join-Path $web 'assets\icons') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -r -o StrictHostKeyChecking=no (Join-Path $web 'assets\lang') "root@${Tv}:/var/lib/cleanframe/assets/"
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'cleanframectl') "root@${Tv}:/var/lib/cleanframe/cleanframectl"
+  Invoke-Ssh 'chmod +x /var/lib/cleanframe/cleanframectl' | Out-Null
+
+  Say (T autostart)
+  & scp -q -o StrictHostKeyChecking=no (Join-Path $web 'init.d\52-cleanframe') "root@${Tv}:/var/lib/webosbrew/init.d/52-cleanframe"
+  Invoke-Ssh 'chmod +x /var/lib/webosbrew/init.d/52-cleanframe' | Out-Null
+
+  Say (T start)
+  Invoke-Ssh '/var/lib/cleanframe/cleanframectl restart' | Out-Null
+  $healthy = $false
+  for ($i = 0; $i -lt 20; $i++) {
+    if ((Invoke-Ssh 'curl -sS -m 3 http://127.0.0.1:8484/api/health') -match '"ok":true') { $healthy = $true; break }
+    Start-Sleep -Seconds 1
   }
-  if ($shot -eq 200) { Say '    launcher is on screen (live picture available)' }
-  else { Say '    note: launcher started, but no live picture yet - open it on the TV' }
+  if (-not $healthy) { Fail (T health_fail) }
+  Say ((T hub_ready) -f $Tv)
+} elseif ($doLauncher) {
+  Say (T hub_note)
+  Say (T hub_skipped)
 }
 
-# ---- 7. report ---------------------------------------------------------------
-Say ''
-Say (T 'report')
-Say ("    interface: http://$Tv`:8484/")
-Say ("    app id:    $AppIdDefault")
+exit 0

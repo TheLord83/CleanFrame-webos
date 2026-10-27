@@ -20,20 +20,20 @@ docker build -t cleanframe-installer .
 # in the network of the TV, with the repo mounted:
 docker run --rm -it --network host -v "$PWD/../..:/cleanframe" cleanframe-installer --info
 docker run --rm -it --network host -v "$PWD/../..:/cleanframe" cleanframe-installer --dry-run
-docker run --rm -it --network host -v "$PWD/../..:/cleanframe" cleanframe-installer 192.168.178.42
+docker run --rm -it --network host -v "$PWD/../..:/cleanframe" cleanframe-installer 192.168.1.50
 ```
 
 `--network host` is not optional: with bridge networking the container cannot see the LAN
 broadcast for SSDP and cannot reach the TV. `-it` keeps the confirmation dialog and the
 pairing prompt usable.
 
-The first `--root` run fetches SlopBro into the container's home directory, which is
+A run of `tools/root/root-it.sh` fetches SlopBro into the container's home directory, which is
 throwaway. Mount a directory over it to keep it:
 
 ```sh
 docker run --rm -it --network host \
   -v "$PWD/../..:/cleanframe" -v "$PWD/slopbro:/root/.cache/cleanframe" \
-  cleanframe-installer --root
+  cleanframe-installer --tv 192.168.1.50 --launcher-only
 ```
 
 ## On TrueNAS SCALE (custom app)
@@ -69,5 +69,5 @@ in the same broadcast domain as the TV.
 ## What the container does not do
 
 It does not bypass anything: the exploit still needs the pairing prompt accepted on the TV,
-and `--root` still stops when the firmware is newer than the exploit. It only saves you from
+and `tools/root/root-it.sh` still stops when the firmware is newer than the exploit. The container only saves you from
 driving to the other flat with a laptop.

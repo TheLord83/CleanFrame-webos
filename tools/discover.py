@@ -14,7 +14,7 @@ Two independent methods, because either one alone misses cases:
 Usage:
     python3 tools/discover.py                # human-readable table
     python3 tools/discover.py --json         # machine-readable
-    python3 tools/discover.py --subnet 192.168.0.0/24 --timeout 0.4
+    python3 tools/discover.py --subnet 192.168.1.0/24 --timeout 0.4
 
 Exit codes: 0 = at least one candidate found, 1 = none, 2 = bad arguments.
 """

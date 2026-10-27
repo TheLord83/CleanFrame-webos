@@ -25,7 +25,7 @@ Known rules (as published in the projects, checked 2026-10):
 
   wta / crashd  patched (crashd since 04/2024), listed here so nobody tries them.
 
-  python3 tools/rootaly.py --model 43NANO779PA --webos 6.5 --firmware 03.51.16
+  python3 tools/root/rootaly.py --model 43NANO779PA --webos 6.5 --firmware 03.51.16
 """
 import argparse
 import json

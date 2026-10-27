@@ -23,7 +23,7 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TVSETUP = os.path.join(HERE, "tvsetup.py")
+TVSETUP = os.path.join(HERE, "root", "tvsetup.py")
 PORT = 12323
 KEY_LINE = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITESTKEYONLYNOTAREALKEY test@harness"
 

@@ -6,7 +6,7 @@
 # repo checked out:
 #
 #   docker run --rm -it --network host -v "$PWD/..:/cleanframe" cleanframe-installer --dry-run
-#   docker run --rm -it --network host -v "$PWD/..:/cleanframe" cleanframe-installer 192.168.178.42
+#   docker run --rm -it --network host -v "$PWD/..:/cleanframe" cleanframe-installer 192.168.1.50
 set -u
 
 if [ ! -f /cleanframe/tools/install.sh ]; then
@@ -19,8 +19,8 @@ Then pass the usual installer options, for example:
 
   --dry-run                 detect, check and print the plan only
   --info                    model, webOS version, node version
-  192.168.178.42            explicit TV address (otherwise the network is searched)
-  --root                    root the TV first, then install
+  192.168.1.50            explicit TV address (otherwise the network is searched)
+  --launcher-only           install the IPK, no hub, no SSH
 
 Note: --network host is required, otherwise SSDP discovery and the TV on the LAN
 are unreachable.

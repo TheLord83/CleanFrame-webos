@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the installer really refuse to root a patched firmware?
+"""Does the rooting helper really refuse a patched firmware?
 
 The firmware is the one thing an unrooted TV will not hand out over the network, so the
 installer asks for it (or takes --firmware). This test feeds both cases straight in and
@@ -23,10 +23,15 @@ def run(model, firmware):
     env = dict(os.environ)
     env.update({"CF_FIRMWARE": firmware, "CF_SLOPBRO": "/nonexistent-slopbro"})
     return subprocess.run(
-        ["bash", os.path.join(HERE, "install.sh"), "127.0.0.1", "--root", "--dry-run",
+        ["bash", os.path.join(HERE, "root", "root-it.sh"), "--tv", "127.0.0.1", "--dry-run",
          "--model", model, "--firmware", firmware],
         cwd=ROOT, env=env, capture_output=True, text=True, timeout=180,
     )
+
+
+def out(result):
+    """Everything the run said. Errors go to stderr, verdicts to stdout."""
+    return result.stdout + result.stderr
 
 
 def main():
@@ -37,12 +42,12 @@ def main():
 
     patched = run("43NANO779PA", "03.99.99")
     check("patched firmware is refused", patched.returncode == 1, "rc=%s" % patched.returncode)
-    check("the refusal says why", "patched" in patched.stdout.lower(), patched.stdout[-400:])
-    check("refusal names the ceiling", "03.53.45" in patched.stdout, patched.stdout[-400:])
-    check("refusal prints the cani link", "cani.rootmy.tv/?q=" in patched.stdout,
-          patched.stdout[-400:])
-    check("no root stage after the refusal", "Rooting (SlopBro)" not in patched.stdout,
-          patched.stdout[-400:])
+    check("the refusal says why", "patched" in out(patched).lower(), out(patched)[-400:])
+    check("refusal names the ceiling", "03.53.45" in out(patched), out(patched)[-400:])
+    check("refusal prints the cani link", "cani.rootmy.tv/?q=" in out(patched),
+          out(patched)[-400:])
+    check("no root stage after the refusal", "Rooting (SlopBro)" not in out(patched),
+          out(patched)[-400:])
 
     good = run("43NANO779PA", "03.51.16")
     check("vulnerable firmware passes the gate", "verdict:   yes" in good.stdout,

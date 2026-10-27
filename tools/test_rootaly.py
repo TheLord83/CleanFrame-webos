@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for tools/rootaly.py — the "can this TV be rooted?" judgement.
+"""Tests for tools/root/rootaly.py — the "can this TV be rooted?" judgement.
 
 The point of these cases: a wrong "yes" sends the installer into a patched exploit, so the
 tool must answer "unknown" instead of guessing, and it must know the one ceiling we can
@@ -11,7 +11,9 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "root"))
 import rootaly  # noqa: E402
 
 
