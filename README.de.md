@@ -20,8 +20,10 @@ ersetzt nur die Geräteanbindung: `app/device.js` spricht den lokal auf dem Fern
 *Der Hub im Browser: jede Einstellung der App, gespeichert beim Ändern — dazu ein Live-Bild
 des Fernsehers und eine Fernbedienung für die Fälle, in denen der Weg zum Sofa zu weit ist.*
 
-**[Aktuelles Release herunterladen](https://github.com/TheLord83/CleanFrame-webos/releases/latest)** —
-ein IPK, Glasshouse installiert es, fünf Minuten. Die Einstellungsseite daneben ist optional.
+**[Im Homebrew Channel eintragen](https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json)** —
+eine Adresse, dann installieren und aktualisieren über den Channel. Oder das
+[IPK aus dem Release](https://github.com/TheLord83/CleanFrame-webos/releases/latest) nehmen und
+in Glasshouse geben. Die Einstellungsseite daneben ist optional.
 
 ## Zwei Teile
 
@@ -85,29 +87,52 @@ Wo die Firmware-Nummer am Fernseher steht — mit beiden Wegen: [docs/FIRMWARE.d
 
 ## Installieren
 
-Ein Weg, der heute funktioniert, einer, der mit dem Release kommt, und die Scripts — die sind
-experimentell und nicht der Einstieg.
+Zwei Wege, die funktionieren, und die Scripts — die sind experimentell und nicht der Einstieg.
 
-| Weg | Wie | Braucht | Stand |
+| Weg | Wie | Braucht | Updates |
 | --- | --- | --- | --- |
-| **Von Hand** | Glasshouse → Apps → *install from a file* | das IPK | geht, fünf Minuten |
-| Homebrew Channel | Repository-Datei aus einem Release | — | noch nicht, braucht das Release |
+| **Homebrew Channel** | eine Repository-Adresse eintragen, aus dem Channel installieren | gerooteter Fernseher mit Channel | kommen von selbst |
+| Von Hand | Glasshouse → Apps → *install from a file* | das IPK | neues IPK wieder installieren |
 | Scripts | `tools/install-launcher.sh`, `tools/install-hub.sh` | `curl`, `python3`, SSH | **experimentell** |
 
-Der Launcher ist ein IPK, und Glasshouse installiert es. Das ist die ganze Installation. Der Hub
-ist optional und braucht SSH: eine Kopie plus Autostart.
+Der Launcher ist ein IPK. Der Hub ist optional und braucht SSH: eine Kopie plus Autostart.
 
-### 1. Von Hand, fünf Minuten
+### 1. Homebrew Channel
+
+So werden die anderen Launcher in der Szene verteilt, und ab jetzt ist es auch hier der normale
+Weg: der Channel liest eine Repository-Datei, und jede spätere Version kommt von dort, ohne dass
+du etwas tun musst.
+
+1. Homebrew Channel auf dem Fernseher, *Settings*, *Add repository*
+2. diese Adresse eintragen:
+
+```text
+https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json
+```
+
+3. CleanFrame steht dann in der App-Liste des Channels, dort installieren
+4. CleanFrame einmal aus der App-Liste starten, damit es sich einrichtet
+
+Die Adresse zeigt auf das jeweils neueste Release, sie muss also nie geändert werden. Wer
+festnageln will, was er installiert, nimmt dieselbe Datei aus dem Repo:
+[`repo/apps.json`](repo/apps.json)
+(`raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/repo/apps.json`). Beide schreibt
+`tools/make-apps-json.py` aus dem gebauten IPK — Hash, Größe, Manifest, Download-URL.
+
+### 2. Von Hand, fünf Minuten
+
+Sinnvoll, solange der Channel noch nicht installiert ist (er installiert seine eigenen Pakete),
+oder wenn du genau sehen willst, welche Datei auf den Fernseher geht.
 
 1. das IPK aus dem [aktuellen Release](https://github.com/TheLord83/CleanFrame-webos/releases/latest)
    holen, oder selbst bauen: `python3 tools/build-ipk.py app dist/cleanframe_all.ipk`
 2. Glasshouse → **Apps** → *install from a file* → IPK wählen → Versionsabfrage bestätigen
-3. CleanFrame einmal aus der App-Liste starten, damit es sich einrichtet
-4. fertig. Die Startseite läuft, ohne Hub
+3. CleanFrame einmal aus der App-Liste starten
+
+### Der Hub — optional, braucht eine Root-Shell
 
 Der Hub ist für die, die die Einstellungsseite im Browser wollen (dort wohnen die
-Home-Assistant-Werte, MQTT und die Fernbedienung). Er ist ein node-Prozess und braucht eine
-Root-Shell:
+Home-Assistant-Werte, MQTT und die Fernbedienung). Er ist ein node-Prozess und braucht root:
 
 ```sh
 scp -r web root@<tv-ip>:/var/lib/cleanframe
@@ -116,22 +141,6 @@ ssh root@<tv-ip> 'chmod +x /var/lib/cleanframe/cleanframectl && /var/lib/cleanfr
 
 Danach `http://<tv-ip>:8484/` öffnen. Einzelheiten samt Autostart-Hook:
 [docs/INSTALL.md](docs/INSTALL.md).
-
-### 2. Homebrew-Channel-Repository
-
-Der normale Weg, und der, über den die anderen Launcher in der Szene verteilt werden: der
-Homebrew Channel liest eine Repository-Datei unter *Settings*, *Add repository*, und ab dann
-kommen die Updates von dort. Diese Adresse eintragen:
-
-```text
-https://github.com/TheLord83/CleanFrame-webos/releases/latest/download/repo.json
-```
-
-Sie zeigt auf das jeweils neueste Release, die Adresse bleibt also gleich. Dieselbe Datei liegt
-als [`repo/apps.json`](repo/apps.json) im Repo
-(`raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/repo/apps.json`), wenn du festnageln
-willst, was du installierst. Beide schreibt `tools/make-apps-json.py` aus dem gebauten IPK —
-Hash, Größe, Manifest, Download-URL — und hängt sie ans Release.
 
 ### 3. Die Scripts — experimentell, und deshalb hier unten
 
