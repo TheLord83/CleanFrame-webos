@@ -50,6 +50,51 @@ Home Assistant states read correctly against other people's entities.
 The source is on GitHub, and an issue with a photo of the screen is the most
 useful thing I can get: <REPO-LINK>
 
+**Status 2026-10-27: the r/webos mods approved this post ("Sure, you can post
+it"). The paste-ready version is below; it carries no repo link because the
+repository is still private. Ask for the IPK in the thread, not by DM, so the
+mods can see what happens.**
+
+---
+
+## B1. Approved version, paste as is (r/webos, 2026-10-27)
+
+Title:
+
+```
+I ported an open-source launcher to webOS, looking for feedback from other models
+```
+
+Body:
+
+Short version: I ported CleanFrame (MIT, the launcher the Samsung The Frame crowd
+uses) to webOS and wrote a small service that holds the configuration. It runs on
+my 43NANO779PA with webOS 6.5. The mods said a post about it is fine, so this is a
+request for feedback and not a download page.
+
+What it does: its own start page with app tiles, wallpapers and a clock; German and
+English, independent of the TV language; a senior mode with bigger text; up to 12
+Home Assistant values as a strip above the app bar that you can switch with OK; and
+configuration in a browser instead of on the remote. No telemetry, no ads.
+
+What it needs: a rooted TV with the Homebrew Channel, plus Glasshouse for the app
+list. Without Glasshouse the launcher has no apps to show.
+
+Where I am stuck: it has only ever run on my one TV. I do not know whether it
+starts on webOS 7 and newer, what breaks on OLED sets, or whether the Home Assistant
+states read correctly against other people's entities.
+
+If you have a different model and want to try it, say so in the thread and I will
+send you the IPK. If something breaks, a photo of the screen plus your model and
+webOS version is the most useful report I can get.
+
+Hobby project, no warranty, rooting can void yours. It is a launcher, not a new OS:
+LG's apps, settings and updates keep working.
+
+Images, in this order: `beta-start-page.jpg`, `beta-values-page.jpg`,
+`beta-hub-mobile.png`.
+
+
 ---
 
 ## C. For r/selfhosted or r/homelab, project post with a public repo
