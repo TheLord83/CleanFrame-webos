@@ -265,6 +265,31 @@
       <button class="action" id="btnMqSave" data-t="common.save">Speichern</button>
     </div>
     <div class="status" id="mqStatus"></div>
+
+    <h2 style="margin-top:28px"><span data-t="int.wx.title">Wetter</span></h2>
+    <p class="hint" data-t="int.wx.hint">Eine Zeile neben der Uhr. Der Hub holt sie bei Open-Meteo, ohne Konto und ohne Schlüssel; der Fernseher selbst geht nicht ins Netz. Ohne Hub bleibt die Zeile leer.</p>
+    <div class="row" style="margin-bottom:10px">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="wxOn"> <span data-t="int.wx.enable">Wetterzeile anzeigen</span></label>
+    </div>
+    <div class="grid">
+      <div>
+        <label for="wxPlace" data-t="int.wx.place">Ort</label>
+        <input id="wxPlace" placeholder="Kiel">
+      </div>
+      <div>
+        <label for="wxUnit" data-t="int.wx.unit">Einheit</label>
+        <select id="wxUnit"><option value="c">°C</option><option value="f">°F</option></select>
+      </div>
+      <div>
+        <label for="wxLine" data-t="int.wx.line">Was in der Zeile steht</label>
+        <select id="wxLine"><option value="temp" data-t="int.wx.lineTemp">Temperatur und Wetter</option><option value="highlow" data-t="int.wx.lineHighLow">dazu Höchst- und Tiefstwert</option></select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="btnWxFind" data-t="int.wx.find">Ort suchen</button>
+      <button class="action" id="btnWxSave" data-t="common.save">Speichern</button>
+    </div>
+    <div class="status" id="wxStatus"></div>
   </section>
 
   <section data-tab="system">
@@ -869,6 +894,13 @@
     $('mqUser').value = c.integrations.mqtt.user || '';
     $('mqPass').value = '';
     $('mqPrefix').value = c.integrations.mqtt.prefix || 'cleanframe';
+    if (c.integrations.weather) {
+      var w = c.integrations.weather;
+      $('wxOn').checked = w.enabled === true;
+      $('wxPlace').value = w.place || '';
+      $('wxUnit').value = w.unit === 'f' ? 'f' : 'c';
+      $('wxLine').value = w.line === 'highlow' ? 'highlow' : 'temp';
+    }
     applySavedPlaceholders();
   }
 
@@ -1316,6 +1348,38 @@
     m.prefix = $('mqPrefix').value.trim() || 'cleanframe';
     if ($('mqPass').value) m.password = $('mqPass').value;
     save(state.cfg, $('mqStatus'), 'int.mqtt.saved');
+  };
+
+  $('btnWxFind').onclick = function () {
+    var name = $('wxPlace').value.trim();
+    if (!name) return note($('wxStatus'), 'int.wx.needPlace', null, false);
+    note($('wxStatus'), 'int.wx.finding');
+    api('POST', '/api/weather/place', { name: name })
+      .then(function (r) {
+        if (!r.ok) return note($('wxStatus'), 'int.wx.notFound', { name: name }, false);
+        $('wxPlace').value = r.place;
+        state.cfg.integrations.weather.place = r.place;
+        state.cfg.integrations.weather.lat = r.lat;
+        state.cfg.integrations.weather.lon = r.lon;
+        note($('wxStatus'), 'int.wx.found', { name: r.place }, true);
+      }).catch(function (e) { note($('wxStatus'), 'err.save', { msg: e.message, retried: '' }, false); });
+  };
+
+  $('btnWxSave').onclick = function () {
+    var w = state.cfg.integrations.weather;
+    w.enabled = $('wxOn').checked === true;
+    w.unit = $('wxUnit').value === 'f' ? 'f' : 'c';
+    w.line = $('wxLine').value === 'highlow' ? 'highlow' : 'temp';
+    /* Angezeigter Ort ohne Koordinaten: erst suchen lassen, sonst zeigt die
+     * Zeile nichts und niemand weiss warum. */
+    if (w.enabled && (!w.lat && !w.lon) && $('wxPlace').value.trim()) {
+      return api('POST', '/api/weather/place', { name: $('wxPlace').value.trim() })
+        .then(function (r) {
+          if (r.ok) { $('wxPlace').value = r.place; w.place = r.place; w.lat = r.lat; w.lon = r.lon; }
+          save(state.cfg, $('wxStatus'), 'int.wx.saved');
+        }).catch(function () { save(state.cfg, $('wxStatus'), 'int.wx.saved'); });
+    }
+    save(state.cfg, $('wxStatus'), 'int.wx.saved');
   };
 
   document.getElementById('pickerClose').onclick = function () {

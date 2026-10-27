@@ -3,6 +3,20 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.5
+
+The first of the ideas from the neighbours, and a roadmap to go with it.
+
+- **Weather line.** A temperature and a word next to the clock, switched on in the settings page
+  under *Integrations*. Open-Meteo, no account, no key, no geolocation: the place is looked up once
+  by name and stored as coordinates. The **hub** fetches it and caches it for fifteen minutes, so
+  the television never talks to the internet. Off by default; without a hub the line stays empty.
+- `GET /api/weather` and `POST /api/weather/place` in the hub API, `docs/WEB.md` describes both.
+- Five new checks in `tools/test-web-api.py`, with a local Open-Meteo stand-in so the suite never
+  needs the network: off by default, rounded values, the cache, the geocoding, an unknown place.
+- `docs/ROADMAP.md` and twelve issues in the tracker, so the list of what is missing is written
+  down instead of remembered.
+
 ## 0.5.4
 
 The package lost two thirds of its weight, and nothing looks different.

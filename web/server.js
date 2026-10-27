@@ -46,8 +46,9 @@ var systemkey = require('./lib/systemkey');
 var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
+var weather = require('./lib/weather');
 
-var VERSION = '0.5.4';
+var VERSION = '0.5.5';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -369,6 +370,37 @@ function handle(req, res) {
       var conf3 = store.read();
       return ha.toggle(conf3.integrations.ha, body && body.entity_id, function (r) {
         json(res, r.ok ? 200 : 400, r);
+      });
+    });
+  }
+
+  /* Weather for the line next to the clock. The hub fetches it, so the
+   * television keeps its own promise of not talking to the internet: one
+   * request here, cached for fifteen minutes, no key, no account. */
+  if (req.method === 'GET' && p === '/api/weather') {
+    var wconf = store.read();
+    var w = wconf.integrations.weather || {};
+    if (!w.enabled) return json(res, 200, { ok: true, enabled: false });
+    return weather.forecast(w, wconf.lang, function (err, r) {
+      if (err) return json(res, 200, { ok: false, enabled: true, error: err.message });
+      json(res, 200, r);
+    });
+  }
+
+  if (req.method === 'POST' && p === '/api/weather/place') {
+    if (!postGuard(req, res)) return;
+    return readBody(req, function (body) {
+      var current = store.read();
+      var wanted = String((body && body.name) || '').slice(0, 80);
+      if (!wanted) return json(res, 400, { ok: false, error: 'kein Ort angegeben' });
+      weather.geocode(wanted, current.lang, function (err, hit) {
+        if (err) return json(res, 200, { ok: false, error: err.message });
+        current.integrations.weather.place = hit.name;
+        current.integrations.weather.lat = hit.lat;
+        current.integrations.weather.lon = hit.lon;
+        store.write(current);
+        weather.reset();
+        json(res, 200, { ok: true, place: hit.name, lat: hit.lat, lon: hit.lon });
       });
     });
   }

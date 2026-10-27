@@ -1452,6 +1452,8 @@
   function renderCaption(t, hs) {
     /* The clock can be switched off (setting "Show clock"); default: on. */
     var html = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
+    var wx = weatherText();
+    if (wx && S.c.clock !== false) html += '<span class="wx">' + esc(wx) + '</span>';
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
   }
@@ -2387,6 +2389,10 @@
 
   /* ---------- Lifecycle and remote input ---------- */
   var clockTimer = 0, rotationTimer = 0, activeSince = 0, activeMs = 0, rotationKey = '';
+  /* Weather line. Fetched by the hub (it holds the coordinates and the cache),
+   * never by the television itself: the launcher has no business talking to the
+   * internet. Off unless the settings page switched it on. */
+  var wxState = { enabled: false, line: 'temp', data: null, timer: 0, tried: 0 };
   function rotationActive() { return !document.hidden && top().id === 'home' && S.c.bg === 'photo' && !S.pending && mode().min > 0; }
   function pauseRotation() {
     if (activeSince) { activeMs += Date.now() - activeSince; activeSince = 0; }
@@ -2404,8 +2410,39 @@
       if (rotationActive()) setLook({ wall: WALLS[(wallIndex(S.c.wall) + 1) % WALLS.length].id }, { row: 'bg' });
     }, Math.max(10, mode().min * QA.minuteMs - activeMs));
   }
+  /* Fifteen minutes: Open-Meteo itself updates the current weather about every
+   * quarter of an hour, so asking more often only costs a request. */
+  var WX_EVERY = 15 * 60 * 1000;
+  function weatherText() {
+    var d = wxState.data;
+    if (!d || d.ok !== true || typeof d.temp !== 'number') return '';
+    var deg = '\u00b0';
+    if (wxState.line === 'highlow' && typeof d.high === 'number' && typeof d.low === 'number') {
+      return d.temp + deg + ' ' + d.text + ' \u00b7 ' + d.high + '/' + d.low + deg;
+    }
+    return d.temp + deg + ' ' + (d.text || '');
+  }
+  function loadWeather(force) {
+    var now = Date.now();
+    if (!wxState.enabled) { wxState.data = null; return; }
+    if (!window.FrameDevice || !FrameDevice.api) return;
+    if (!force && wxState.tried && now - wxState.tried < WX_EVERY) return;
+    wxState.tried = now;
+    clearTimeout(wxState.timer);
+    wxState.timer = setTimeout(function () { loadWeather(true); }, WX_EVERY);
+    FrameDevice.api('GET', '/api/weather', null, function (err, data) {
+      /* A failing hub must not empty the line: the last value stays until a new
+       * one arrives, and the clock keeps drawing regardless. */
+      if (err || !data || data.ok !== true) return;
+      wxState.data = data;
+      if (top().id === 'home' || isSettingsDetail(top())) renderCaption(top(), homeState(top()));
+    });
+  }
   function updateClock() {
     clearTimeout(clockTimer);
+    /* The line carries a temperature, not a minute, so it is enough to look
+     * again whenever the clock comes back into view. */
+    if (wxState.enabled && wxState.data && Date.now() - (wxState.data.at ? Date.parse(wxState.data.at) : 0) > WX_EVERY) loadWeather(true);
     if (document.hidden) return;
     if (top().id === 'home' || isSettingsDetail(top())) renderCaption(top(), homeState(top()));
     clockTimer = setTimeout(updateClock, 60000 - (Date.now() % 60000) + 30);
@@ -2559,6 +2596,7 @@
     },
     focusStage: focusStage,
     serverConfig: function () { return S.serverCfg || null; },
+    weather: function () { return { enabled: wxState.enabled, text: weatherText(), data: wxState.data }; },
     look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },
     walls: function () { return WALLS.map(function (w) { return w.id; }); },
     serverPayload: function () { return serverPayload(S.c); },
@@ -2725,6 +2763,12 @@
       }
       if (typeof cfg.look.clock === 'boolean') c.clock = cfg.look.clock;
       if (typeof cfg.look.clock24 === 'boolean') c.clock24 = cfg.look.clock24;
+      if (cfg.integrations && cfg.integrations.weather) {
+        var wcf = cfg.integrations.weather;
+        wxState.enabled = wcf.enabled === true;
+        wxState.line = wcf.line === 'highlow' ? 'highlow' : 'temp';
+        loadWeather();
+      }
     }
 
     if (cfg.home && cfg.home.length) {

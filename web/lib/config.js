@@ -56,11 +56,23 @@ function defaults() {
     onboarding: { done: false, version: 1 },
     integrations: {
       ha: { url: '', token: '' },
-      mqtt: { url: '', user: '', password: '', prefix: 'cleanframe' }
+      mqtt: { url: '', user: '', password: '', prefix: 'cleanframe' },
+      /* Weather: one line next to the clock, fetched by the hub so the
+       * television never talks to the internet itself. Coordinates only, the
+       * place name is a label for the settings page. */
+      weather: { enabled: false, place: '', lat: 0, lon: 0, unit: 'c', line: 'temp' }
     },
     createdAt: null,
     updatedAt: null
   };
+}
+
+/* Numbers from JSON can arrive as strings, and NaN must not reach the
+ * weather call. Clamped, because a coordinate outside the range is a bug. */
+function isNum(v, min, max) {
+  var n = Number(v);
+  if (!isFinite(n)) return 0;
+  return Math.max(min, Math.min(max, n));
 }
 
 function isStr(v, max) {
@@ -154,6 +166,16 @@ function validate(input) {
   cfg.integrations.mqtt.user = isStr(mq.user, 120) ? mq.user : '';
   cfg.integrations.mqtt.password = isStr(mq.password, 200) ? mq.password : '';
   cfg.integrations.mqtt.prefix = isStr(mq.prefix, 60) && mq.prefix ? mq.prefix : 'cleanframe';
+
+  var we = integ.weather && typeof integ.weather === 'object' ? integ.weather : {};
+  cfg.integrations.weather = {
+    enabled: we.enabled === true,
+    place: isStr(we.place, 80) ? we.place : '',
+    lat: isNum(we.lat, -90, 90),
+    lon: isNum(we.lon, -180, 180),
+    unit: we.unit === 'f' ? 'f' : 'c',
+    line: we.line === 'highlow' ? 'highlow' : 'temp'
+  };
 
   cfg.createdAt = isStr(src.createdAt, 40) && src.createdAt ? src.createdAt : null;
   return cfg;

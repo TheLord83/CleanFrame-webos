@@ -1,0 +1,64 @@
+# Where this is going
+
+The list of things worth building, in the order they should be built. Every line here has an issue
+in the tracker with the detail; this page is the order and the reasoning.
+
+Two rules for the list. Nothing goes in that another launcher does not already do, or that the
+television cannot do at all. And nothing ships that could leave a television without a home screen
+until the way back has been tested on a device.
+
+## Now
+
+**Weather line** (#3) — done in 0.5.5. A temperature and a word next to the clock, fetched by the
+hub, off by default.
+
+**Recent apps on Back** (#1) — Back on the home screen opens the last five apps instead of asking
+whether to leave. The launcher already knows every app it starts, so this is a by-product of
+launching, not new machinery.
+
+**Own wallpaper** (#2) — upload a picture in the settings page; it is cropped to 1920x1080 and
+stored next to the configuration, and the material variants are derived from it at runtime.
+
+## Next
+
+**Splash** (#4) — the picture shown while the web view starts should be the wallpaper that follows,
+instead of a colour that matches nothing.
+
+**Rename and re-icon a tile** (#11) — hold OK on an app to rename it and give it another icon. The
+value strip already has a rename field; this is the same field, reachable from the sofa.
+
+**Input key** (#8) — one button that lists the television's own inputs, which is the only thing a
+launcher can make faster than LG's home screen.
+
+**Quiet mode** (#10) — after an idle time only the clock stays. Must be settled against the
+screensaver before either is built, so the two do not fight.
+
+**Speed tab** (#12) — frame time, key delay and start-up measured on the television itself. Our own
+claims about speed are currently unmeasured, and "it feels fine" is not a report from a stranger.
+
+## Later, and why
+
+**Replace LG Home** (#5) — the difference between a launcher you open and one you live in. Wanted,
+but every neighbour that does it also documents how it goes wrong: a mount in memory, a boot hook
+that has to run after the app manager is ready, and a revert that must work without the launcher.
+This needs a tested way back before anything else.
+
+**Debloat** (#6) — ACR, voice recognition, ad and telemetry hosts. The reason most people root a
+television at all. Belongs in its own script with `--dry-run` and `--restore`, not in a switch
+inside the launcher.
+
+**App list and icons without Glasshouse** (#7) — removes a runtime dependency that only exists
+because it was convenient. The hub runs as root and can read the app directories itself.
+
+**Watchdog heartbeat** (#9) — converts "the settings page stopped answering" from a mystery into a
+fact.
+
+## Not doing
+
+**Native rendering with OpenGL.** webOS draws web apps in its own Chromium, which already uses the
+GPU; a web app cannot open a GL context of its own. What people mean by this is a native launcher in
+C or Rust, which is a different project with a different maintenance load. The launcher is smooth on
+the reference television (43NANO779PA, webOS 6.5), so there is no measured problem to solve.
+
+**A second resolution of every wallpaper.** The package is 7,8 MB after 0.5.4. Smaller is possible
+and buys nothing.

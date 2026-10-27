@@ -101,6 +101,40 @@ class FakeHA(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
 
+class FakeWx(BaseHTTPRequestHandler):
+    """Open-Meteo stand-in: the forecast and the geocoding search.
+
+    Deliberately separate from FakeHA so a weather outage cannot be mistaken for
+    a Home Assistant one.
+    """
+
+    requests = []
+
+    def log_message(self, *args):
+        pass
+
+    def _send(self, body):
+        raw = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_GET(self):
+        FakeWx.requests.append(self.path)
+        if self.path.startswith("/v1/forecast"):
+            return self._send({"current_weather": {"temperature": 17.6, "weathercode": 3},
+                               "daily": {"temperature_2m_max": [19.4], "temperature_2m_min": [11.2]}})
+        if self.path.startswith("/v1/search"):
+            if "name=Nowhere" in self.path:
+                return self._send({})
+            return self._send({"results": [{"name": "Kiel", "country_code": "DE",
+                                            "latitude": 54.3233, "longitude": 10.1228}]})
+        self.send_response(404)
+        self.end_headers()
+
+
 def check(name, fn):
     try:
         fn()
@@ -158,9 +192,21 @@ def main():
     ha_port = ha_server.server_address[1]
     threading.Thread(target=ha_server.serve_forever, daemon=True).start()
 
+    wx_server = HTTPServer(("127.0.0.1", 0), FakeWx)
+    wx_base = "http://127.0.0.1:%d" % wx_server.server_address[1]
+    threading.Thread(target=wx_server.serve_forever, daemon=True).start()
+    env["CF_WEATHER_BASE"] = wx_base
+    env["CF_WEATHER_GEO"] = wx_base
+
     proc = subprocess.Popen([sys.executable.replace("python3", "node") if False else "node", "server.js"],
                             cwd=WEB, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     base = f"http://127.0.0.1:{port}"
+
+    def cfg_now():
+        """The configuration as the hub would hand it to the interface."""
+        code, d, _ = req("GET", "/api/config")
+        assert code == 200 and d.get("ok") is True, d
+        return d["config"]
 
     def req(method, path, body=None, headers=None, raw=False):
         data = None
@@ -253,7 +299,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.5.4", d
+            assert d["hub"] == "0.5.5", d
             assert d["node"], d
 
         def t_tv_screenshot():
@@ -417,6 +463,48 @@ def main():
         def t_invalid_json():
             st, d, _ = req("PUT", "/api/config", "{kaputt", raw=True)
             assert st == 400, st
+
+        def t_weather_off_by_default():
+            """Without the switch the answer says so, and nobody asks Open-Meteo."""
+            before = len(FakeWx.requests)
+            code, d, _ = req("GET", "/api/weather")
+            assert code == 200 and d.get("enabled") is False, d
+            assert len(FakeWx.requests) == before, "weather was fetched although it is off"
+
+        def t_weather_forecast():
+            """Switched on: one call, rounded values, a word instead of a code."""
+            cfg = cfg_now()
+            cfg["integrations"]["weather"].update({"enabled": True, "place": "Kiel, DE",
+                                                   "lat": 54.32, "lon": 10.12, "unit": "c"})
+            code, _, _ = req("POST", "/api/config", {"config": cfg})
+            assert code == 200
+            code, d, _ = req("GET", "/api/weather")
+            assert code == 200 and d.get("ok") is True, d
+            assert d.get("temp") == 18, d          # 17,6 gerundet
+            assert d.get("high") == 19 and d.get("low") == 11, d
+            assert d.get("text") in ("bedeckt", "overcast"), d
+            assert d.get("celsius") is True, d
+
+        def t_weather_cached():
+            """A second look inside the quarter hour does not hit the network again."""
+            req("GET", "/api/weather")
+            before = len([r for r in FakeWx.requests if r.startswith("/v1/forecast")])
+            req("GET", "/api/weather")
+            after = len([r for r in FakeWx.requests if r.startswith("/v1/forecast")])
+            assert after == before, "cached answer was fetched again"
+
+        def t_weather_geocode():
+            """The place is turned into coordinates once and stored."""
+            code, d, _ = req("POST", "/api/weather/place", {"name": "Kiel"})
+            assert code == 200 and d.get("ok") is True, d
+            assert d.get("place") == "Kiel, DE" and abs(d.get("lat") - 54.3233) < 0.001, d
+            w = cfg_now()["integrations"]["weather"]
+            assert w["lat"] and w["lon"], w
+
+        def t_weather_unknown_place():
+            code, d, _ = req("POST", "/api/weather/place", {"name": "Nowhere"})
+            assert code == 200 and d.get("ok") is False, d
+            assert "not found" in (d.get("error") or ""), d
 
         def t_ha_check():
             # A check against a foreign address has to bring its own token ...
@@ -677,6 +765,11 @@ def main():
             ("foreign backup file is rejected", t_backup_wrong_kind),
             ("self-test in the server is green", t_selftest),
             ("diagnostics check folder and Glasshouse", t_diag),
+            ("weather is off until it is switched on", t_weather_off_by_default),
+            ("weather line shows rounded values", t_weather_forecast),
+            ("weather answer is cached for fifteen minutes", t_weather_cached),
+            ("a place name becomes coordinates", t_weather_geocode),
+            ("an unknown place is reported", t_weather_unknown_place),
             ("Home Assistant connection is checked", t_ha_check),
             ("HA entities are filtered and translated", t_ha_entities),
             ("HA values for the tile", t_ha_values),

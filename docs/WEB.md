@@ -237,6 +237,23 @@ and `hub.env` for the environment.
 Both read and write the same `/var/lib/cleanframe/config.json`. If both were asked to, the one that
 owns port 8484 answers; the other one notices the port is taken and stays quiet.
 
+## Weather
+
+`GET /api/weather` answers with the line that sits next to the clock. Without the switch it says
+`{"ok":true,"enabled":false}` and nothing is fetched. Switched on it returns the current temperature
+and a word instead of Open-Meteo's numeric code, plus the day's high and low:
+
+```json
+{"ok":true,"enabled":true,"celsius":true,"temp":18,"code":3,"text":"bedeckt","high":19,"low":11}
+```
+
+The answer is cached for fifteen minutes, and different coordinates or units get their own entry,
+so changing the place in the settings page takes effect at once.
+
+`POST /api/weather/place` takes `{"name":"Kiel"}` and resolves it once through Open-Meteo's
+geocoding, storing coordinates and a display name. The television never calls either service
+itself: it asks the hub, which is the only thing here that talks to the internet.
+
 ## Secrets and TLS
 
 The hub holds two secrets: the Home Assistant token and, if you use it, the MQTT password. Both
