@@ -62,6 +62,8 @@ ausdrücklich ohne Support.
 - Kacheln umbenennen, Icons wählen, umsortieren, entfernen, mit Kontextmenü über die Fernbedienung
 - Web-Oberfläche ohne PIN: Token optional, Anfragen vom lokalen Rechner sind immer erlaubt
 - Home-Assistant-Werte als Kacheln, MQTT und Update-Sperre über Glasshouse
+- Wetter neben der Uhr: ein dünnes Symbol und die Temperatur, Position und Größe nach Wunsch, geholt
+  vom Hub bei Open-Meteo, damit der Fernseher selbst offline bleibt
 - Bildschirmschoner, Einrichtungsassistent, Sicherung und Wiederherstellung der Konfiguration
 
 Wo die Firmware-Nummer am Fernseher steht, mit beiden Wegen:

@@ -87,14 +87,13 @@ function forecast(weather, lang, cb) {
   if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) {
     return cb(null, { ok: true, enabled: false, error: 'no place set' });
   }
-  var unit = weather.unit === 'f' ? 'fahrenheit' : 'celsius';
-  var key = lat + ',' + lon + ',' + unit + ',' + (lang === 'de' ? 'de' : 'en');
+  var key = lat + ',' + lon + ',' + (lang === 'de' ? 'de' : 'en');
   if (cache.value && cache.key === key && Date.now() - cache.at < CACHE_MS) {
     return cb(null, cache.value);
   }
   var q = '/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&current_weather=true&daily=temperature_2m_max,temperature_2m_min' +
-    '&timezone=auto&forecast_days=1&temperature_unit=' + unit;
+    '&timezone=auto&forecast_days=1&temperature_unit=celsius';
   getJson(BASE, q, function (err, data) {
     if (err) return cb(err);
     var cur = data && data.current_weather;
@@ -103,7 +102,7 @@ function forecast(weather, lang, cb) {
     var value = {
       ok: true,
       enabled: true,
-      celsius: unit === 'celsius',
+      celsius: true,
       temp: Math.round(cur.temperature),
       code: cur.weathercode,
       text: describe(cur.weathercode, lang),

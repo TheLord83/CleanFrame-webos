@@ -60,7 +60,10 @@ function defaults() {
       /* Weather: one line next to the clock, fetched by the hub so the
        * television never talks to the internet itself. Coordinates only, the
        * place name is a label for the settings page. */
-      weather: { enabled: false, place: '', lat: 0, lon: 0, unit: 'c', line: 'temp' }
+      /* Immer Celsius. Eine Einheitenwahl war der eine Schalter zu viel: wer
+       * Fahrenheit liest, will es meist nicht selbst eingeschaltet haben. */
+      weather: { enabled: false, place: '', lat: 0, lon: 0, line: 'temp',
+                 style: 'icon-temp', size: 'normal', quiet: true, pos: 'right' }
     },
     createdAt: null,
     updatedAt: null
@@ -173,8 +176,15 @@ function validate(input) {
     place: isStr(we.place, 80) ? we.place : '',
     lat: isNum(we.lat, -90, 90),
     lon: isNum(we.lon, -180, 180),
-    unit: we.unit === 'f' ? 'f' : 'c',
-    line: we.line === 'highlow' ? 'highlow' : 'temp'
+    line: we.line === 'highlow' ? 'highlow' : 'temp',
+    /* Wie die Zeile aussieht. Symbol zuerst, weil ein Strich neben der Uhr
+     * weniger Aufmerksamkeit zieht als ein Wort. */
+    style: ['icon', 'icon-temp', 'icon-temp-text', 'temp-text'].indexOf(we.style) >= 0 ? we.style : 'icon-temp',
+    size: ['small', 'normal', 'large'].indexOf(we.size) >= 0 ? we.size : 'normal',
+    quiet: we.quiet !== false,
+    /* Wo die Zeile steht: neben der Uhr rechts, links davon, darunter oder am
+     * rechten Rand der Beschriftungsflaeche. */
+    pos: ['left', 'right', 'below', 'end'].indexOf(we.pos) >= 0 ? we.pos : 'right'
   };
 
   cfg.createdAt = isStr(src.createdAt, 40) && src.createdAt ? src.createdAt : null;

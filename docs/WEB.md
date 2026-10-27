@@ -247,8 +247,9 @@ and a word instead of Open-Meteo's numeric code, plus the day's high and low:
 {"ok":true,"enabled":true,"celsius":true,"temp":18,"code":3,"text":"bedeckt","high":19,"low":11}
 ```
 
-The answer is cached for fifteen minutes, and different coordinates or units get their own entry,
-so changing the place in the settings page takes effect at once.
+The answer is cached for fifteen minutes, and different coordinates get their own entry, so changing
+the place in the settings page takes effect at once. Temperatures are always Celsius; a `unit` key
+from an older configuration is dropped rather than carried along.
 
 `POST /api/weather/place` takes `{"name":"Kiel"}` and resolves it once through Open-Meteo's
 geocoding, storing coordinates and a display name. The television never calls either service

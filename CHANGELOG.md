@@ -3,6 +3,21 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.6
+
+The weather line stops being a sentence and becomes a mark.
+
+- **Icons.** One thin-stroked symbol per weather group (clear, partly cloudy, overcast, fog, rain,
+  snow, thunder), drawn in the same colour as the text, no fills. Settings choose what is shown:
+  symbol and temperature (the default), symbol alone, symbol with temperature and word, or text only.
+- **Size and restraint.** Small, normal or large, and a quiet mode that draws it at 72 percent
+  instead of the clock's 86.
+- **Position.** Next to the clock, before it, under it, or at the right edge of the caption area.
+- **Celsius only.** The unit switch is gone; the hub always asks Open-Meteo for Celsius and a stored
+  `unit` is dropped instead of carried along.
+- The installer no longer mistakes a busy television for one without Glasshouse: the probe asks
+  twice with four seconds each before it gives up.
+
 ## 0.5.5
 
 The first of the ideas from the neighbours, and a roadmap to go with it.

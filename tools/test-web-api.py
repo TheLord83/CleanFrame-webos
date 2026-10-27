@@ -299,7 +299,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.5.5", d
+            assert d["hub"] == "0.5.6", d
             assert d["node"], d
 
         def t_tv_screenshot():
@@ -492,6 +492,24 @@ def main():
             req("GET", "/api/weather")
             after = len([r for r in FakeWx.requests if r.startswith("/v1/forecast")])
             assert after == before, "cached answer was fetched again"
+
+        def t_weather_style():
+            """How the line looks is a setting, and a bad value falls back instead of breaking."""
+            cfg = cfg_now()
+            cfg["integrations"]["weather"].update({"enabled": True, "style": "icon", "size": "large",
+                                                   "quiet": False, "pos": "end", "unit": "f"})
+            code, _, _ = req("POST", "/api/config", {"config": cfg})
+            assert code == 200
+            w = cfg_now()["integrations"]["weather"]
+            assert (w["style"], w["size"], w["quiet"], w["pos"]) == ("icon", "large", False, "end"), w
+            # Fahrenheit gibt es nicht mehr: die Einheit wird verworfen, nicht gespeichert.
+            assert "unit" not in w, w
+            cfg = cfg_now()
+            cfg["integrations"]["weather"].update({"style": "quatsch", "size": "riesig", "pos": "irgendwo"})
+            code, _, _ = req("POST", "/api/config", {"config": cfg})
+            assert code == 200
+            w = cfg_now()["integrations"]["weather"]
+            assert w["style"] == "icon-temp" and w["size"] == "normal" and w["pos"] == "right", w
 
         def t_weather_geocode():
             """The place is turned into coordinates once and stored."""
@@ -768,6 +786,7 @@ def main():
             ("weather is off until it is switched on", t_weather_off_by_default),
             ("weather line shows rounded values", t_weather_forecast),
             ("weather answer is cached for fifteen minutes", t_weather_cached),
+            ("the look of the weather line is a setting", t_weather_style),
             ("a place name becomes coordinates", t_weather_geocode),
             ("an unknown place is reported", t_weather_unknown_place),
             ("Home Assistant connection is checked", t_ha_check),

@@ -1451,9 +1451,16 @@
   }
   function renderCaption(t, hs) {
     /* The clock can be switched off (setting "Show clock"); default: on. */
-    var html = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
+    var clk = S.c.clock === false ? '' : '<span class="clock">' + clockHtml() + '</span>';
     var wx = weatherText();
-    if (wx && S.c.clock !== false) html += '<span class="wx">' + esc(wx) + '</span>';
+    var wxEl = wx ? '<span class="wx wx-' + esc(wxState.size) + (wxState.quiet ? ' wx-quiet' : '') + '">' + wx + '</span>' : '';
+    var html;
+    if (!wxEl) html = clk;
+    else if (!clk) html = wxEl;
+    else if (wxState.pos === 'below') html = clk + wxEl;
+    else if (wxState.pos === 'end') html = '<span class="clock-row wx-end">' + clk + wxEl + '</span>';
+    else if (wxState.pos === 'left') html = '<span class="clock-row">' + wxEl + clk + '</span>';
+    else html = '<span class="clock-row">' + clk + wxEl + '</span>';
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
   }
@@ -2392,7 +2399,7 @@
   /* Weather line. Fetched by the hub (it holds the coordinates and the cache),
    * never by the television itself: the launcher has no business talking to the
    * internet. Off unless the settings page switched it on. */
-  var wxState = { enabled: false, line: 'temp', data: null, timer: 0, tried: 0 };
+  var wxState = { enabled: false, line: 'temp', style: 'icon-temp', size: 'normal', quiet: true, pos: 'right', data: null, timer: 0, tried: 0 };
   function rotationActive() { return !document.hidden && top().id === 'home' && S.c.bg === 'photo' && !S.pending && mode().min > 0; }
   function pauseRotation() {
     if (activeSince) { activeMs += Date.now() - activeSince; activeSince = 0; }
@@ -2413,14 +2420,44 @@
   /* Fifteen minutes: Open-Meteo itself updates the current weather about every
    * quarter of an hour, so asking more often only costs a request. */
   var WX_EVERY = 15 * 60 * 1000;
+  /* Ein Strich pro Wetterlage, alle im gleichen Duennschliff: keine Fuellungen,
+   * gleiche Strichstaerke, damit nebeneinander nichts unruhig wirkt. Die
+   * Zuordnung folgt Open-Meteos Gruppen, nicht jedem einzelnen Code. */
+  function weatherIcon(code) {
+    var c = Number(code);
+    var sun = '<circle cx="12" cy="12" r="4.1"/>';
+    var rays = '<path d="M12 3.1v2.2M12 18.7v2.2M3.1 12h2.2M18.7 12h2.2M5.7 5.7l1.6 1.6M16.7 16.7l1.6 1.6M18.3 5.7l-1.6 1.6M7.3 16.7l-1.6 1.6"/>';
+    var cloud = '<path d="M7.2 17.4h9.1a3.1 3.1 0 0 0 .2-6.2 4.6 4.6 0 0 0-8.8-1.1 3.6 3.6 0 0 0-.5 7.3z"/>';
+    var drop = '<path d="M8.6 19.4l-.9 1.7M12 19.4l-.9 1.7M15.4 19.4l-.9 1.7"/>';
+    var flake = '<path d="M9 19.6v2.4M7.9 20.2l2.2 1.2M10.1 20.2l-2.2 1.2M15 19.6v2.4M13.9 20.2l2.2 1.2M16.1 20.2l-2.2 1.2"/>';
+    var bolt = '<path d="M12.8 18.2l-1.6 3.2h3l-1.4 2.6"/>';
+    var body;
+    if (c === 0 || c === 1) body = sun + rays;
+    else if (c === 2) body = '<circle cx="9.4" cy="9.4" r="3"/><path d="M9.4 3.6v1.7M3.6 9.4h1.7M5.3 5.3l1.2 1.2M13.5 5.3l-1.2 1.2"/>' + cloud;
+    else if (c === 45 || c === 48) body = cloud + '<path d="M5.6 12.4h12.8"/>';
+    else if (c >= 71 && c <= 77 || c === 85 || c === 86) body = cloud + flake;
+    else if (c >= 95) body = cloud + bolt;
+    else if (c >= 51 && c <= 67 || c >= 80 && c <= 82) body = cloud + drop;
+    else body = cloud;
+    return '<svg class="wx-icon" viewBox="0 0 24 24" aria-hidden="true">' + body + '</svg>';
+  }
   function weatherText() {
     var d = wxState.data;
     if (!d || d.ok !== true || typeof d.temp !== 'number') return '';
     var deg = '\u00b0';
-    if (wxState.line === 'highlow' && typeof d.high === 'number' && typeof d.low === 'number') {
-      return d.temp + deg + ' ' + d.text + ' \u00b7 ' + d.high + '/' + d.low + deg;
+    var style = wxState.style;
+    var withIcon = style === 'icon' || style === 'icon-temp' || style === 'icon-temp-text';
+    var withTemp = style === 'icon-temp' || style === 'icon-temp-text' || style === 'temp-text';
+    var withWord = style === 'temp-text' || style === 'icon-temp-text';
+    var out = withIcon ? weatherIcon(d.code) : '';
+    var text = '';
+    if (withTemp) text = d.temp + deg;
+    if (withWord && d.text) text += (text ? ' ' : '') + d.text;
+    if (withTemp && wxState.line === 'highlow' && typeof d.high === 'number' && typeof d.low === 'number') {
+      text += ' \u00b7 ' + d.high + '/' + d.low + deg;
     }
-    return d.temp + deg + ' ' + (d.text || '');
+    if (!text) return out;
+    return out + '<span class="wx-t">' + esc(text) + '</span>';
   }
   function loadWeather(force) {
     var now = Date.now();
@@ -2767,6 +2804,10 @@
         var wcf = cfg.integrations.weather;
         wxState.enabled = wcf.enabled === true;
         wxState.line = wcf.line === 'highlow' ? 'highlow' : 'temp';
+        wxState.style = wcf.style || 'icon-temp';
+        wxState.size = wcf.size || 'normal';
+        wxState.quiet = wcf.quiet !== false;
+        wxState.pos = wcf.pos || 'right';
         loadWeather();
       }
     }

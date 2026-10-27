@@ -277,13 +277,38 @@
         <input id="wxPlace" placeholder="Kiel">
       </div>
       <div>
-        <label for="wxUnit" data-t="int.wx.unit">Einheit</label>
-        <select id="wxUnit"><option value="c">°C</option><option value="f">°F</option></select>
+        <label for="wxPos" data-t="int.wx.pos">Wo sie steht</label>
+        <select id="wxPos">
+          <option value="right" data-t="int.wx.posRight">neben der Uhr</option>
+          <option value="left" data-t="int.wx.posLeft">vor der Uhr</option>
+          <option value="below" data-t="int.wx.posBelow">unter der Uhr</option>
+          <option value="end" data-t="int.wx.posEnd">am rechten Rand</option>
+        </select>
       </div>
       <div>
         <label for="wxLine" data-t="int.wx.line">Was in der Zeile steht</label>
         <select id="wxLine"><option value="temp" data-t="int.wx.lineTemp">Temperatur und Wetter</option><option value="highlow" data-t="int.wx.lineHighLow">dazu Höchst- und Tiefstwert</option></select>
       </div>
+      <div>
+        <label for="wxStyle" data-t="int.wx.style">Anzeige</label>
+        <select id="wxStyle">
+          <option value="icon-temp" data-t="int.wx.styleIconTemp">Symbol und Temperatur</option>
+          <option value="icon" data-t="int.wx.styleIcon">nur Symbol</option>
+          <option value="icon-temp-text" data-t="int.wx.styleIconTempText">Symbol, Temperatur und Wort</option>
+          <option value="temp-text" data-t="int.wx.styleTempText">nur Text</option>
+        </select>
+      </div>
+      <div>
+        <label for="wxSize" data-t="int.wx.size">Größe</label>
+        <select id="wxSize">
+          <option value="small" data-t="int.wx.sizeSmall">klein</option>
+          <option value="normal" data-t="int.wx.sizeNormal">normal</option>
+          <option value="large" data-t="int.wx.sizeLarge">groß</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="wxQuiet"> <span data-t="int.wx.quiet">Zurückhaltend zeichnen</span></label>
     </div>
     <div class="row" style="margin-top:16px">
       <button class="ghost" id="btnWxFind" data-t="int.wx.find">Ort suchen</button>
@@ -898,8 +923,11 @@
       var w = c.integrations.weather;
       $('wxOn').checked = w.enabled === true;
       $('wxPlace').value = w.place || '';
-      $('wxUnit').value = w.unit === 'f' ? 'f' : 'c';
+      $('wxPos').value = w.pos || 'right';
       $('wxLine').value = w.line === 'highlow' ? 'highlow' : 'temp';
+      $('wxStyle').value = w.style || 'icon-temp';
+      $('wxSize').value = w.size || 'normal';
+      $('wxQuiet').checked = w.quiet !== false;
     }
     applySavedPlaceholders();
   }
@@ -1368,8 +1396,11 @@
   $('btnWxSave').onclick = function () {
     var w = state.cfg.integrations.weather;
     w.enabled = $('wxOn').checked === true;
-    w.unit = $('wxUnit').value === 'f' ? 'f' : 'c';
+    w.pos = $('wxPos').value;
     w.line = $('wxLine').value === 'highlow' ? 'highlow' : 'temp';
+    w.style = $('wxStyle').value;
+    w.size = $('wxSize').value;
+    w.quiet = $('wxQuiet').checked === true;
     /* Angezeigter Ort ohne Koordinaten: erst suchen lassen, sonst zeigt die
      * Zeile nichts und niemand weiss warum. */
     if (w.enabled && (!w.lat && !w.lon) && $('wxPlace').value.trim()) {

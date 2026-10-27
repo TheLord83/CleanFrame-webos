@@ -45,8 +45,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .clock{font-variant-numeric:tabular-nums}
 /* Weather next to the clock: same line, quieter, so the time stays the thing
  * you read first from three metres away. */
-.wx{margin-left:22px;font-size:34px;line-height:64px;font-weight:500;letter-spacing:-.4px;color:rgba(255,255,255,.86);text-shadow:0 1px 3px rgba(0,0,0,.24);white-space:nowrap}
+.clock-row{display:flex;align-items:center;gap:22px}
+/* Ganz rechts in der Beschriftungsflaeche, mit der Uhr links. */
+/* Feste Breite, weil .caption als Flex-Spalte auf Inhaltsbreite schrumpft und
+ * space-between ohne Breite nichts zu verteilen haette. 1040 ist die Breite,
+ * die die Beschriftungsflaeche ohnehin als Obergrenze hat. */
+.wx-end{width:1040px;max-width:1040px;justify-content:space-between}
+.wx{display:inline-flex;align-items:center;gap:10px;vertical-align:top;line-height:64px;font-size:34px;font-weight:500;letter-spacing:-.4px;color:rgba(255,255,255,.86);text-shadow:0 1px 3px rgba(0,0,0,.24);white-space:nowrap}
+/* Die Symbole erben die Textfarbe und bleiben offen: eine Fuellung wuerde
+ * gegen das Bild dahinter arbeiten, ein duenner Strich nicht. */
+.wx-icon{width:38px;height:38px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.wx-small{font-size:28px}
+.wx-small .wx-icon{width:30px;height:30px}
+.wx-large{font-size:42px}
+.wx-large .wx-icon{width:48px;height:48px}
+/* Zurueckhaltend: naeher an die Uhr heran statt daneben zu rufen. */
+.wx-quiet{color:rgba(255,255,255,.72)}
+/* Unter der Uhr: eigener Block, etwas kleiner, damit die Uhr die erste Zeile bleibt. */
+.caption > .wx{font-size:30px;line-height:44px}
+.caption > .wx .wx-icon{width:32px;height:32px}
+.wx-quiet .wx-icon{opacity:.78;stroke-width:1.4}
 .stage.senior .wx{font-size:42px}
+.stage.senior .wx-icon{width:48px;height:48px}
 .cap-line{max-width:100%;font-size:30px;line-height:40px;font-weight:500;letter-spacing:-.2px;color:rgba(255,255,255,.88);text-shadow:0 1px 2px rgba(0,0,0,.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .warn{display:inline-flex;gap:12px;align-items:flex-start;color:var(--warn)}
 .warn .ico{width:30px;height:30px;margin-top:5px}

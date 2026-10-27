@@ -4,8 +4,18 @@
 # ARP table first, because that is one packet, then a sweep of the local /24 with
 # parallel curls. A TV in standby answers neither; that is not a bug, it is standby.
 
+# Glasshouse auf einem Fernseher braucht manchmal ueber zwei Sekunden, wenn die
+# Kiste gerade zeichnet. Deshalb zweimal fragen, bevor "kein Glasshouse" kommt:
+# ein Fehlalarm hier ist der Unterschied zwischen Installieren und Aufgeben.
 answers() {
-  curl -sS -m 2 "http://$1:8080/api/apps" 2>/dev/null | head -c 200 | grep -q 'installed'
+  tries=0
+  while [ "$tries" -lt 2 ]; do
+    code="$(curl -sS -m 4 -o /dev/null -w '%{http_code}' "http://$1:8080/api/apps" 2>/dev/null)"
+    [ "$code" = "200" ] && return 0
+    tries=$((tries + 1))
+    sleep 1
+  done
+  return 1
 }
 
 find_tv() {

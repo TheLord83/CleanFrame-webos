@@ -24,9 +24,10 @@ every file a key. 43 icons.
 temporary configuration, then checks every endpoint: `/api/health`, `/api/config` (GET, PUT, POST
 with 403, 409 and 415), `/api/schema`, `/api/wall/<id>`, `/api/apps`, `/api/diag`, the Home
 Assistant bridge including the rejected toggle, backup, `/api/tv/key` with a long press and the
-weather line. 46 checks, five of them for the weather with a local Open-Meteo stand-in so the suite
+weather line. 47 checks, six of them for the weather with a local Open-Meteo stand-in so the suite
 never needs the network: off by default (and provably nothing fetched), rounded values with a word,
-the fifteen-minute cache, the geocoding, an unknown place. Also: a backup that carries no secrets, a
+the fifteen-minute cache, the geocoding, an unknown place, and that a bad look setting falls back
+instead of breaking while a stored Fahrenheit is dropped. Also: a backup that carries no secrets, a
 connection check that refuses to hand the stored token
 to a foreign URL, and a separate server instance that has to survive a missing `luna-send`.
 

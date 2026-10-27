@@ -61,6 +61,8 @@ firmware check, is documented in [docs/ROOTING.md](docs/ROOTING.md) and is expli
 - Web interface without a PIN: token optional, requests from the local machine always allowed
 - Home Assistant values as a status strip on the start page (your labels, states translated, no
   restart needed); MQTT and update blocking through Glasshouse
+- Weather next to the clock: a thin symbol and the temperature, position and size up to you, fetched
+  by the hub from Open-Meteo so the television stays offline
 - Screensaver, setup wizard, backup and restore of the configuration
 
 Where the firmware number is on the TV, and the two ways to find it:
