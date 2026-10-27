@@ -3,6 +3,17 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.4
+
+The package lost two thirds of its weight, and nothing looks different.
+
+- Wallpapers, thumbnails and panels are JPEG quality 86, progressive: 10,4 MB to 6,4 MB.
+- The 60 material variants behind the adaptive appearance (blur, frost, tint, soft) were all
+  blurred beyond recognition already. They are now 800x450 instead of 1920x1080, which the
+  television upscales: 4,5 MB to 1,0 MB, minimum 38,8 dB PSNR against the original.
+- The package drops from 15,9 MB to 7,8 MB. `tools/shrink-images.py` repeats the step in case
+  new wallpapers arrive.
+
 ## 0.5.3
 
 The settings page comes with the app.
