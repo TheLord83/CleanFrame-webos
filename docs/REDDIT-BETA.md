@@ -26,74 +26,98 @@ If the answer is no, that is fine and I will leave it.
 
 Thanks.
 
----
-
-## B. For r/webos, only with the moderators' approval
-
-Title: Ported an open-source launcher to webOS, looking for a second opinion on newer models
-
-I ported CleanFrame, the launcher the Samsung The Frame crowd uses, to webOS and
-run it on a 43NANO779PA with webOS 6.5. The mods are fine with a short post about
-it, so this is a request for feedback and not a download page.
-
-What it does: its own start page with app tiles, wallpapers and a clock, German
-and English, a senior mode with bigger text, and up to 12 Home Assistant values as
-a strip above the app bar that you can switch with OK. Configuration happens in a
-browser, which saves a lot of remote work.
-
-What it needs: a rooted TV with Homebrew Channel, plus Glasshouse for the app list.
-
-Where I am stuck: it has only ever run on my one TV. I would like to know whether
-it starts on webOS 7 and newer at all, what breaks on OLED sets, and whether the
-Home Assistant states read correctly against other people's entities.
-
-The source is on GitHub, and an issue with a photo of the screen is the most
-useful thing I can get: <REPO-LINK>
-
-**Status 2026-10-27: the r/webos mods approved this post ("Sure, you can post
-it"). The paste-ready version is below; it carries no repo link because the
-repository is still private. Ask for the IPK in the thread, not by DM, so the
-mods can see what happens.**
+**Status 2026-10-27: answered, "Sure, you can post it."**
 
 ---
 
 ## B1. Approved version, paste as is (r/webos, 2026-10-27)
 
+Formatted after reading what lands in the sub: Luma, Hearth and Lightkeeper all
+lead with one sentence of why, then a picture, then flat feature bullets, then
+"what you need", then install steps, then the honest limits. No repo link in this
+version, because the repository is still private; the IPK is offered in the
+thread, not by DM, so the mods can see what happens.
+
 Title:
 
 ```
-I ported an open-source launcher to webOS, looking for feedback from other models
+CleanFrame on webOS: a quiet start page with Home Assistant values on it (rooted TVs, looking for feedback)
 ```
 
-Body:
+Body (Reddit markdown, paste as is):
 
-Short version: I ported CleanFrame (MIT, the launcher the Samsung The Frame crowd
-uses) to webOS and wrote a small service that holds the configuration. It runs on
-my 43NANO779PA with webOS 6.5. The mods said a post about it is fine, so this is a
-request for feedback and not a download page.
+---
 
-What it does: its own start page with app tiles, wallpapers and a clock; German and
-English, independent of the TV language; a senior mode with bigger text; up to 12
-Home Assistant values as a strip above the app bar that you can switch with OK; and
-configuration in a browser instead of on the remote. No telemetry, no ads.
+CleanFrame is an open-source launcher (MIT) that the Samsung The Frame crowd uses.
+I ported it to webOS and wrote a small service that keeps its settings. The quiet
+start page is not new by now, Luma, Hearth and Lightkeeper all do that nicer than
+LG does. What I have not seen yet: **up to 12 Home Assistant values as a strip on
+the start page, switchable with the remote.**
 
-What it needs: a rooted TV with the Homebrew Channel, plus Glasshouse for the app
-list. Without Glasshouse the launcher has no apps to show.
+I have only one TV to test on, a 43NANO779PA with webOS 6.5, and the mods said a
+feedback post is fine. So that is what this is.
 
-Where I am stuck: it has only ever run on my one TV. I do not know whether it
-starts on webOS 7 and newer, what breaks on OLED sets, or whether the Home Assistant
-states read correctly against other people's entities.
+**The three screens above**
 
-If you have a different model and want to try it, say so in the thread and I will
-send you the IPK. If something breaks, a photo of the screen plus your model and
-webOS version is the most useful report I can get.
+1. the start page with tiles and the value strip
+2. Settings, Values on the start page, where you hide and rename values on the TV itself
+3. the same settings in a phone browser
 
-Hobby project, no warranty, rooting can void yours. It is a launcher, not a new OS:
-LG's apps, settings and updates keep working.
+**What it does**
+
+- own start page with app tiles, 15 bundled wallpapers, clock in 12 or 24 h
+- German and English, independent of the TV language
+- senior mode with 160 % text; the layout reflows instead of overlapping
+- up to 12 Home Assistant entities as chips above the app bar; `OK` toggles light,
+  switch, helper and fan, everything else only displays
+- a page on the TV to hide or rename those values, adding entities stays in the browser
+- a remote in the browser that also works while LG's own menus are open (SSAP, no Home Assistant needed)
+- screenshot of what is on the TV, straight into the browser
+- no telemetry, no cloud, one JSON file on the TV, backup button
+
+**What you need**
+
+- a rooted TV with the Homebrew Channel
+- Glasshouse, the launcher gets its app list from it. Without it you get an empty dock
+- webOS 6.5 is tested. 7, 25, 26 and OLED are untested, that is the point of this post
+
+**Install, about five minutes**
+
+1. Glasshouse installed and opened once (their guide, not mine)
+2. ask me in the thread for the IPK, or build it from the source
+3. Glasshouse, Apps, install the IPK, launch CleanFrame once
+4. `http://<TV-IP>:8484` in a browser for the settings
+
+**Will it eat my Home screen**
+
+No. CleanFrame is an app, the Home key still opens LG's home. The home-button hook
+exists in the tree but is off, so a bad uninstall cannot leave you without a start
+page.
+
+**What I would like to know**
+
+- does it start at all on webOS 7, 25, 26
+- what breaks on OLED sets (C and G series)
+- do the Home Assistant values read correctly against your own entities
+- is 650 ms the right long-press for the tile menu, or too slow
+
+Model, webOS version and a photo of a broken screen is a perfect report.
+
+Hobby project, no warranty, rooting can void yours. It is a launcher, not a new
+OS, LG's apps, settings and updates keep working.
+
+---
 
 Images, in this order: `beta-start-page.jpg`, `beta-values-page.jpg`,
 `beta-hub-mobile.png`.
 
+### Notes for later
+
+- The sub has `awesome-webos` and `Native-Webos/webos-apps-repo`; both are the way
+  a launcher becomes findable. Worth a PR once the repo is public.
+- Every launcher post there carries a GitHub link. While ours is private, the post
+  is the only one without one, which is exactly what makes it look like an advert.
+  Publishing the repo is the real fix, not more words.
 
 ---
 
