@@ -111,7 +111,7 @@ window.CleanFrameIcons = {
    "id": "tv",
    "label": {
     "de": "Fernsehen",
-    "en": "Fernsehen"
+    "en": "Television"
    },
    "icons": [
     {
@@ -186,7 +186,7 @@ window.CleanFrameIcons = {
    "id": "gaming",
    "label": {
     "de": "Spielekonsolen",
-    "en": "Spielekonsolen"
+    "en": "Gaming consoles"
    },
    "icons": [
     {
@@ -219,7 +219,7 @@ window.CleanFrameIcons = {
    "id": "devices",
    "label": {
     "de": "Geräte und Eingänge",
-    "en": "Geräte und Eingänge"
+    "en": "Devices and inputs"
    },
    "icons": [
     {

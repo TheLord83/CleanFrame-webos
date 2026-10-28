@@ -25,6 +25,13 @@ another icon.
   the package, a script tag is).
 - Checks: the key test also covers the Back list, the icon panel and the start image layer; the
   device binding is no longer stubbed globally, so those tests talk to the real configuration server.
+- **The icon panel speaks the interface language.** Two faults in one place: the English group names in
+  the catalog were the German ones ("Spielekonsolen" on both sides), and the language lookup read a
+  function as a value and always answered "English", so a German interface showed "Gaming consoles".
+  Both fixed, and `tools/check-icons.py` now refuses a group whose English label equals the German one.
+- Wallpaper status texts (loading, applying, preview, failure) were hardcoded English in a German
+  interface; they go through the translations now. Icon names may wrap to two lines instead of
+  losing their end ("Eigenes Symbol").
 
 ## 0.5.8
 

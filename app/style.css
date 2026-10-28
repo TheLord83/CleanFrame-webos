@@ -790,5 +790,5 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .ic-cell.is-applied{border-color:rgba(255,255,255,.52)}
 .ic-mark{width:96px;height:72px;display:flex;align-items:center;justify-content:center;flex:none}
 .ic-letters{font-size:52px;line-height:1;font-weight:600;letter-spacing:-1px}
-.ic-name{font-size:24px;line-height:28px;font-weight:500;color:var(--mute);max-width:150px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ic-name{font-size:24px;line-height:27px;font-weight:500;color:var(--mute);max-width:160px;text-align:center;overflow:hidden;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ic-cell.is-focus .ic-name{color:var(--ink)}

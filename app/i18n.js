@@ -100,6 +100,14 @@
       'No icons bundled.': 'Keine Symbole im Paket.',
       'Own icon': 'Eigenes Symbol',
       'Letters': 'Buchstaben',
+      /* Fehlermeldungen und Zustaende im Wallpaper-Dialog (0.5.9) */
+      'Applied': 'Aktiv',
+      'Preview': 'Vorschau',
+      'Loading ': 'Lade ',
+      'Applying ': 'Wende an: ',
+      'Couldn’t load ': 'Konnte nicht laden: ',
+      'Couldn’t load this appearance.': 'Dieses Aussehen liess sich nicht laden.',
+      'Your current choice is kept.': 'Die bisherige Wahl bleibt.',
       'Open the LG Home screen': 'Die Startseite von LG öffnen',
       'Picture, sound and network settings': 'Bild-, Ton- und Netzwerkeinstellungen',
 

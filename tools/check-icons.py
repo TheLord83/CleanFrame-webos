@@ -30,6 +30,38 @@ def local_name(tag):
     return tag.split("}")[-1]
 
 
+# Gruppen, deren Name in beiden Sprachen gleich lautet, weil es dasselbe
+# Lehnwort ist. Alles andere muss sich unterscheiden.
+SAME_IN_BOTH = {"streaming"}
+
+
+def check_labels(catalog):
+    """Die Gruppenreiter und Icon-Namen kommen aus dieser Datei, also muss die
+    englische Fassung auch englisch sein. Sie war es nicht: 'gaming' stand auf
+    beiden Seiten 'Spielekonsolen', und in der englischen Oberflaeche las man
+    dann Deutsch. Markennamen duerfen gleich heissen, Gruppen nie."""
+    errors = []
+    for group in catalog["groups"]:
+        label = group.get("label") or {}
+        de, en = label.get("de"), label.get("en")
+        if not de or not en:
+            errors.append("%s: label missing de or en" % group["id"])
+            continue
+        if de == en and group["id"] not in SAME_IN_BOTH:
+            errors.append("%s: english label is the german one (%s)" % (group["id"], en))
+        if any(c in en for c in "äöüßÄÖÜ"):
+            errors.append("%s: english label has german characters (%s)" % (group["id"], en))
+    for group in catalog["groups"]:
+        for icon in group["icons"]:
+            for field in ("de", "en"):
+                v = icon.get(field) or ""
+                if not v:
+                    errors.append("%s: %s name missing" % (icon["key"], field))
+                elif any(c in v for c in "äöüßÄÖÜ"):
+                    errors.append("%s: %s name has german characters (%s)" % (icon["key"], field, v))
+    return errors
+
+
 def check_files(catalog):
     errors = []
     seen = set()
@@ -122,7 +154,11 @@ def main():
     with open(CATALOG, encoding="utf-8") as f:
         catalog = json.load(f)
     errors, keys = check_files(catalog)
+    label_errors = check_labels(catalog)
     print(f"Catalog: {len(catalog['groups'])} groups, {len(keys)} icons")
+    for e in label_errors:
+        print("  - labels:", e)
+    errors += label_errors
     if errors:
         print("Errors in the files:")
         for e in errors:

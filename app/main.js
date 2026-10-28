@@ -1360,9 +1360,13 @@
     ? window.CleanFrameIcons.groups : [];
   var ICON_COLS = 6;
   function iconGroups() { return ICON_GROUPS; }
+  /* CleanFrameI18n.lang is a function that answers the current code ('de'/'en').
+   * Reading it as a plain property returned undefined, and the icon catalog then
+   * fell back to English in a German interface. */
   function uiLang() {
-    var l = window.CleanFrameI18n && window.CleanFrameI18n.lang;
-    return typeof l === 'function' ? l() : 'en';
+    var api = window.CleanFrameI18n || {}, v = api.lang;
+    if (typeof v === 'function') v = v();
+    return v === 'de' ? 'de' : 'en';
   }
   function iconName(ic) { return uiLang() === 'de' ? (ic.de || ic.en || ic.key) : (ic.en || ic.de || ic.key); }
   function groupName(g) {
@@ -2246,8 +2250,8 @@
     }).join(''));
     if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
     else if (error) {
-      status = '<p class="setting-error">' + (error.type === 'save' ? T('Couldn’t save this change.') : error.type === 'font' ? 'Couldn’t load ' + esc(FONTS[error.font].name) + '.' : 'Couldn’t load this appearance.') + ' Your current choice is kept.</p>'
-        + command({ action: 'settings.retry', label: T('Try again') }, '<span>Try again</span>', 'setting-retry');
+      status = '<p class="setting-error">' + (error.type === 'save' ? T('Couldn’t save this change.') : error.type === 'font' ? T('Couldn’t load ') + esc(FONTS[error.font].name) + '.' : T('Couldn’t load this appearance.')) + ' ' + T('Your current choice is kept.') + '</p>'
+        + command({ action: 'settings.retry', label: T('Try again') }, '<span>' + T('Try again') + '</span>', 'setting-retry');
     }
     setHTML(appearanceStatus, status);
     hint = selected.disabled ? '' : selected.action === 'settings.back' ? T('Return to ') + (t.group === 'rotation' ? T('Background') : T('Settings')) : selected.action === 'settings.retry' ? T('Retry this change') : selected.axis ? T('Apply selected setting') : selected.action === 'background.wallpaper' ? T('Choose a wallpaper') : selected.action === 'background.rotation' ? T('Choose a rotation interval') : T('Open on the TV');
@@ -2281,8 +2285,8 @@
     rows.style.transform = 'translate3d(0,' + (-t.top * WALL_ROW) + 'px,0)';
     appearanceRows.querySelector('.wallpaper-before').className = 'wallpaper-edge wallpaper-before' + (t.top > 0 ? ' is-on' : '');
     appearanceRows.querySelector('.wallpaper-after').className = 'wallpaper-edge wallpaper-after' + (t.top + WALL_VISIBLE < WALLS.length ? ' is-on' : '');
-    note = t.previewDue ? T('Preparing ') + candidate.name + '…' : S.wallPending ? (t.applyPending ? 'Applying ' : 'Loading ') + candidate.name + '…' : shown.id === S.c.wall ? 'Applied' : 'Preview';
-    if (t.failedId) note = S.err ? 'Couldn’t save ' + wall(t.failedId).name + '.' : 'Couldn’t load ' + wall(t.failedId).name + '.';
+    note = t.previewDue ? T('Preparing ') + candidate.name + '…' : S.wallPending ? (t.applyPending ? T('Applying ') : T('Loading ')) + candidate.name + '…' : shown.id === S.c.wall ? T('Applied') : T('Preview');
+    if (t.failedId) note = S.err ? T('Couldn’t save ') + wall(t.failedId).name + '.' : T('Couldn’t load ') + wall(t.failedId).name + '.';
     status = '<p class="wallpaper-preview-name"><span>' + esc(shown.name) + '</span><span class="wallpaper-count">' + (wallIndex(shown.id) + 1) + ' of ' + WALLS.length + '</span></p><p class="wallpaper-preview-state' + (t.failedId ? ' setting-error' : '') + '">' + esc(note) + '</p>';
     if (t.failedId) status += '<button type="button" tabindex="-1" class="setting-choice setting-retry' + (t.f.zone === 'retry' ? ' is-focus' : '') + '" data-z="wall-retry" data-action="wallpaper.retry">Try again</button>';
     setHTML(appearanceStatus, status);

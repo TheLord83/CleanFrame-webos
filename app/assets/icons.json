@@ -110,7 +110,7 @@
       "id": "tv",
       "label": {
         "de": "Fernsehen",
-        "en": "Fernsehen"
+        "en": "Television"
       },
       "icons": [
         {
@@ -185,7 +185,7 @@
       "id": "gaming",
       "label": {
         "de": "Spielekonsolen",
-        "en": "Spielekonsolen"
+        "en": "Gaming consoles"
       },
       "icons": [
         {
@@ -218,7 +218,7 @@
       "id": "devices",
       "label": {
         "de": "Geräte und Eingänge",
-        "en": "Geräte und Eingänge"
+        "en": "Devices and inputs"
       },
       "icons": [
         {

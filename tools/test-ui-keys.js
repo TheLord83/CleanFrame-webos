@@ -350,6 +350,11 @@ function run(wsUrl) {
               try { o = JSON.parse(raw); } catch (e) {}
               check('the icon panel opens', o.view === 'icons', String(o.view));
               check('the panel has all four groups', (o.tabs || []).length === 4, (o.tabs || []).join(' / '));
+              /* Two bugs hid here: the English labels were the German ones, and the
+               * language lookup read a function as a value and always answered 'en'. */
+              check('the group names are in the interface language',
+                (o.tabs || []).indexOf('Spielekonsolen') >= 0 && (o.tabs || []).indexOf('Gaming consoles') < 0,
+                (o.tabs || []).join(' / '));
               check('the grid offers own icon and letters', (o.names || [])[0] !== undefined && (o.names || []).length >= 2, (o.names || []).join(' / '));
               check('the panel shows at least the two choices plus icons', (o.cells || 0) >= 6, o.cells + ' cells');
               key('down', function () {           /* Reiter -> Raster */
