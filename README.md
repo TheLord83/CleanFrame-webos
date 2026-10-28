@@ -8,8 +8,9 @@ or newer. Not affiliated with the original project and not maintained by its aut
 CleanFrame was written for the Samsung The Frame (Tizen): one photo, a large clock, your own apps.
 The idea was a start screen without the clutter a manufacturer ships. This port keeps the original
 layout, focus logic, settings, wallpapers and materials, and replaces only the device layer.
-`app/device.js` talks to [Glasshouse](https://github.com/rorygallagher2024/glasshouse) on the TV
-instead of the Tizen API.
+`app/device.js` talks to webOS itself instead of the Tizen API: apps are launched through
+`com.webos.applicationManager`, and [Glasshouse](https://github.com/rorygallagher2024/glasshouse) is
+used only where it is convenient, never required.
 
 ![CleanFrame on a 43" LG TV: one photo, the clock, six tiles](docs/img/launcher.jpg)
 
@@ -79,9 +80,10 @@ without it.
 - an LG TV running webOS, rooted. In practice that means the
   [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel); how to root a TV is its
   guide's job, not this README's
-- [Glasshouse](https://github.com/rorygallagher2024/glasshouse) installed and opened once, its
-  dashboard answering on port 8080. It accepts the IPK, and the launcher reads its app list from it.
-  Without Glasshouse the dock stays empty
+- optionally [Glasshouse](https://github.com/rorygallagher2024/glasshouse), its dashboard on port
+  8080. It is the easiest way to put the IPK on the TV, and if it is there the launcher borrows the
+  app list and app icons from it. Without Glasshouse the launcher asks webOS itself, so the dock
+  still fills, only the app icons stay empty
 - a way to get an IPK onto the TV: the Homebrew Channel, Glasshouse (Apps, install from a file) or
   webOS Dev Manager
 
@@ -92,7 +94,7 @@ without it.
 | **Tested** | LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401, Chromium 79, Glasshouse 0.118.0 | Everything in this README |
 | **Very likely** | other webOS 6 sets (2021, "webOS 6.0") | Same browser engine, not tried |
 | **Untested** | webOS 7, 9, 10, 11 ("webOS 23" to "webOS 26"), OLED C and G series | No idea. That is what testers are for |
-| **Not supported** | a TV without root, without the Homebrew Channel or without Glasshouse | The launcher is an app, but the hub needs a root shell |
+| **Not supported** | a TV without root or without the Homebrew Channel | The launcher is an app, but the hub needs a root shell |
 
 ## Install
 

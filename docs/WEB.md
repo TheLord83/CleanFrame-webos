@@ -50,6 +50,9 @@ content type is delivered by the browser without a preflight.
 | GET | `/api/ha/values` | current values for the selected entities (`?entities=a.b,c.d`) |
 | POST | `/api/ha/toggle` | switch one selected light/switch/helper (`{"entity_id": "…"}`) |
 | GET | `/api/heartbeat` | age of the last heartbeat, process, start time, whether it is stale |
+| GET | `/api/apps` | app catalog, from the launcher's report, else Glasshouse, else built in |
+| POST | `/api/apps/report` | the launcher hands over the list webOS gave it |
+| GET | `/api/apps/icon?id=` | app icon, passed through from the TV and cached |
 | GET | `/api/wall/<id>` | one wallpaper. Packaged ones live in the app, uploaded ones in `/var/lib/cleanframe/walls` |
 | GET | `/api/walls` | uploaded pictures: id, name, bytes, when they were added |
 | POST | `/api/walls` | upload a picture (`{"name": "…", "data": "data:image/jpeg;base64,…"}`), must be exactly 1920x1080 |
@@ -58,6 +61,19 @@ content type is delivered by the browser without a preflight.
 | POST | `/api/backup` | import such a file |
 | GET | `/api/selftest` | built-in assertions about validation, redaction, storage |
 | POST | `/api/system/restart` | restart the service (exit 0, the boot hook or `cleanframectl` brings it back) |
+
+### App list and icons
+
+Three sources, in this order: the list the launcher reported, then Glasshouse, then the apps built
+into the hub. The launcher asks webOS itself (`com.webos.applicationManager/listApps`) and posts the
+result to `POST /api/apps/report` whenever its app browser opens, so the catalog works on a TV where
+Glasshouse was never installed. The report lands in `apps.json` next to the configuration and
+carries a timestamp, so an old list is visible as old.
+
+Icons are served by the hub (`GET /api/apps/icon?id=`) and passed through from Glasshouse, cached in
+memory. They have to: the browser runs on another machine, where `127.0.0.1:8080` is its own
+loopback and not the television. Without Glasshouse the route answers 404 and the interface falls
+back to the icon set the launcher ships.
 
 ### Heartbeat
 

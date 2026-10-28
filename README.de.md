@@ -6,8 +6,8 @@ mit webOS 6 oder neuer. Nicht mit dem Original verbunden, nicht vom ursprünglic
 CleanFrame wurde für Samsung The Frame (Tizen) geschrieben: ein Foto, eine große Uhr und die eigenen
 Apps. Gemeint war eine Startseite ohne den Ballast, den ein Hersteller mitliefert. Diese Portierung
 übernimmt den Originalcode samt Oberfläche, Fokus-Logik, Einstellungen, Wandbildern und Materialien
-und ersetzt nur die Geräteanbindung. `app/device.js` spricht den [Glasshouse](https://github.com/rorygallagher2024/glasshouse)-Server
-auf dem Fernseher an statt der Tizen-API.
+und ersetzt nur die Geräteanbindung. `app/device.js` spricht webOS selbst an statt der Tizen-API. [Glasshouse](https://github.com/rorygallagher2024/glasshouse)
+wird nur dort benutzt, wo es bequem ist, nie vorausgesetzt.
 
 ![CleanFrame auf einem 43-Zoll-LG: ein Foto, die Uhr, sechs Kacheln](docs/img/launcher.jpg)
 
@@ -76,7 +76,7 @@ Wo die Firmware-Nummer am Fernseher steht, mit beiden Wegen:
 | **Getestet** | LG 43NANO779PA (NanoCell 2021), webOS 6.5.0-2401, Chromium 79, Glasshouse 0.118.0 | Alles, was hier steht |
 | **Sehr wahrscheinlich** | andere webOS-6-Geräte (2021) | gleiche Browser-Engine, nicht ausprobiert |
 | **Ungetestet** | webOS 7, 9, 10, 11 („webOS 23" bis „webOS 26"), OLED C und G | Keine Ahnung. Dafür sind Tester da |
-| **Nicht unterstützt** | Fernseher ohne Root, ohne Homebrew Channel oder ohne Glasshouse | Der Launcher ist eine App, der Hub braucht eine Root-Shell |
+| **Nicht unterstützt** | Fernseher ohne Root oder ohne Homebrew Channel | Der Launcher ist eine App, der Hub braucht eine Root-Shell |
 
 Ein eigenes Bild kommt in der Einstellungsseite unter Darstellung, Hintergrund: Datei auswählen,
 sie wird auf 1920x1080 zugeschnitten und neben der Konfiguration in `/var/lib/cleanframe/walls`
@@ -88,8 +88,10 @@ ist; die mitgelieferten Wandbilder gehen auch ohne.
 - ein LG-Fernseher mit webOS, gerootet. In der Praxis heißt das
   [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel); wie man rootet, ist
   dessen Anleitung und nicht diese README
-- [Glasshouse](https://github.com/rorygallagher2024/glasshouse) installiert und einmal geöffnet,
-  Dashboard auf Port 8080. Es nimmt das IPK an, und der Launcher liest seine App-Liste dort
+- wahlweise [Glasshouse](https://github.com/rorygallagher2024/glasshouse), Dashboard auf Port 8080.
+  Damit kommt das IPK am einfachsten auf den Fernseher, und wenn es da ist, leiht sich der Launcher
+  App-Liste und App-Symbole. Ohne Glasshouse fragt der Launcher webOS selbst, die Kacheln füllen
+  sich also trotzdem, nur die App-Symbole bleiben leer
 - ein Rechner im selben Netz. Für den Launcher reicht eine Shell mit `curl`. Für den Hub zusätzlich
   `ssh`, `scp`, `python3` (Linux, macOS) oder PowerShell mit OpenSSH-Client (Windows)
 

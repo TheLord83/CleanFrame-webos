@@ -45,6 +45,10 @@ function merge(list) {
   return out;
 }
 
+/* Icons are fetched through this server, never straight from Glasshouse: the
+ * browser sits on another machine, where 127.0.0.1 is its own loopback. */
+var ICON_ROUTE = '/api/apps/icon?id=';
+
 /* Glasshouse returns `installed` (app list) and `systemTiles`. For the
  * interface the only things that count are: which app can go on the home
  * screen, what is it called, where is its icon. */
@@ -56,7 +60,7 @@ function fromGlasshouse(payload, base) {
       appId: a.id,
       name: a.title || a.id,
       system: false,
-      icon: base + '/api/apps/icon?id=' + encodeURIComponent(a.id)
+      icon: ICON_ROUTE + encodeURIComponent(a.id)
     });
   });
   ((payload && payload.systemTiles) || []).forEach(function (t) {
@@ -65,7 +69,7 @@ function fromGlasshouse(payload, base) {
       appId: t.id,
       name: t.title || t.id,
       system: true,
-      icon: base + '/api/apps/icon?id=' + encodeURIComponent(t.id)
+      icon: ICON_ROUTE + encodeURIComponent(t.id)
     });
   });
   return list;
@@ -73,9 +77,30 @@ function fromGlasshouse(payload, base) {
 
 /* `stub` is a JSON array in the same format as above. Test operation without a
  * TV runs on it, so no branch is needed in the request path. */
+/* The launcher reports what webOS has installed (it asks Luna directly). That
+ * list is the better source: it exists without Glasshouse and it is what the
+ * television itself shows. */
+function fromReport(report) {
+  if (!report || !Array.isArray(report.apps) || !report.apps.length) return null;
+  return report.apps.map(function (a) {
+    return {
+      appId: a.appId,
+      name: String(a.name || a.appId).slice(0, 160),
+      system: !!a.system,
+      icon: ICON_ROUTE + encodeURIComponent(a.appId)
+    };
+  });
+}
+
 function catalog(opts, cb) {
   if (opts && opts.stub) {
     return cb(null, { ok: true, source: 'stub', apps: merge(fromGlasshouse(opts.stub, '')) });
+  }
+  var reported = fromReport(opts && opts.report);
+  if (reported) {
+    var when = (opts.report && opts.report.when) || null;
+    var age = when ? Math.max(0, Math.round((Date.now() - Date.parse(when)) / 1000)) : null;
+    return cb(null, { ok: true, source: 'launcher', when: when, ageSeconds: age, apps: merge(reported) });
   }
   var base = (opts && opts.base) || 'http://127.0.0.1:8080';
   var target = urlmod.parse(base + '/api/apps');
@@ -102,4 +127,4 @@ function catalog(opts, cb) {
   });
 }
 
-module.exports = { BUILTIN: BUILTIN, catalog: catalog, merge: merge };
+module.exports = { BUILTIN: BUILTIN, catalog: catalog, merge: merge, ICON_ROUTE: ICON_ROUTE };

@@ -646,6 +646,20 @@
     S.press = id; S.lastLaunch = a.name;
     perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
   }
+  /* Tell the hub what webOS has installed. The launcher asks Luna directly, so
+   * this list exists with or without Glasshouse, and the settings page can work
+   * from it instead of depending on a second app being installed. Fire and
+   * forget: a failure here must never keep the app browser from opening. */
+  function reportApps(entries) {
+    var list = [];
+    (entries || []).forEach(function (e) {
+      if (!e || !safeId(e.appId)) return;
+      list.push({ appId: e.appId, name: String(e.name || e.appId).slice(0, 160), system: !!e.system });
+    });
+    if (!list.length) return;
+    FrameDevice.api('POST', '/api/apps/report', { apps: list }, function () {});
+  }
+
   function refreshCatalog() {
     var request, oldFocus;
     if (catalog.loading) return;
@@ -668,6 +682,7 @@
       });
       ALPHA.sort(function (a, b) { return app(a).name.toLowerCase().localeCompare(app(b).name.toLowerCase()); });
       catalog.loaded = true; catalog.error = null; catalog.revision++;
+      reportApps(entries);
       if (top().id === 'apps' && oldFocus && ALPHA.indexOf(oldFocus) >= 0) top().f.i = ALPHA.indexOf(oldFocus);
       norm(); render();
     });

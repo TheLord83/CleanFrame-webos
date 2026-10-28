@@ -148,6 +148,47 @@ def check(name, fn):
         print(f"  FAIL  {name}: {e!r}")
 
 
+PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+       b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00"
+       b"\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+class FakeGlasshouse(BaseHTTPRequestHandler):
+    """Glasshouse stand-in: an installed app list and one icon.
+
+    It counts icon requests, because the point of the proxy is that the hub asks
+    the television once and serves the browser from memory afterwards.
+    """
+
+    icon_calls = 0
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):  # noqa: N802 - http.server naming
+        if self.path.startswith("/api/apps/icon"):
+            type(self).icon_calls += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(PNG)))
+            self.end_headers()
+            self.wfile.write(PNG)
+            return
+        if self.path.startswith("/api/apps"):
+            body = json.dumps({"installed": [
+                {"id": "youtube.leanback.v4", "title": "YouTube"},
+                {"id": "com.example.thing", "title": "Example"},
+            ], "systemTiles": []}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+
 def free_port():
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
@@ -333,6 +374,128 @@ def main():
             assert st == 200 and d["state"] == "stopped", (st, d)
             assert d["stale"] is False, d
 
+        # --- App-Liste und Symbole -------------------------------------------------
+        def t_apps_report_becomes_the_catalog():
+            """The launcher sees the apps through Luna; the catalog should use that
+            list, so the settings page works without Glasshouse installed."""
+            st, d, _ = req("POST", "/api/apps/report", {"apps": [
+                {"appId": "com.example.thing", "name": "Example"},
+                {"appId": "youtube.leanback.v4", "name": "YouTube"},
+                {"appId": "com.example.thing", "name": "Doppelt"},
+            ]})
+            assert st == 200 and d["ok"] is True, (st, d)
+            assert d["count"] == 2, d
+            tmpdir_report = os.path.join(tmpdir, "apps.json")
+            assert os.path.exists(tmpdir_report), "the report was not written next to the configuration"
+            st2 = free_port()
+            port2 = st2
+            tmp2 = tempfile.mkdtemp(prefix="cf-apps-")
+            env2 = dict(os.environ)
+            env2.update({
+                "CF_PORT": str(port2),
+                "CF_CONFIG": os.path.join(tmp2, "config.json"),
+                "CF_GLASSHOUSE": "http://127.0.0.1:9",
+                "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
+                "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
+                "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
+                "CF_OS_INFO": OSINFO,
+                "CF_DEVICE_INFO": DEVINFO,
+                "CF_SCREENSHOT_STUB": "1",
+                "CF_DEVTOOLS_PORT": str(free_port()),
+            })
+            env2.pop("CF_STUB_APPS", None)
+            os.makedirs(tmp2, exist_ok=True)
+            with open(os.path.join(tmp2, "apps.json"), "w") as f:
+                json.dump({"when": time.strftime("%Y-%m-%dT%H:%M:%S"), "apps": [
+                    {"appId": "com.example.thing", "name": "Example", "system": False},
+                ]}, f)
+            p2 = subprocess.Popen(["node", "server.js"], cwd=WEB, env=env2,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            try:
+                wait_up(port2)
+                with urllib.request.urlopen(f"http://127.0.0.1:{port2}/api/apps", timeout=10) as r:
+                    cat = json.loads(r.read().decode())
+                assert cat["source"] == "launcher", cat
+                entry = [a for a in cat["apps"] if a["appId"] == "com.example.thing"]
+                assert entry, cat
+                assert entry[0]["icon"].startswith("/api/apps/icon?id="), entry[0]
+                assert not any("127.0.0.1" in (a.get("icon") or "") for a in cat["apps"]), \
+                    "the browser would fetch icons from its own loopback"
+            finally:
+                p2.send_signal(signal.SIGTERM)
+                try:
+                    p2.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    p2.kill()
+
+        def t_apps_report_rejects_junk():
+            st, d, _ = req("POST", "/api/apps/report", {"apps": [{"appId": "../../etc/passwd"}]})
+            assert st == 400, (st, d)
+            st2, d2, _ = req("POST", "/api/apps/report", {"apps": []})
+            assert st2 == 400, (st2, d2)
+
+        def t_icon_without_glasshouse_is_a_404_not_a_crash():
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/apps/icon?id=youtube.leanback.v4", timeout=10) as r:
+                    st, body = r.status, r.read().decode("utf-8", "replace")
+            except urllib.error.HTTPError as e:
+                st, body = e.code, e.read().decode("utf-8", "replace")
+            assert st == 404, f"expected 404 without Glasshouse, got {st}: {body[:120]}"
+            assert "Symbol" in body, body[:120]
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/api/apps/icon?id=../x", timeout=5)
+                raise AssertionError("a path as app id should be refused")
+            except urllib.error.HTTPError as e:
+                assert e.code == 400, e.code
+
+        def t_icon_is_passed_through_and_cached():
+            """One request to the television, every later browser gets it from memory."""
+            gh = HTTPServer(("127.0.0.1", 0), FakeGlasshouse)
+            gh_base = "http://127.0.0.1:%d" % gh.server_address[1]
+            threading.Thread(target=gh.serve_forever, daemon=True).start()
+            FakeGlasshouse.icon_calls = 0
+            port3 = free_port()
+            tmp3 = tempfile.mkdtemp(prefix="cf-icon-")
+            env3 = dict(os.environ)
+            env3.update({
+                "CF_PORT": str(port3),
+                "CF_CONFIG": os.path.join(tmp3, "config.json"),
+                "CF_GLASSHOUSE": gh_base,
+                "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
+                "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
+                "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
+                "CF_OS_INFO": OSINFO,
+                "CF_DEVICE_INFO": DEVINFO,
+                "CF_SCREENSHOT_STUB": "1",
+                "CF_DEVTOOLS_PORT": str(free_port()),
+            })
+            env3.pop("CF_STUB_APPS", None)
+            p3 = subprocess.Popen(["node", "server.js"], cwd=WEB, env=env3,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            try:
+                wait_up(port3)
+                with urllib.request.urlopen(f"http://127.0.0.1:{port3}/api/apps", timeout=10) as r:
+                    cat = json.loads(r.read().decode())
+                assert cat["source"] == "glasshouse", cat
+                entry = [a for a in cat["apps"] if a["appId"] == "youtube.leanback.v4"]
+                assert entry and entry[0]["icon"].startswith("/api/apps/icon?id="), entry
+                assert not any("127.0.0.1" in (a.get("icon") or "") for a in cat["apps"]), cat
+                got = []
+                for _ in range(2):
+                    with urllib.request.urlopen(f"http://127.0.0.1:{port3}/api/apps/icon?id=youtube.leanback.v4", timeout=10) as r:
+                        got.append((r.status, r.headers.get("Content-Type"), r.read()))
+                assert got[0][0] == 200 and got[0][1] == "image/png", got[0][:2]
+                assert got[0][2] == PNG, "the icon bytes were altered on the way through"
+                assert got[1][2] == PNG, got[1]
+                assert FakeGlasshouse.icon_calls == 1, f"the icon was fetched {FakeGlasshouse.icon_calls} times, expected 1 (cache)"
+            finally:
+                p3.send_signal(signal.SIGTERM)
+                try:
+                    p3.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    p3.kill()
+                gh.shutdown()
+
         def t_hold_parameter():
             """holdMs is accepted (without a device: 503), invalid keys stay 400."""
             st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
@@ -384,7 +547,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.6.1", d
+            assert d["hub"] == "0.6.2", d
             assert d["node"], d
 
         def t_tv_screenshot():
@@ -855,6 +1018,10 @@ def main():
             ("GET /api/tv/screenshot.png delivers the picture", t_tv_screenshot_png),
             ("default configuration is empty and valid", t_config_default),
             ("catalog comes from the stub and contains system apps", t_catalog),
+            ("the launcher's app list becomes the catalog, with relative icon URLs", t_apps_report_becomes_the_catalog),
+            ("an unusable app list is refused", t_apps_report_rejects_junk),
+            ("an icon without Glasshouse is a 404, not a crash", t_icon_without_glasshouse_is_a_404_not_a_crash),
+            ("the icon is passed through and cached", t_icon_is_passed_through_and_cached),
             ("PUT /api/config saves, redacts token, removes duplicates", t_put_config),
             ("configuration is fully on disk", t_persisted_on_disk),
             ("empty token in the interface does not clear the secret", t_token_kept_when_empty),

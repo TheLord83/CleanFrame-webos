@@ -3,6 +3,18 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.2 (app list without Glasshouse)
+
+- **The catalog no longer depends on Glasshouse.** The launcher asks webOS for the installed apps and
+  reports them to the hub (`POST /api/apps/report`), which keeps them in `apps.json` next to the
+  configuration. `/api/apps` prefers that list, falls back to Glasshouse, then to the built-in apps.
+  Glasshouse stays the easiest way to install a package, it is just no longer a prerequisite for the
+  settings page to show any apps.
+- **App icons now load in the browser.** The catalog used to hand out `http://127.0.0.1:8080/...`
+  URLs, which on a phone or laptop point at the phone or laptop. Icons go through
+  `GET /api/apps/icon?id=` now, are fetched from the television once and cached in memory for the
+  rest of the session.
+
 ## 0.6.1 (heartbeat)
 
 - **The hub now says how alive it is (#9).** Every 30 seconds it writes a timestamp next to the

@@ -50,7 +50,7 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.1';
+var VERSION = '0.6.2';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -68,6 +68,10 @@ var CLIENT_LOG = process.env.CF_CLIENT_LOG || '/var/lib/cleanframe/client.log';
 var STUB = process.env.CF_STUB_APPS || '';
 
 var store = new config.Store(CONFIG_PATH);
+/* The launcher's own app list, written whenever it opens its app browser. */
+var APPS_REPORT = path.join(path.dirname(CONFIG_PATH), 'apps.json');
+var iconCache = {};
+
 /* The heartbeat sits next to the configuration, in the writable folder. */
 var beat = heartbeat.make(path.join(path.dirname(CONFIG_PATH), 'heartbeat.json'), 30000);
 var token = process.env.CF_TOKEN || '';
@@ -225,6 +229,13 @@ function serveStatic(u, res) {
   });
 }
 
+function reportedApps() {
+  try {
+    var report = JSON.parse(fs.readFileSync(APPS_REPORT, 'utf8'));
+    return report && Array.isArray(report.apps) && report.apps.length ? report : null;
+  } catch (e) { return null; }
+}
+
 function stubApps() {
   if (!STUB) return null;
   try { return JSON.parse(fs.readFileSync(STUB, 'utf8')); } catch (e) { return null; }
@@ -321,8 +332,69 @@ function handle(req, res) {
     });
   }
 
+  /* App icons are fetched here and passed through from the TV, because the
+   * browser cannot reach 127.0.0.1:8080 on the television. Cached in memory:
+   * an icon rarely changes and the TV should not be asked ten times per page. */
+  if (req.method === 'GET' && p === '/api/apps/icon') {
+    var id = String(u.query.id || '');
+    if (!id || id.length > 200 || !/^[A-Za-z0-9._-]+$/.test(id)) return json(res, 400, { ok: false, error: 'ungueltige App-Kennung' });
+    if (iconCache[id]) {
+      res.writeHead(200, { 'Content-Type': iconCache[id].type, 'Cache-Control': 'max-age=86400' });
+      return res.end(iconCache[id].body);
+    }
+    var iconUrl = url.parse(TV_BASE + '/api/apps/icon?id=' + encodeURIComponent(id));
+    iconUrl.timeout = 4000;
+    var iconReq = http.get(iconUrl, function (r) {
+      if (r.statusCode !== 200) {
+        r.resume();
+        return json(res, 404, { ok: false, error: 'kein Symbol fuer diese App' });
+      }
+      var type = String(r.headers['content-type'] || 'image/png');
+      var chunks = [];
+      r.on('data', function (c) { chunks.push(c); if (chunks.length > 2048) r.destroy(); });
+      r.on('end', function () {
+        var body = Buffer.concat(chunks);
+        if (!body.length) return json(res, 404, { ok: false, error: 'leeres Symbol' });
+        if (Object.keys(iconCache).length < 300) iconCache[id] = { type: type, body: body };
+        res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'max-age=86400' });
+        res.end(body);
+      });
+    });
+    iconReq.on('timeout', function () { iconReq.abort(); });
+    iconReq.on('error', function () { json(res, 404, { ok: false, error: 'Symbol nicht erreichbar' }); });
+    return;
+  }
+
+  /* The launcher reports the list it read from webOS, so the catalog does not
+   * depend on Glasshouse any more. */
+  if (req.method === 'POST' && p === '/api/apps/report') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var list = body && Array.isArray(body.apps) ? body.apps : [];
+      var clean = [];
+      list.slice(0, 400).forEach(function (a) {
+        if (!a || typeof a.appId !== 'string') return;
+        var appId = a.appId.slice(0, 200);
+        if (!/^[A-Za-z0-9._-]+$/.test(appId)) return;
+        if (clean.some(function (c) { return c.appId === appId; })) return;
+        clean.push({ appId: appId, name: String(a.name || appId).slice(0, 160), system: !!a.system });
+      });
+      if (!clean.length) return json(res, 400, { ok: false, error: 'keine brauchbare App-Liste' });
+      var out = { when: new Date().toISOString(), version: VERSION, apps: clean };
+      try {
+        config.mkdirp(path.dirname(APPS_REPORT));
+        var tmp = APPS_REPORT + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(out));
+        fs.renameSync(tmp, APPS_REPORT);
+      } catch (e) {
+        return json(res, 500, { ok: false, error: 'Liste konnte nicht gespeichert werden: ' + e.message });
+      }
+      json(res, 200, { ok: true, count: clean.length, when: out.when });
+    });
+  }
+
   if (req.method === 'GET' && p === '/api/apps') {
-    return appCatalog.catalog({ base: TV_BASE, stub: stubApps() }, function (err, out) {
+    return appCatalog.catalog({ base: TV_BASE, stub: stubApps(), report: reportedApps() }, function (err, out) {
       json(res, 200, out);
     });
   }
