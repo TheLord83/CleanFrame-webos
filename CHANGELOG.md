@@ -3,6 +3,19 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.1 (heartbeat)
+
+- **The hub now says how alive it is (#9).** Every 30 seconds it writes a timestamp next to the
+  configuration, and `GET /api/heartbeat` reports the age, the process, the start time and whether
+  the last write is too old. Three intervals of slack, so one missed tick is a busy machine and not
+  a hang. A clean stop writes `state: "stopped"` instead of just falling silent, which is the
+  difference between a restart and a failure.
+- Settings page, System tab: a heartbeat table with state, age, start time, process and file,
+  refreshed every ten seconds while the tab is open.
+- `tools/watch-hub.py` is the outside half: run it from cron on a machine that is always on, and a
+  hub that hangs or disappears turns into an ntfy message. It only speaks when the state changes,
+  so an empty cron mail means everything is fine.
+
 ## 0.6.0 (own wallpaper)
 
 0.5.9 was built and never shipped, so this version carries both: the Back list, the start image

@@ -353,6 +353,20 @@
     </table>
     <div class="status" id="devStatus"></div>
 
+    <h3 style="margin-top:22px"><span data-t="sys.hb.title">Herzschlag</span></h3>
+    <p class="hint" data-t="sys.hb.hint">Der Hub schreibt alle 30 Sekunden einen Zeitstempel neben die Konfiguration. Bleibt er stehen, weiss man, wie lange: das ist der Unterschied zwischen „antwortet gerade nicht" und „hängt seit vier Minuten".</p>
+    <table id="hbTable">
+      <tr><th data-t="sys.hb.state">Zustand</th><td id="hbState">…</td></tr>
+      <tr><th data-t="sys.hb.age">Letzter Herzschlag</th><td id="hbAge">…</td></tr>
+      <tr><th data-t="sys.hb.since">Läuft seit</th><td id="hbSince">…</td></tr>
+      <tr><th data-t="sys.hb.pid">Prozess</th><td id="hbPid">…</td></tr>
+      <tr><th data-t="sys.hb.file">Datei</th><td id="hbFile">…</td></tr>
+    </table>
+    <div class="row" style="display:flex;gap:10px;align-items:center;margin-top:10px">
+      <button class="ghost" id="btnHb" data-t="sys.hb.refresh">Jetzt nachsehen</button>
+      <span class="status" id="hbStatus"></span>
+    </div>
+
     <h3 style="margin-top:22px"><span data-t="sys.shot.title">Bildschirmfoto</span></h3>
     <p class="hint" data-t="sys.shot.hint">Nimmt den ganzen Bildschirm auf, auch LGs eigene Seiten wie Einstellungen. Nichts auswählen nötig: was gerade zu sehen ist, wird fotografiert.</p>
     <div class="row">
@@ -587,6 +601,35 @@
         return data;
       });
     });
+  }
+
+  /* ---------- Heartbeat ---------- */
+  var hbTimer = null;
+  function hbShow(d) {
+    var state = $('hbState'), age = $('hbAge'), since = $('hbSince'), pid = $('hbPid'), file = $('hbFile');
+    if (!d) return;
+    if (!d.read) { state.textContent = t('sys.hb.missing'); state.style.color = '#f2b8b8'; }
+    else if (d.state === 'stopped') { state.textContent = t('sys.hb.stopped'); state.style.color = '#f2d79a'; }
+    else if (d.stale) { state.textContent = t('sys.hb.stale'); state.style.color = '#f2b8b8'; }
+    else { state.textContent = t('sys.hb.running'); state.style.color = ''; }
+    if (d.ageSeconds === null || d.ageSeconds === undefined) {
+      age.textContent = '—';
+    } else {
+      age.textContent = d.ageSeconds + ' s' + (d.staleAfterSeconds ? ' (' + t('sys.hb.limit') + ' ' + d.staleAfterSeconds + ' s)' : '');
+    }
+    since.textContent = d.started ? new Date(d.started).toLocaleString() : '—';
+    pid.textContent = d.pid ? String(d.pid) : '—';
+    file.textContent = d.file || '—';
+  }
+  function hbLoad() {
+    api('GET', '/api/heartbeat').then(hbShow).catch(function (e) {
+      var state = $('hbState');
+      if (state) { state.textContent = t('sys.hb.unreachable') + ' (' + e.message + ')'; state.style.color = '#f2b8b8'; }
+    });
+  }
+  function hbWatch(on) {
+    if (hbTimer) { clearInterval(hbTimer); hbTimer = null; }
+    if (on) { hbLoad(); hbTimer = setInterval(hbLoad, 10000); }
   }
 
   function tab(name) {
@@ -1403,9 +1446,13 @@
     }
   } catch (e) {}
   updatePanelToggle();
+  (function () {
+    var hb = $('btnHb');
+    if (hb) hb.onclick = function () { hbLoad(); };
+  }());
 
   document.querySelectorAll('nav button').forEach(function (b) {
-    b.onclick = function () { tab(b.dataset.tab); location.hash = b.dataset.tab; loadShot(); };
+    b.onclick = function () { tab(b.dataset.tab); location.hash = b.dataset.tab; loadShot(); hbWatch(b.dataset.tab === 'system'); };
   });
 
   /* Direct link: /#look or /#system opens the matching tab. */
@@ -1413,7 +1460,7 @@
     var want = (location.hash || '').replace('#', '');
     if (!want) return;
     var btn = document.querySelector('nav button[data-tab="' + want + '"]');
-    if (btn) tab(want);
+    if (btn) { tab(want); hbWatch(want === 'system'); }
   }());
 
   /* Load the TV image from the start and keep it up to date permanently. */

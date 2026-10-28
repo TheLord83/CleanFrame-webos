@@ -292,6 +292,47 @@ def main():
                            headers={"Origin": "http://evil.example"})
             assert st == 403, (st, d)
 
+        # --- Herzschlag ----------------------------------------------------------
+        def t_heartbeat():
+            st, d, _ = req("GET", "/api/heartbeat")
+            assert st == 200 and d.get("ok") is True, (st, d)
+            assert d["read"] is True, d
+            assert d["state"] == "running", d
+            assert d["ageSeconds"] is not None and d["ageSeconds"] <= 10, d
+            assert d["stale"] is False, d
+            assert d["file"].endswith("heartbeat.json"), d["file"]
+            assert d["pid"], d
+
+        def t_heartbeat_stale():
+            """An old timestamp must be reported as stale, not as silence."""
+            import time as _t
+            hb = os.path.join(tmpdir, "heartbeat.json")
+            with open(hb) as f:
+                entry = json.load(f)
+            old = _t.time() - 600
+            entry["last"] = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.gmtime(old)) + ".000Z"
+            with open(hb, "w") as f:
+                json.dump(entry, f)
+            st, d, _ = req("GET", "/api/heartbeat")
+            assert st == 200, st
+            assert d["stale"] is True, d
+            assert d["ageSeconds"] >= 500, d
+            assert d["staleAfterSeconds"] == 90, d
+
+        def t_heartbeat_stopped_is_not_stale():
+            """A clean stop says so; the watcher must not call it a hang."""
+            import time as _t
+            hb = os.path.join(tmpdir, "heartbeat.json")
+            with open(hb) as f:
+                entry = json.load(f)
+            entry["state"] = "stopped"
+            entry["last"] = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.gmtime()) + ".000Z"
+            with open(hb, "w") as f:
+                json.dump(entry, f)
+            st, d, _ = req("GET", "/api/heartbeat")
+            assert st == 200 and d["state"] == "stopped", (st, d)
+            assert d["stale"] is False, d
+
         def t_hold_parameter():
             """holdMs is accepted (without a device: 503), invalid keys stay 400."""
             st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
@@ -343,7 +384,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.6.0", d
+            assert d["hub"] == "0.6.1", d
             assert d["node"], d
 
         def t_tv_screenshot():
@@ -842,6 +883,9 @@ def main():
             ("wrong HA token is reported", t_ha_wrong_token),
             ("screensaver limits and entity selection", t_config_screensaver_and_entities),
             ("senior mode, text size and wizard state", t_config_ui_and_onboarding),
+            ("heartbeat reports a fresh timestamp", t_heartbeat),
+            ("heartbeat reports a stale timestamp as stale", t_heartbeat_stale),
+            ("a cleanly stopped hub is not called stale", t_heartbeat_stopped_is_not_stale),
             ("own wallpaper: upload, list, serve, delete", t_wall_upload),
             ("own wallpaper: wrong size and junk are refused", t_wall_upload_refused),
             ("own wallpaper: a foreign page cannot upload", t_wall_upload_foreign),

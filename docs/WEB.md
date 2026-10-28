@@ -49,6 +49,7 @@ content type is delivered by the browser without a preflight.
 | GET | `/api/ha/entities` | entities that make sense on a tile (sensor, light, climate, …) |
 | GET | `/api/ha/values` | current values for the selected entities (`?entities=a.b,c.d`) |
 | POST | `/api/ha/toggle` | switch one selected light/switch/helper (`{"entity_id": "…"}`) |
+| GET | `/api/heartbeat` | age of the last heartbeat, process, start time, whether it is stale |
 | GET | `/api/wall/<id>` | one wallpaper. Packaged ones live in the app, uploaded ones in `/var/lib/cleanframe/walls` |
 | GET | `/api/walls` | uploaded pictures: id, name, bytes, when they were added |
 | POST | `/api/walls` | upload a picture (`{"name": "…", "data": "data:image/jpeg;base64,…"}`), must be exactly 1920x1080 |
@@ -57,6 +58,27 @@ content type is delivered by the browser without a preflight.
 | POST | `/api/backup` | import such a file |
 | GET | `/api/selftest` | built-in assertions about validation, redaction, storage |
 | POST | `/api/system/restart` | restart the service (exit 0, the boot hook or `cleanframectl` brings it back) |
+
+### Heartbeat
+
+The hub writes `heartbeat.json` next to its configuration every 30 seconds: process id, start time,
+last write, version, revision after a config write. `GET /api/heartbeat` answers with the age and
+`stale: true` once the last write is older than three intervals (90 seconds). Three, because a busy
+machine can miss one tick without being broken.
+
+A clean stop writes `state: "stopped"` with a timestamp, so "the hub was restarted" and "the hub
+stopped answering" are distinguishable without guessing. The settings page shows the same numbers
+under System.
+
+`tools/watch-hub.py` is the half that runs outside the process:
+
+```
+*/5 * * * * /root/cleanframe-webos/tools/watch-hub.py --url http://192.168.0.49:8484 --ntfy https://ntfy.sh/mytopic
+```
+
+It exits 0 when the hub is fine, 1 when the timestamp is stale, 2 when nothing answers, and it only
+prints or notifies when the state changes. Run it on a machine that is always on, not on the TV: a
+watchdog that dies with the thing it watches is decoration.
 
 ### Uploaded wallpapers
 

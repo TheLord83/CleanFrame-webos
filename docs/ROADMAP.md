@@ -51,8 +51,9 @@ inside the launcher.
 **App list and icons without Glasshouse** (#7) — removes a runtime dependency that only exists
 because it was convenient. The hub runs as root and can read the app directories itself.
 
-**Watchdog heartbeat** (#9) — converts "the settings page stopped answering" from a mystery into a
-fact.
+**Watchdog heartbeat** (#9) — done in 0.6.1. The hub writes a timestamp every 30 seconds,
+`/api/heartbeat` reports its age, and `tools/watch-hub.py` runs from cron elsewhere and speaks up
+when the timestamp stops moving. "The settings page stopped answering" now has a number attached.
 
 ## Not doing
 

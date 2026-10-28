@@ -156,6 +156,17 @@ The hub accepts JSON only, and only from a matching origin (the same guard Glass
 uses). Requests from the local machine are always allowed. A reverse proxy in front
 must forward `Host` and `Origin` unchanged.
 
+**The settings page does not answer, and you do not know whether the hub is dead or busy**
+The heartbeat answers that. `curl http://<tv-ip>:8484/api/heartbeat` prints the age of the last
+write; `"stale": true` means older than 90 seconds, `"state": "stopped"` means the hub was shut down
+properly. The file behind it is `heartbeat.json` next to the configuration, so it also works when the
+service cannot answer at all:
+```sh
+cat /var/lib/cleanframe/heartbeat.json; date -u
+```
+For unattended watching, put `tools/watch-hub.py` in cron on an always-on machine. It notifies only
+when the state changes, so silence means fine.
+
 ## Remote control and live picture
 
 **Keys do nothing, snapshot works**

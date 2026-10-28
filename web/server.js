@@ -44,12 +44,13 @@ var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var systemkey = require('./lib/systemkey');
 var wallstore = require('./lib/wallstore');
+var heartbeat = require('./lib/heartbeat');
 var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.0';
+var VERSION = '0.6.1';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -67,6 +68,8 @@ var CLIENT_LOG = process.env.CF_CLIENT_LOG || '/var/lib/cleanframe/client.log';
 var STUB = process.env.CF_STUB_APPS || '';
 
 var store = new config.Store(CONFIG_PATH);
+/* The heartbeat sits next to the configuration, in the writable folder. */
+var beat = heartbeat.make(path.join(path.dirname(CONFIG_PATH), 'heartbeat.json'), 30000);
 var token = process.env.CF_TOKEN || '';
 var startedAt = Date.now();
 
@@ -261,6 +264,25 @@ function handle(req, res) {
     });
   }
 
+  /* The heartbeat: written every 30 s, readable from outside the process. */
+  if (req.method === 'GET' && p === '/api/heartbeat') {
+    var a = beat.age();
+    return json(res, 200, {
+      ok: true,
+      hub: VERSION,
+      intervalSeconds: beat.intervalSeconds,
+      file: beat.file,
+      read: a.read,
+      state: a.entry ? a.entry.state : 'missing',
+      pid: a.entry ? a.entry.pid : null,
+      started: a.entry ? a.entry.started : null,
+      last: a.entry ? a.entry.last : null,
+      ageSeconds: a.seconds,
+      staleAfterSeconds: a.limit,
+      stale: a.stale
+    });
+  }
+
   if (req.method === 'GET' && p === '/api/config') {
     var cfg = store.read();
     return json(res, 200, { ok: true, config: config.redact(cfg), schemaVersion: config.VERSION });
@@ -281,7 +303,11 @@ function handle(req, res) {
         if (!mq.password) mq.password = current.integrations.mqtt.password;
       }
       var saved;
-      try { saved = store.write(incoming); } catch (e) {
+      try {
+        saved = store.write(incoming);
+        /* A write is a sign of life too, and it carries the new revision. */
+        beat.write({ version: VERSION, port: PORT, rev: saved ? saved.rev : undefined });
+      } catch (e) {
         console.log('[write-result] 500 ' + e.message);
         if (e.code === 'CONFLICT') {
           /* Older revision: do not overwrite, return the newest revision. */
@@ -746,9 +772,16 @@ var server = http.createServer(function (req, res) {
 
 server.listen(PORT, '0.0.0.0', function () {
   console.log('cleanframe-web ' + VERSION + ' on port ' + PORT + ', configuration: ' + CONFIG_PATH);
+  beat.start({ version: VERSION, port: PORT });
 });
 
-process.on('SIGTERM', function () { server.close(function () { process.exit(0); }); });
-process.on('SIGINT', function () { server.close(function () { process.exit(0); }); });
+/* A clean stop says so in the file: "stopped" is a restart, "nothing for four
+ * minutes" is a problem, and the watcher should not confuse the two. */
+function shutdown(code) {
+  beat.stop();
+  server.close(function () { process.exit(code || 0); });
+}
+process.on('SIGTERM', function () { shutdown(0); });
+process.on('SIGINT', function () { shutdown(0); });
 
 module.exports = server;
