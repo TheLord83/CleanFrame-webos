@@ -217,6 +217,16 @@ def main():
             print("\nChromium-eigener Verkehr (nicht der Launcher): %s" % ", ".join(hosts))
         print("\nLokal angefragt: %d Dateien, alle aus %s" % (len(internal), APP))
         if app_out:
+            # A hit that cannot be looked at again is worth nothing, so the raw
+            # netlog stays on disk. One run in twenty reported a single external
+            # request that six reruns did not reproduce; only the file can say
+            # which host it was.
+            keep = os.path.join(tempfile.gettempdir(), "cf-egress-fail-%d.json" % int(time.time()))
+            try:
+                shutil.copyfile(netlog, keep)
+                print("\nNetlog behalten: %s" % keep)
+            except OSError as e:
+                print("\nNetlog konnte nicht gesichert werden: %s" % e)
             print("\nRESULT: %d externe Requests aus dem Launcher" % len(app_out))
             return 1
         print("\nRESULT: 0 externe Requests aus dem Launcher")
