@@ -45,7 +45,6 @@ var APP = 'file://' + appPath();
  * server). Without the option the check runs with a stub and without a
  * configuration; then messages are English (key = text). */
 var CONFIG_URL = arg('config', '');
-var STUB_SERVER = CONFIG_URL ? CONFIG_URL.replace(/\/api\/config$/, '') : '';
 
 function get(url, cb) {
   http.get(url, function (res) {
@@ -173,33 +172,22 @@ function run(wsUrl) {
     process.exit(failed.length ? 1 : 0);
   }
 
-  var LOADCFG = CONFIG_URL
-    ? 'loadConfig: function (cb) { var x = new XMLHttpRequest(); x.open("GET", ' + JSON.stringify(CONFIG_URL) + ', true); x.onreadystatechange = function () { if (x.readyState !== 4) return; var d = null; try { d = JSON.parse(x.responseText); } catch (e) {} cb(null, d && d.config || null); }; x.send(); },'
-    : 'loadConfig: function (cb) { cb(null, null); },';
-  var STUB = 'window.FrameDevice = {' +
-    'launchApp: function (id, cb) { window.__launched = id; if (cb) cb(null); },' +
-    'launch: function (b, cb) { if (cb) cb(null); },' +
-    'apps: function (cb) { cb(null, []); },' +
-    'home: function (cb) { if (cb) cb(null); },' +
-    'settings: function (cb) { if (cb) cb(null); },' +
-    'art: function (cb) { window.__screensaver = true; if (cb) cb(null); },' +
-    LOADCFG +
-    (STUB_SERVER
-      ? 'saveConfig: function (c, cb) { window.__saved = c; var x = new XMLHttpRequest(); x.open("PUT", ' + JSON.stringify(STUB_SERVER + '/api/config') + ', true); x.setRequestHeader("Content-Type", "application/json"); x.onreadystatechange = function () { if (x.readyState === 4) { if (cb) cb(null, c); } }; x.send(JSON.stringify({ config: c })); },'
-      : 'saveConfig: function (c, cb) { window.__saved = c; if (cb) cb(null); },') +
-    'api: function () {} }; 1';
-
   function start() {
     send('Page.enable', {}, function () {
       send('Page.navigate', { url: APP }, function () {
         setTimeout(function () {
-          evalJs(STUB, function () {
-            send('Page.reload', {}, function () {
+          /* No device stub here: the page talks to the configuration server on
+           * 8484 like the television does, and the actions that need Glasshouse are
+           * replaced inside the individual tests (see recentTest). */
+          send('Page.reload', {}, function () {
               setTimeout(function () {
                 evalJs('(window.__kd = [], document.addEventListener("keydown", function (e) { window.__kd.push(e.keyCode); }, true), window.focus(), 1)', function () {
                   setTimeout(function () {
                     evalJs('typeof window.CleanFrameDebug', function (t) {
                       check('app loaded (debug interface present)', t === 'object', String(t));
+                      evalJs('window.CleanFrameDebug.bootWall()', function (bw) {
+                        check('the start image layer is gone after the first frame', bw === false, String(bw));
+                      });
                       dbg('nach Start');
                       evalJs('JSON.stringify(window.CleanFrameDebug.state().home)', function (homeJson) {
                         var home = [];
@@ -214,7 +202,6 @@ function run(wsUrl) {
                   }, CONFIG_URL ? 1500 : 1200);
                 });
               }, 900);
-            });
           });
         }, 800);
       });
@@ -230,7 +217,8 @@ function run(wsUrl) {
             var labels = [];
             try { labels = JSON.parse(labelsJson); } catch (e) {}
             check('menu offers rename', labels.indexOf('Umbenennen') >= 0, labels.join(' / '));
-            check('menu stays short (at most 2 entries)', labels.length <= 2, labels.length + ' entries');
+            check('menu offers the icon chooser', labels.indexOf('Symbol') >= 0, labels.join(' / '));
+            check('menu stays short (at most 3 entries)', labels.length <= 3, labels.length + ' entries');
 
             // Walk from top to bottom, then back
             var seen = [];
@@ -295,6 +283,107 @@ function run(wsUrl) {
           });
         });
       }, 450);
+    });
+  }
+
+  /* Back on the start page: the last apps, then the way to LG's own home. */
+  function recentTest() {
+    /* Launching a real app needs Glasshouse (deliberately dead in this run), and
+     * LG Home would leave the launcher. Both are replaced here only, so the rest of
+     * the run keeps talking to the real device binding. */
+    evalJs('(function () { var fd = window.FrameDevice || {}; window.__realLaunch = fd.launchApp; window.__realHome = fd.home; '
+      + 'fd.launchApp = function (id, cb) { window.__launched = id; if (cb) cb(null); }; '
+      + 'fd.home = function (cb) { window.__lgHome = true; if (cb) cb(null); }; return 1; })()', function () {
+    evalJs('JSON.stringify(window.CleanFrameDebug.icons())', function (tilesRaw) {
+      var tiles = [];
+      try { tiles = JSON.parse(tilesRaw); } catch (e) {}
+      var first = tiles[0] || {};
+      key('ok', function () {                       /* startet die erste Kachel */
+        key('back', function () {                   /* und Back zeigt die Liste */
+          evalJs('JSON.stringify({r: window.CleanFrameDebug.recent(), v: window.CleanFrameDebug.state().view, launched: window.__launched || null})', function (raw) {
+            var o = { r: {}, v: null };
+            try { o = JSON.parse(raw); } catch (e) {}
+            check('back opens the last apps', o.v === 'recent', String(o.v));
+            check('the app just started is in the list',
+              (o.r.items || []).length > 0 && o.r.items[0] === first.name,
+              JSON.stringify(o.r.items) + ' / ' + first.name);
+            var rows = o.r.rows || [];
+            check('the list ends with LG Home',
+              rows.length > 0 && /LG Startseite|LG Home/.test(rows[rows.length - 1].name),
+              rows.map(function (x) { return x.name; }).join(' | '));
+            check('the first row has the focus', rows.length > 0 && rows[0].focus === true,
+              JSON.stringify(rows[0] || {}));
+            key('down', function () {
+              key('down', function () {
+                key('down', function () {
+                  key('down', function () {
+                    key('down', function () {
+                      key('ok', function () {
+                        evalJs('JSON.stringify({lg: !!window.__lgHome, v: window.CleanFrameDebug.state().view})', function (r2) {
+                          var o2 = {};
+                          try { o2 = JSON.parse(r2); } catch (e) {}
+                          check('OK on the last row asks for LG Home', o2.lg === true, r2);
+                          check('the list closes afterwards', o2.v === 'home', String(o2.v));
+                          iconTest(first.id);
+                        });
+                      });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+    });   /* Ende des eingesetzten Start-/Home-Ersatzes */
+  }
+
+  /* Rename menu -> icon panel: groups, own icon, letters, catalog. */
+  function iconTest(appId) {
+    evalJs('(window.CleanFrameDebug.closeAll(), window.CleanFrameDebug.openCtx(' + JSON.stringify(appId) + '), 1)', function () {
+      setTimeout(function () {
+        key('down', function () {                 /* Umbenennen -> Symbol */
+          key('ok', function () {
+            evalJs('JSON.stringify(window.CleanFrameDebug.iconSheet())', function (raw) {
+              var o = {};
+              try { o = JSON.parse(raw); } catch (e) {}
+              check('the icon panel opens', o.view === 'icons', String(o.view));
+              check('the panel has all four groups', (o.tabs || []).length === 4, (o.tabs || []).join(' / '));
+              check('the grid offers own icon and letters', (o.names || [])[0] !== undefined && (o.names || []).length >= 2, (o.names || []).join(' / '));
+              check('the panel shows at least the two choices plus icons', (o.cells || 0) >= 6, o.cells + ' cells');
+              key('down', function () {           /* Reiter -> Raster */
+                key('right', function () {
+                  key('right', function () {       /* dritte Zelle: erstes Katalog-Icon */
+                    key('ok', function () {
+                      evalJs('JSON.stringify({choice: window.CleanFrameDebug.iconChoice(' + JSON.stringify(appId) + '), icons: window.CleanFrameDebug.icons(), v: window.CleanFrameDebug.state().view})', function (r2) {
+                        var o2 = {};
+                        try { o2 = JSON.parse(r2); } catch (e) {}
+                        var t = (o2.icons || [])[0] || {};
+                        check('picking an icon stores the catalog key',
+                          !!o2.choice && o2.choice !== 'native' && o2.choice !== 'letters' && t.iconKey === o2.choice,
+                          JSON.stringify(o2.choice));
+                        check('the panel closes after picking', o2.v === 'home', String(o2.v));
+                        /* Read it back from the server instead of trusting the page. */
+                        if (CONFIG_URL) setTimeout(function () {
+                          get(CONFIG_URL, function (err, body) {
+                            var cfg = {};
+                            try { cfg = (JSON.parse(body) || {}).config || {}; } catch (e) {}
+                            var entry = (cfg.home || []).filter(function (x) { return x && x.appId === appId; })[0] || {};
+                            check('the icon is in the server configuration', entry.icon === o2.choice,
+                              JSON.stringify(entry));
+                            longPressTest();
+                          });
+                        }, 500); else longPressTest();
+                      });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      }, 500);
     });
   }
 
@@ -408,7 +497,7 @@ function run(wsUrl) {
         key('back', function () {
           evalJs('window.CleanFrameDebug.state().view', function (v) {
             check('back closes the context menu', v === 'home', String(v));
-            longPressTest();
+            recentTest();
           });
         });
       }, 400);

@@ -278,6 +278,9 @@ window.CF_LANG.de = {
   "picker.hint": "Symbole sind einfarbig; das Original-Icon der App bleibt in „Alle Apps“ erhalten.",
   "picker.default": "Original-Icon",
   "picker.done": "Fertig",
+  "picker.plain": "Ohne Bild",
+  "picker.letters": "Buchstaben",
+  "picker.file": "Eigenes Symbol der App",
   "picker.empty": "Kein Icon-Katalog vom Fernseher erhalten.",
 
   "uitest.catalog": "Katalog geladen",

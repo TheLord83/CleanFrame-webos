@@ -89,6 +89,17 @@
       'Arrange': 'Anordnen',
       'TV settings': 'TV-Einstellungen',
       'LG Home': 'LG Startseite',
+      /* Back auf der Startseite und Icon-Auswahl (0.5.9) */
+      'Recent apps': 'Zuletzt geöffnet',
+      'Open. Back closes the list.': 'OK öffnet. Zurück schließt die Liste.',
+      'The five apps you opened last.': 'Die fünf Apps, die zuletzt offen waren.',
+      'Nothing opened yet.': 'Noch nichts geöffnet.',
+      'Icon': 'Symbol',
+      'Choose. Up reaches the groups.': 'OK wählt. Nach oben zu den Gruppen.',
+      'Same catalog as in the hub.': 'Derselbe Katalog wie im Hub.',
+      'No icons bundled.': 'Keine Symbole im Paket.',
+      'Own icon': 'Eigenes Symbol',
+      'Letters': 'Buchstaben',
       'Open the LG Home screen': 'Die Startseite von LG öffnen',
       'Picture, sound and network settings': 'Bild-, Ton- und Netzwerkeinstellungen',
 

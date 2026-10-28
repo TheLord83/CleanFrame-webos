@@ -805,6 +805,9 @@
    * complete URL. */
   function iconSrc(entry) {
     if (!entry || !entry.icon) return '';
+    /* 'letters' is not a file: the launcher draws the first letters of the name
+     * instead of a picture. */
+    if (entry.icon === 'letters') return '';
     if (/^https?:\/\//.test(entry.icon)) return entry.icon;
     return '/icons/' + entry.icon + '.svg';
   }
@@ -819,6 +822,25 @@
     if (!state.icons.length) {
       host.innerHTML = '<p class="hint">' + esc(t('picker.empty')) + '</p>';
     }
+    /* First choice in every group: no picture at all, just letters. */
+    var plain = document.createElement('div'); plain.className = 'grp';
+    var ph = document.createElement('h4'); ph.textContent = t('picker.plain');
+    var pgrid = document.createElement('div'); pgrid.className = 'icons';
+    [{ key: 'letters', label: t('picker.letters') }, { key: '', label: t('picker.file') }].forEach(function (opt) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      var cap = document.createElement('span'); cap.textContent = opt.label;
+      b.appendChild(cap);
+      b.onclick = function () {
+        if (opt.key) state.cfg.home[i].icon = opt.key;
+        else delete state.cfg.home[i].icon;
+        renderTiles();
+        document.getElementById('picker').hidden = true;
+        autoSave(document.getElementById('homeStatus'), 'home.saved');
+      };
+      pgrid.appendChild(b);
+    });
+    plain.appendChild(ph); plain.appendChild(pgrid); host.appendChild(plain);
     state.icons.forEach(function (g) {
       var box = document.createElement('div'); box.className = 'grp';
       var h = document.createElement('h4');

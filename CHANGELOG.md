@@ -3,6 +3,29 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.5.9
+
+Back is no longer a question, the start image is the wallpaper you picked, and a tile can carry
+another icon.
+
+- **Back shows the last five apps** (#1). It used to ask "Leave Home?"; now it opens the apps you
+  started last, with LG's own home as the last line and Back closing the list. The list is kept on
+  the television, so it works without the hub.
+- **The start image is the wallpaper** (#4). `app/splash.png` is generated from the default wallpaper
+  (`tools/make-splash.py`, a blurred 1920x1080 still) instead of the near-black square, and the page
+  paints the wallpaper you actually chose over it, from localStorage, before the configuration
+  arrives. The layer goes away once the real photo is decoded, so there is no white frame between
+  splash and start page.
+- **Another icon for a tile** (#11). Hold OK on a tile -> Icon: the catalog of 43 icons in four
+  groups, plus "Own icon" and "Letters" for apps whose icon is ugly. Stored as `home[].icon` in the
+  server configuration, the same field the hub writes, so both sides agree; the hub picker gained
+  the same two choices.
+- The icon catalog reaches the launcher as `assets/icons-catalog.js`, generated from
+  `assets/icons.json` by `tools/make-icon-catalog.py` (a local `fetch` of JSON is not reliable from
+  the package, a script tag is).
+- Checks: the key test also covers the Back list, the icon panel and the start image layer; the
+  device binding is no longer stubbed globally, so those tests talk to the real configuration server.
+
 ## 0.5.8
 
 The television can now set what the browser could set, and senior mode stays where it belongs.

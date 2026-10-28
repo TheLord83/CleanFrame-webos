@@ -275,6 +275,9 @@ window.CF_LANG.en = {
   "picker.hint": "Symbols are monochrome; the app's original icon stays in “All apps”.",
   "picker.default": "Original icon",
   "picker.done": "Done",
+  "picker.plain": "Without a picture",
+  "picker.letters": "Letters",
+  "picker.file": "The app's own icon",
   "picker.empty": "No icon catalog received from the TV.",
 
   "uitest.catalog": "Catalog loaded",

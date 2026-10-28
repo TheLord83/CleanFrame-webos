@@ -12,20 +12,19 @@ until the way back has been tested on a device.
 **Weather line** (#3) — done in 0.5.5. A temperature and a word next to the clock, fetched by the
 hub, off by default.
 
-**Recent apps on Back** (#1) — Back on the home screen opens the last five apps instead of asking
-whether to leave. The launcher already knows every app it starts, so this is a by-product of
-launching, not new machinery.
+**Recent apps on Back** (#1) — done in 0.5.9. Back opens the last five apps, LG's own home is the
+last line, Back closes the list. The list lives on the television, so it works without the hub.
+
+**Splash** (#4) — done in 0.5.9. The packaged start image is a blurred copy of the default wallpaper,
+and the page paints the wallpaper that is actually chosen before the configuration arrives.
+
+**Rename and re-icon a tile** (#11) — done in 0.5.9. Hold OK on a tile, Rename or Icon; the icon
+catalog is the one the hub uses, plus the app's own icon and plain letters.
 
 **Own wallpaper** (#2) — upload a picture in the settings page; it is cropped to 1920x1080 and
 stored next to the configuration, and the material variants are derived from it at runtime.
 
 ## Next
-
-**Splash** (#4) — the picture shown while the web view starts should be the wallpaper that follows,
-instead of a colour that matches nothing.
-
-**Rename and re-icon a tile** (#11) — hold OK on an app to rename it and give it another icon. The
-value strip already has a rename field; this is the same field, reachable from the sofa.
 
 **Input key** (#8) — one button that lists the television's own inputs, which is the only thing a
 launcher can make faster than LG's home screen.

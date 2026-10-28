@@ -149,6 +149,9 @@
       + (maskSupport ? '<span class="mk" style="' + st + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + st + '">') + '</span>';
   }
   function appMark(a, w, h, size) {
+    /* A catalog icon chosen by the user wins: it is drawn as a tinted mask, so it
+     * takes the text colour like the brand marks do. */
+    if (a.iconKey) return markHtml(a.iconKey, w, h, size);
     if (a.mark && (maskSupport || S.c.bg !== 'light')) return markHtml(a.brand || a.id, w, h, size);
     var words = a.name.split(/\s+/), letters = words[0].charAt(0) + (words.length > 1 ? words[1].charAt(0) : '');
     return '<span class="mark monogram' + (a.icon ? ' native-icon' : '') + '" style="width:' + w + 'px;height:' + h + 'px;font-size:' + Math.round(size * .65) + 'px"><span>' + esc(letters.toUpperCase()) + '</span>'
@@ -340,7 +343,7 @@
     var legacyList = s.theme === 'list', h = [], recent = [], records = Array.isArray(s.appRecords) ? s.appRecords : [];
     records.slice(0, 256).forEach(function (a) {
       if (!a || !safeId(a.id) || !safeId(a.appId) || typeof a.name !== 'string' || !a.name.trim() || app(a.id)) return;
-      APPS.push({ id: a.id, appId: a.appId, name: a.name.slice(0, 160), brand: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0 ? a.brand : '', mark: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0, icon: safeIcon(a.icon) });
+      APPS.push({ id: a.id, appId: a.appId, name: a.name.slice(0, 160), brand: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0 ? a.brand : '', mark: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0, icon: safeIcon(a.icon), iconKey: /^[a-z0-9-]{1,40}$/.test(a.iconKey || '') ? a.iconKey : '' });
     });
     (Array.isArray(s.home) ? s.home : Array.isArray(s.dock) ? s.dock : []).forEach(function (id) {
       if (!safeId(id) || h.indexOf(id) >= 0 || h.length >= CAP) return;
@@ -355,7 +358,8 @@
       focus: pick(modern.focus, LOOK_VALUES.focus, legacyList ? 'type' : 'glass'), material: pick(modern.material, LOOK_VALUES.material, 'soft'),
       font: pick(modern.font, LOOK_VALUES.font, 'manrope'), wall: wall(modern.wall || s.wallpaper) ? modern.wall || s.wallpaper : WALLS[0].id,
       clock24: modern.clock24 !== false,
-      home: h, recent: recent, lastApp: h.indexOf(s.lastApp) >= 0 ? s.lastApp : h[0],
+      home: h, recent: recent, opened: (Array.isArray(s.opened) ? s.opened : []).filter(function (id) { return safeId(id) && app(id); }).slice(0, 5),
+      lastApp: h.indexOf(s.lastApp) >= 0 ? s.lastApp : h[0],
       mode: pick(s.mode, MODES.map(function (m) { return m.id; }), 'fixed')
     };
   }
@@ -367,7 +371,7 @@
     out.appRecords = [];
     c.home.concat(c.recent).forEach(function (key) {
       var a = app(key);
-      if (a && PRIMARY.indexOf(key) < 0 && !out.appRecords.some(function (r) { return r.id === key; })) out.appRecords.push({ id: a.id, appId: a.appId, name: a.name, brand: a.brand || '', icon: a.icon || '' });
+      if (a && PRIMARY.indexOf(key) < 0 && !out.appRecords.some(function (r) { return r.id === key; })) out.appRecords.push({ id: a.id, appId: a.appId, name: a.name, brand: a.brand || '', icon: a.icon || '', iconKey: a.iconKey || '' });
     });
     return out;
   }
@@ -381,7 +385,15 @@
   }
   function clearSession() { S.undo = []; S.removedAt = {}; S.note = null; S.err = null; }
   function begin() { S.note = null; }
-  function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; return c; }
+  /* `recent` is the holding area for apps taken off Home; `opened` is what the
+   * viewer actually started, and that is what Back offers. Two lists, because a
+   * tile on Home is never "recently removed" and still gets opened. */
+  function next(home, recent, opened) {
+    var c = lookOf(S.c);
+    c.home = home; c.recent = recent; c.opened = opened || (S.c.opened || []).slice();
+    c.lastApp = S.c.lastApp; c.mode = S.c.mode;
+    return c;
+  }
   function snap() { return { home: S.c.home.slice(), recent: S.c.recent.slice() }; }
   function pushRecent(list, id) { return [id].concat(without(list, id)).slice(0, 5); }
   /* What the server needs to know: appearance and home screen. Names and icons
@@ -605,7 +617,9 @@
   function launch(id) {
     var a = app(id), c;
     if (!a || busy) return;
-    if (S.c.home.indexOf(id) >= 0) { c = next(S.c.home.slice(), S.c.recent.slice()); c.lastApp = id; write(c, T('Last app')); }
+    c = next(S.c.home.slice(), S.c.recent.slice(), pushRecent(S.c.opened || [], id));
+    if (S.c.home.indexOf(id) >= 0) c.lastApp = id;
+    write(c, T('Last app'));
     S.press = id; S.lastLaunch = a.name;
     perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
   }
@@ -753,7 +767,7 @@
       f.zone = 'apps';
       if (k === x.inn && haToggleChips().length) { f.zone = 'ha'; f.h = clamp(f.h || 0, 0, haToggleChips().length - 1); }
       else if (k === x.out) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
-      else if (k === 'back') openMessage('leave');
+      else if (k === 'back') openRecent();
       else if (!h.length) { if (k === 'ok') addAppsRoute(); }
       else if (k === x.prev && i > 0) setSel(h[i - 1]);
       else if (k === x.next && i < h.length - 1) setSel(h[i + 1]);
@@ -783,7 +797,7 @@
     if (k === 'up' && i > 0) setSel(h[i - 1]);
     else if (k === 'right') { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
     else if (k === 'down' && i < h.length - 1) setSel(h[i + 1]);
-    else if (k === 'back') openMessage('leave');
+    else if (k === 'back') openRecent();
     else if (k === 'ok') { if (h.length) launch(S.sel); else addAppsRoute(); }
   }
 
@@ -1316,6 +1330,7 @@
     var id = t.app, list = [];
     if (onHome(id)) {
       list.push({ label: T('Rename'), run: function () { openRename(id); } });
+      list.push({ label: T('Icon'), run: function () { openIcons(id); } });
       list.push({ label: T('Remove from Home'), run: function () { homeRemove(id); } });
     } else {
       list.push({ label: T('Add to Home'), run: function () { homeAdd(id); } });
@@ -1336,6 +1351,80 @@
   /* New menu = new markup. Without the reset the HTML of the previous call is
    * reused (sheetKey) and the changed actions never appear. */
   function resetSheet() { sheetKey = ''; slotEls = {}; }
+
+  /* ---------- Tile icons (same catalog the hub offers) ---------- */
+  /* assets/icons-catalog.js is generated from assets/icons.json by
+   * tools/make-icon-catalog.py. A script tag instead of fetch, because the app
+   * runs from the package where reading a local JSON file is not reliable. */
+  var ICON_GROUPS = (window.CleanFrameIcons && Array.isArray(window.CleanFrameIcons.groups))
+    ? window.CleanFrameIcons.groups : [];
+  var ICON_COLS = 6;
+  function iconGroups() { return ICON_GROUPS; }
+  function uiLang() {
+    var l = window.CleanFrameI18n && window.CleanFrameI18n.lang;
+    return typeof l === 'function' ? l() : 'en';
+  }
+  function iconName(ic) { return uiLang() === 'de' ? (ic.de || ic.en || ic.key) : (ic.en || ic.de || ic.key); }
+  function groupName(g) {
+    var l = g.label || {};
+    return uiLang() === 'de' ? (l.de || l.en || g.id) : (l.en || l.de || g.id);
+  }
+  function iconChoice(id) {
+    var a = app(id);
+    if (!a) return '';
+    if (a.iconKey) return a.iconKey;
+    return a.icon ? 'native' : 'letters';
+  }
+  /* Remember what the catalog said before the first override, so "own icon"
+   * can put the app's real icon back instead of guessing. */
+  function iconBase(a) {
+    if (!a.base) a.base = { icon: a.icon || '', mark: !!a.mark };
+    return a.base;
+  }
+  function homeIconChoice(id, key) {
+    var a = app(id);
+    if (!a) return;
+    var base = iconBase(a), cfg = S.serverCfg;
+    if (key === 'letters') { a.icon = ''; a.mark = false; a.iconKey = ''; }
+    else if (key) { a.icon = ''; a.mark = false; a.iconKey = key; }
+    else { a.icon = base.icon; a.mark = base.mark; a.iconKey = ''; }
+    /* The icon lives in the server configuration (cfg.home[].icon), the same field
+     * the hub writes. Set it there first: write() pushes the home screen to the
+     * server, and that push carries the icon along. Two separate writes used to
+     * race and drop one of them. */
+    if (cfg && Array.isArray(cfg.home)) {
+      cfg.home = cfg.home.map(function (e) {
+        var copy = { appId: e.appId }, has = e.appId === id;
+        if (e.name) copy.name = e.name;
+        if (e.url) copy.url = e.url;
+        if (has ? !!key : !!e.icon) copy.icon = has ? key : e.icon;
+        return copy;
+      });
+      if (!cfg.home.some(function (e) { return e.appId === id; }) && key) cfg.home.push({ appId: id, icon: key });
+    }
+    if (!write(next(S.c.home.slice(), S.c.recent.slice()), T('Icon') + ': ' + (key === 'letters' ? T('Letters') : key || T('Own icon')))) return;
+    S.note = a.name + ': ' + (key === 'letters' ? T('Letters') : key ? iconName({ key: key }) : T('Own icon'));
+    render();
+  }
+
+  function openIcons(id) {
+    if (!id) return;
+    resetSheet();
+    push({ id: 'icons', app: id, g: 0, f: { i: iconChoice(id) === 'letters' ? 1 : 0, zone: 'grid' } });
+    render(); renderSheet(top(), true);
+  }
+
+  /* ---------- The last apps, reachable with Back ---------- */
+  function recentApps() {
+    var out = [];
+    (S.c.opened || []).forEach(function (id) { if (out.length < 5 && app(id) && out.indexOf(id) < 0) out.push(id); });
+    return out;
+  }
+  function openRecent() {
+    resetSheet();
+    push({ id: 'recent', f: { i: 0 } });
+    render(); renderSheet(top(), true);
+  }
 
   function openCtx(id) {
     if (!id) return;
@@ -1439,6 +1528,62 @@
       else if (k === 'ok') { a = A[t.f.b][0]; pop(); if (a === 'samsung') perform(T('LG Home'), FrameDevice.home); }
     },
     point: function (t, z, i) { if (z === 'act') { t.f.b = i; this.key(t, 'ok'); } }
+  };
+
+  /* Back on the start page: the last apps, with the way back to LG's own Home as
+   * the last line. The list comes from S.c.recent, which the launcher fills while
+   * launching — no extra bookkeeping. */
+  V.recent = {
+    sheet: true,
+    key: function (t, k) {
+      var ids = recentApps(), n = ids.length + 1, f = t.f;
+      f.i = clamp(f.i || 0, 0, n - 1);
+      if (k === 'up') f.i = Math.max(0, f.i - 1);
+      else if (k === 'down') f.i = Math.min(n - 1, f.i + 1);
+      else if (k === 'back') { pop(); render(); return; }
+      else if (k === 'ok') {
+        var id = ids[f.i];
+        pop(); render();
+        if (id) launch(id); else perform(T('LG Home'), FrameDevice.home);
+        return;
+      }
+      render();
+    },
+    point: function (t, z, i) { if (z === 'rec') { t.f.i = i; this.key(t, 'ok'); } }
+  };
+
+  /* Icon of a tile: the catalog the hub uses, plus the two choices only the
+   * television can show properly — the app's own icon and plain letters. */
+  V.icons = {
+    sheet: true,
+    key: function (t, k) {
+      var G = iconGroups(), f = t.f;
+      if (!G.length) { if (k === 'back' || k === 'ok') { pop(); render(); } return; }
+      t.g = clamp(t.g || 0, 0, G.length - 1);
+      var cells = 2 + G[t.g].icons.length;
+      f.zone = f.zone === 'tabs' ? 'tabs' : 'grid';
+      f.i = clamp(f.i || 0, 0, cells - 1);
+      if (k === 'back') { pop(); render(); return; }
+      if (f.zone === 'tabs') {
+        if (k === 'left') t.g = Math.max(0, t.g - 1);
+        else if (k === 'right') t.g = Math.min(G.length - 1, t.g + 1);
+        else if (k === 'down' || k === 'ok') f.zone = 'grid';
+        render(); return;
+      }
+      if (k === 'up') { if (f.i < ICON_COLS) f.zone = 'tabs'; else f.i -= ICON_COLS; }
+      else if (k === 'down') { if (f.i + ICON_COLS < cells) f.i += ICON_COLS; }
+      else if (k === 'left') { if (f.i % ICON_COLS > 0) f.i--; }
+      else if (k === 'right') { if (f.i % ICON_COLS < ICON_COLS - 1 && f.i + 1 < cells) f.i++; }
+      else if (k === 'ok') {
+        var key = f.i === 0 ? '' : f.i === 1 ? 'letters' : G[t.g].icons[f.i - 2].key;
+        pop(); homeIconChoice(t.app, key); render(); return;
+      }
+      render();
+    },
+    point: function (t, z, i) {
+      if (z === 'icTab') { t.f.zone = 'tabs'; t.g = i; render(); return; }
+      if (z === 'icCell') { t.f.zone = 'grid'; t.f.i = i; this.key(t, 'ok'); }
+    }
   };
 
   /* ---------- Dispatch ---------- */
@@ -2228,6 +2373,17 @@
         + '<div class="ent-list" data-slot="list"></div>'
         + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Switch on or off, or rename') + '</span></p>';
     },
+    recent: function () {
+      return '<h2 class="s-title">' + T('Recent apps') + '</h2><p class="s-sub" data-slot="sub"></p>'
+        + '<div class="rec-list" data-slot="list"></div>'
+        + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open. Back closes the list.') + '</span></p>';
+    },
+    icons: function () {
+      return '<h2 class="s-title">' + T('Icon') + '</h2><p class="s-sub" data-slot="sub"></p>'
+        + '<div class="ic-tabs" data-slot="tabs" role="tablist"></div>'
+        + '<div class="ic-grid" data-slot="grid" role="listbox"></div>'
+        + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Choose. Up reaches the groups.') + '</span></p>';
+    },
     message: function (t) {
       var m = messageContent(t);
       return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p><p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
@@ -2366,6 +2522,53 @@
           + '</div>';
       });
       el.list.innerHTML = html;
+    },
+    recent: function (t, el) {
+      var ids = recentApps(), f = t.f, n = ids.length + 1, html = '';
+      f.i = clamp(f.i || 0, 0, n - 1);
+      setHTML(el.sub, ids.length ? T('The five apps you opened last.') : T('Nothing opened yet.'));
+      ids.forEach(function (id, i) {
+        var a = app(id);
+        html += '<button type="button" tabindex="-1" class="rec-row' + (f.i === i ? ' is-focus' : '') + '"'
+          + ' data-z="rec" data-i="' + i + '" data-action="recent.open.' + i + '">'
+          + '<span class="rec-mark">' + appMark(a, 56, 44, 36) + '</span>'
+          + '<span class="rec-name">' + esc(a.name) + '</span></button>';
+      });
+      html += '<button type="button" tabindex="-1" class="rec-row rec-home' + (f.i === ids.length ? ' is-focus' : '') + '"'
+        + ' data-z="rec" data-i="' + ids.length + '" data-action="recent.lghome">'
+        + '<span class="rec-mark">' + icon('home') + '</span>'
+        + '<span class="rec-name">' + T('LG Home') + '</span></button>';
+      setHTML(el.list, html);
+    },
+    icons: function (t, el) {
+      var G = iconGroups(), a = app(t.app), f = t.f, now = iconChoice(t.app), g, base, own, html = '', i;
+      /* The icon catalog is empty only if the generated file is missing; say so
+       * instead of showing an empty panel. */
+      setHTML(el.sub, G.length ? T('Same catalog as in the hub.') : T('No icons bundled.'));
+      setHTML(el.tabs, G.map(function (grp, idx) {
+        return '<button type="button" tabindex="-1" class="ic-tab' + (idx === t.g ? ' is-current' : '') + (idx === t.g && f.zone === 'tabs' ? ' is-focus' : '') + '"'
+          + ' data-z="icTab" data-i="' + idx + '" data-action="icon.group.' + grp.id + '"'
+          + ' role="tab" aria-selected="' + (idx === t.g) + '">' + esc(groupName(grp)) + '</button>';
+      }).join(''));
+      if (!G.length) { setHTML(el.grid, ''); return; }
+      base = a.base || { icon: a.icon || '', mark: !!a.mark };
+      own = '<span class="ic-mark">' + appMark({ id: a.id, name: a.name, icon: base.icon, mark: base.mark, brand: a.brand, iconKey: '' }, 96, 72, 60) + '</span>';
+      html += '<button type="button" tabindex="-1" class="ic-cell' + (f.zone === 'grid' && f.i === 0 ? ' is-focus' : '') + (now === 'native' ? ' is-applied' : '') + '"'
+        + ' data-z="icCell" data-i="0" data-action="icon.own" role="option" aria-selected="' + (now === 'native') + '">'
+        + own + '<span class="ic-name">' + T('Own icon') + '</span></button>';
+      html += '<button type="button" tabindex="-1" class="ic-cell' + (f.zone === 'grid' && f.i === 1 ? ' is-focus' : '') + (now === 'letters' ? ' is-applied' : '') + '"'
+        + ' data-z="icCell" data-i="1" data-action="icon.letters" role="option" aria-selected="' + (now === 'letters') + '">'
+        + '<span class="ic-mark ic-letters">' + esc((a.name || '?').charAt(0).toUpperCase()) + '</span>'
+        + '<span class="ic-name">' + T('Letters') + '</span></button>';
+      g = G[clamp(t.g || 0, 0, G.length - 1)];
+      g.icons.forEach(function (ic, idx) {
+        var cell = idx + 2;
+        html += '<button type="button" tabindex="-1" class="ic-cell' + (f.zone === 'grid' && f.i === cell ? ' is-focus' : '') + (now === ic.key ? ' is-applied' : '') + '"'
+          + ' data-z="icCell" data-i="' + cell + '" data-action="icon.pick.' + ic.key + '" role="option" aria-selected="' + (now === ic.key) + '">'
+          + '<span class="ic-mark">' + markHtml(ic.key, 96, 72, 60) + '</span>'
+          + '<span class="ic-name">' + esc(iconName(ic)) + '</span></button>';
+      });
+      setHTML(el.grid, html);
     },
     message: function (t, el) {
       setHTML(el.acts, messageContent(t).actions.map(function (a, i) {
@@ -2758,9 +2961,36 @@
     icons: function () {
       return (S.c.home || []).map(function (id) {
         var a = app(id) || {};
-        return { id: id, name: a.name || '', icon: a.icon || '', mark: !!a.mark, brand: a.brand || '' };
+        return { id: id, name: a.name || '', icon: a.icon || '', iconKey: a.iconKey || '', mark: !!a.mark, brand: a.brand || '' };
       });
     },
+    /* Back on the start page: which apps are offered, and what the rows say. */
+    recent: function () {
+      var t = top();
+      return {
+        view: t.id, index: t.f && t.f.i,
+        items: recentApps().map(function (id) { return app(id).name; }),
+        rows: [].slice.call(document.querySelectorAll('#sheetView .rec-row')).map(function (el) {
+          var n = el.querySelector('.rec-name');
+          return { name: n ? n.textContent : '', focus: el.className.indexOf('is-focus') >= 0 };
+        })
+      };
+    },
+    openRecent: openRecent,
+    /* Icon panel: groups, cells, and which choice counts as applied. */
+    iconSheet: function () {
+      var t = top();
+      return {
+        view: t.id, zone: t.f && t.f.zone, group: t.g,
+        tabs: [].slice.call(document.querySelectorAll('#sheetView .ic-tab')).map(function (el) { return el.textContent; }),
+        cells: document.querySelectorAll('#sheetView .ic-cell').length,
+        applied: document.querySelectorAll('#sheetView .ic-cell.is-applied').length,
+        names: [].slice.call(document.querySelectorAll('#sheetView .ic-cell .ic-name')).slice(0, 4).map(function (el) { return el.textContent; })
+      };
+    },
+    openIcons: openIcons,
+    iconChoice: function (id) { return iconChoice(id); },
+    bootWall: function () { return !!document.getElementById('bootWall'); },
     rev: function () { return { angewendet: S.appliedRev, server: S.serverCfg ? parseInt(S.serverCfg.rev, 10) || 0 : null, wartend: !!S.pendingCfg }; },
     poll: function () {
       if (!window.FrameDevice || !FrameDevice.loadConfig) return false;
@@ -2932,8 +3162,14 @@
         var a = app(e.appId);
         if (!a) { a = { id: e.appId, appId: e.appId, name: e.name || e.appId, mark: false }; APPS.push(a); }
         if (e.name) a.name = e.name;
-        var icon = resolveIcon(e.icon);
-        if (icon) { a.icon = icon; a.mark = false; }
+        if (e.icon === 'letters') { a.icon = ''; a.iconKey = ''; a.mark = false; }
+        else if (e.icon) {
+          /* Stored as a catalog key by both the hub and the television; a full
+           * URL is still allowed for icons from elsewhere. */
+          if (/^https?:\/\//.test(e.icon) || e.icon.indexOf('assets/') === 0) { a.icon = e.icon; a.iconKey = ''; }
+          else { a.icon = ''; a.iconKey = e.icon; }
+          a.mark = false;
+        }
       });
     }
 
@@ -2982,6 +3218,25 @@
    * 1200 ms, after that the app starts with the localStorage state (no server). */
   var started = false, startTimer = null;
 
+  /* The first frame: index.html already paints the stored wallpaper over the
+   * splash (see .boot-wall). Drop it once the real photo is decoded, so the two
+   * pictures do not flicker into each other. */
+  function dropBootWall() {
+    var el = document.getElementById('bootWall');
+    if (!el) return;
+    var tries = 0;
+    (function waitPhoto() {
+      var im = IMG && IMG.photo, ready = im && im.naturalWidth > 0;
+      tries++;
+      if (ready || tries > 25) {
+        el.className = 'boot-wall';
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 420);
+        return;
+      }
+      setTimeout(waitPhoto, 60);
+    })();
+  }
+
   function startApp() {
     booted = true;
     if (started) return;
@@ -2989,6 +3244,7 @@
     clearTimeout(startTimer);
     setLook({}, { transient: true, startup: true });
     norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
+    dropBootWall();
     startIdleWatch();
     /* Only from here on may the app write: before that the defaults would
      * overwrite the server configuration. */
