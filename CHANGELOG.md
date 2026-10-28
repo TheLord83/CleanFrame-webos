@@ -3,6 +3,28 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.3 (installer wizard)
+
+- **`tools/install-wizard.py`**: one run from an untouched television to a configured
+  start page. Find the TV, check that it answers and what it is, check root, install or
+  update Glasshouse, offer the ad block, install CleanFrame and the hub, and end with the
+  one address to open in a browser. Every step says what it is about to change first;
+  everything it ran lands in `~/.cleanframe-install.log`.
+- **Glasshouse is handled as somebody else's software** (`tools/lib/glasshouse.py`):
+  the release IPK comes from its GitHub release, is checked against the sha256 in its
+  manifest, and is only then handed to the TV. Drafts and pre-releases are never
+  offered. Glasshouse is not in the Homebrew Channel catalogue yet, which is why the
+  wizard fetches the release itself.
+- **Rooting is delegated, not reimplemented** (`tools/lib/rooting.py`): the wizard reads
+  the webOS version, names the published exploit that covers it (SlopBro, DejaVuln,
+  faultmanager, RootMyTV — all third-party, AGPL-3.0 or MIT), shows licence, project
+  link and risk, and needs `ERISK` typed before anything runs. No exploit code lives in
+  this repository; the project's own files are fetched from its own URL.
+- `tools/test-install-wizard.py`: 13 checks without a TV — hash verification, refused
+  wrong hash, refused unknown config keys, the exploit pick per webOS version, a test
+  that rooting cannot run unconfirmed, and one that greps the repository for exploit
+  material (there is none).
+
 ## 0.6.2 (app list without Glasshouse)
 
 - **The catalog no longer depends on Glasshouse.** The launcher asks webOS for the installed apps and

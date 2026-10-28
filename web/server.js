@@ -50,7 +50,7 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.2';
+var VERSION = '0.6.3';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');

@@ -75,6 +75,54 @@ Your own picture goes in the settings page, Appearance, Background: pick a file,
 loads it from the hub, so it works as long as the hub is reachable; the packaged wallpapers work
 without it.
 
+## One run, start to finish
+
+`tools/install-wizard.py` asks, checks, installs — and stops when something is not
+right instead of pretending it worked.
+
+```sh
+./tools/install-wizard.py                      # finds the TV on the network
+./tools/install-wizard.py --tv 192.168.0.49    # or takes the address
+./tools/install-wizard.py --dry-run            # prints the plan, changes nothing
+```
+
+It finds the television, checks whether it answers and what it is, and checks root.
+Without root it offers to run a published exploit — not ours, and not shipped here:
+see [Rooting](#rooting-is-somebody-elses-work). Then it installs or updates
+Glasshouse, offers to block LG's advertising endpoints, installs CleanFrame and the
+hub, and ends with one address to open in a browser:
+
+```
+http://<tv-ip>:8484/     the launcher's settings, everything else is set there
+http://<tv-ip>:8080/     Glasshouse next to it
+```
+
+Every step says what it is about to change before it changes anything, everything it
+ran lands in `~/.cleanframe-install.log`, and `--yes` (for a machine nobody sits at)
+does the safe steps only — no rooting, no blocking.
+
+### Rooting is somebody else's work
+
+The wizard contains no exploit and does not patch one. It reads the webOS version and
+names the project that covers it:
+
+- [SlopBro](https://github.com/throwaway96/slopbro) — throwaway96, AGPL-3.0, webOS 4 to 11
+- [DejaVuln autoroot](https://github.com/throwaway96/dejavuln-autoroot) — throwaway96, AGPL-3.0, webOS 3.5+
+- [faultmanager autoroot](https://github.com/throwaway96/faultmanager-autoroot) — throwaway96, AGPL-3.0, webOS 4.0 to 10.0
+- [RootMyTV](https://github.com/RootMyTV/RootMyTV.github.io) — MIT, webOS 3.5 to 6.3.0, not firmware after mid-2022
+
+Then it shows the licence, the project page and the risks (a bricked TV, a lost
+warranty, patched firmware on anything recent), and runs nothing until `ERISK` is typed.
+The files come from the project's own release, not from this repository.
+
+### Glasshouse
+
+Fetched from its [releases](https://github.com/rorygallagher2024/glasshouse/releases),
+verified against the sha256 in its manifest, then handed to the TV. Prereleases are
+never offered. If the package is already installed, the wizard only updates it when
+you say so, and keeps its configuration — including the network access it asks for on
+first start, which has to be granted on the television itself once.
+
 ## What you need
 
 - an LG TV running webOS, rooted. In practice that means the

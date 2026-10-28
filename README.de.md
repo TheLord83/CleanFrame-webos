@@ -83,6 +83,51 @@ sie wird auf 1920x1080 zugeschnitten und neben der Konfiguration in `/var/lib/cl
 abgelegt. Der Fernseher holt sie über den Hub, sie funktioniert also solange der Hub erreichbar
 ist; die mitgelieferten Wandbilder gehen auch ohne.
 
+## Ein Lauf, von Anfang bis Ende
+
+`tools/install-wizard.py` fragt, prüft, installiert — und hält an, wenn etwas nicht
+stimmt, statt Erfolg zu behaupten.
+
+```sh
+./tools/install-wizard.py                      # sucht den Fernseher im Netz
+./tools/install-wizard.py --tv 192.168.0.49    # oder mit Adresse
+./tools/install-wizard.py --dry-run            # zeigt den Plan, ändert nichts
+```
+
+Es findet den Fernseher, prüft ob er antwortet und was er ist, und prüft root. Ohne
+root bietet es an, einen veröffentlichten Exploit zu benutzen — nicht unseren, und hier
+nicht mitgeliefert (siehe unten). Danach installiert oder aktualisiert es Glasshouse,
+bietet den Block gegen LGs Werbe-Endpunkte an, installiert CleanFrame und den Hub und
+endet mit einer Adresse für den Browser:
+
+```
+http://<tv-ip>:8484/     Einstellungen des Launchers, alles weitere dort
+http://<tv-ip>:8080/     Glasshouse daneben
+```
+
+Jeder Schritt sagt vorher, was er ändert, alles Ausgeführte landet in
+`~/.cleanframe-install.log`, und `--yes` (für eine Maschine, an der niemand sitzt) macht
+nur die ungefährlichen Schritte — kein Rooten, kein Blocken.
+
+### Rooten ist fremde Arbeit
+
+Der Assistent enthält keinen Exploit und patcht keinen. Er liest die webOS-Version und
+nennt das Projekt, das dazu passt: [SlopBro](https://github.com/throwaway96/slopbro),
+[DejaVuln](https://github.com/throwaway96/dejavuln-autoroot),
+[faultmanager](https://github.com/throwaway96/faultmanager-autoroot) (alle throwaway96,
+AGPL-3.0) oder [RootMyTV](https://github.com/RootMyTV/RootMyTV.github.io) (MIT). Dann
+zeigt er Lizenz, Projektseite und Risiken — unbrauchbarer Fernseher, verlorene Garantie,
+gepatchte Firmware bei allem Neueren — und führt nichts aus, bevor `ERISK` getippt ist.
+Die Dateien kommen aus dem jeweiligen Release, nicht aus diesem Repository.
+
+### Glasshouse
+
+Kommt aus den [Releases](https://github.com/rorygallagher2024/glasshouse), wird gegen die
+sha256 im Manifest geprüft und dann an den Fernseher gegeben. Vorabversionen werden nie
+angeboten. Ist es schon installiert, aktualisiert der Assistent nur auf Wunsch und lässt
+die Konfiguration stehen — samt der Netzwerkfreigabe, die beim ersten Start einmal am
+Fernseher selbst erteilt werden muss.
+
 ## Voraussetzungen
 
 - ein LG-Fernseher mit webOS, gerootet. In der Praxis heißt das
