@@ -3,6 +3,24 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.0 (own wallpaper)
+
+0.5.9 was built and never shipped, so this version carries both: the Back list, the start image
+taken from the chosen wallpaper, an icon per tile, and the picture you upload yourself.
+
+- **Your own picture as wallpaper (#2).** Settings → Appearance → Background has a file button.
+  The browser crops the file to 1920x1080 (fills the screen, cuts the overhang in the middle),
+  the hub stores it next to the configuration and serves it, and the television fetches it from
+  the hub at 127.0.0.1:8484. Nothing leaves the house, and the launcher still talks to no other
+  address. Uploaded pictures can be removed again; removing the one in use falls back to the
+  first packaged wallpaper instead of leaving a setting that points at nothing.
+- The hub refuses anything that is not exactly 1920x1080, is not JPEG or PNG, or is larger than
+  6 MB. The size check reads the file header, not the numbers a browser claims.
+- Own pictures have no pre-rendered material variants, so the frosted surface uses the picture
+  itself. The packaged wallpapers keep their baked variants.
+- Checks: three more API checks for upload, refusal and the foreign-origin case; the API suite is
+  at 50.
+
 ## 0.5.9
 
 Back is no longer a question, the start image is the wallpaper you picked, and a tile can carry

@@ -53,7 +53,8 @@ firmware check, is documented in [docs/ROOTING.md](docs/ROOTING.md) and is expli
 
 ## Features
 
-- List layout and bottom dock, photo, light or dark background, 15 wallpapers with rotation
+- List layout and bottom dock, photo, light or dark background, 15 wallpapers with rotation,
+  and a picture of your own when you want one
 - Typography, focus and material styles, clock in 24 h or 12 h, German and English interface
 - Senior mode: larger labels (at least 125 %) for the person actually watching
 - Own app catalogue: installed webOS apps, HDMI inputs, and system apps Glasshouse does not list
@@ -67,6 +68,11 @@ firmware check, is documented in [docs/ROOTING.md](docs/ROOTING.md) and is expli
 
 Where the firmware number is on the TV, and the two ways to find it:
 [docs/FIRMWARE.md](docs/FIRMWARE.md).
+
+Your own picture goes in the settings page, Appearance, Background: pick a file, it is cropped to
+1920x1080 and stored next to the configuration in `/var/lib/cleanframe/walls`. The television
+loads it from the hub, so it works as long as the hub is reachable; the packaged wallpapers work
+without it.
 
 ## What you need
 

@@ -33,6 +33,23 @@
   var PRIMARY = PRIMARY_APPS.map(function (a) { return a.id; }), APPS = PRIMARY_APPS.slice(), ALPHA = [];
   var WALLS = window.CleanFrameWallpapers || [{ id: 'misty', name: 'Misty coast', tone: 'light', ut: { tr: 'mist', br: 'mist' }, frostVeil: .20 }];
   var ADAPTIVE_INK = window.CleanFrameAdaptiveInk || {};
+  /* Pictures the operator uploaded sit in the hub, not in the package. The
+   * schema carries them, the file comes from 127.0.0.1:8484 — the launcher
+   * still talks to nothing else. */
+  var HUB = 'http://127.0.0.1:8484';
+  function mergeHubWalls(list) {
+    if (!list || !list.length) return 0;
+    var known = {}, added = 0;
+    WALLS.forEach(function (w) { known[w.id] = 1; });
+    list.forEach(function (w) {
+      if (!w || !w.id || known[w.id]) return;
+      var url = HUB + '/api/wall/' + encodeURIComponent(w.id);
+      WALLS.push({ id: w.id, name: w.name || w.id, tone: w.tone || 'dark', own: true,
+        ut: { tr: 'light', br: 'light' }, frostVeil: .12, src: url, thumb: url });
+      known[w.id] = 1; added++;
+    });
+    return added;
+  }
   WALLS.forEach(function (w) { w.ut = w.ut || { tr: 'light', br: 'light' }; w.frostVeil = w.frostVeil || .12; });
   var MODES = [
     { id: 'fixed', name: T('Fixed'), min: 0 }, { id: 'open', name: T('Each time Home opens'), min: 0 },
@@ -103,6 +120,12 @@
   function wall(id) { for (var i = 0; i < WALLS.length; i++) if (WALLS[i].id === id) return WALLS[i]; return null; }
   function wallIndex(id) { for (var i = 0; i < WALLS.length; i++) if (WALLS[i].id === id) return i; return 0; }
   function frostClass(w) { var i = [.12, .20, .30, .36, .44].indexOf(w.frostVeil); return i > 0 ? ' fv-' + (i + 1) : ''; }
+  function wallOr(id) { return wall(id) || WALLS[0]; }
+  function wallSrc(w) { return (w && w.src) || (WP + (w ? w.id : '') + '.jpg'); }
+  function wallThumb(w) { return (w && w.thumb) || (WP + (w ? w.id : '') + '-thumb.jpg'); }
+  /* Eigene Bilder haben keine vorberechneten Materialvarianten; dann dient das
+   * Bild selbst als Fläche. */
+  function wallPanel(w) { return (w && w.src) || (WP + (w ? w.id : '') + '-panel.jpg'); }
   function wallClasses(w) { return frostClass(w) + (w.listColumn ? ' lc-' + w.listColumn : '') + (w.dockQuiet ? ' db-quiet' : '') + (w.clockMist ? ' tl-mist' : ''); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function without(list, id) { return list.filter(function (x) { return x !== id; }); }
@@ -1644,7 +1667,7 @@
     }).join('');
   }
   function render() {
-    var t = top(), sheet = !!V[t.id].sheet, shown = wall(S.shown ? S.shown.wall : S.c.wall), palette = ADAPTIVE_INK[shown.id];
+    var t = top(), sheet = !!V[t.id].sheet, shown = wallOr(S.shown ? S.shown.wall : S.c.wall), palette = ADAPTIVE_INK[shown.id];
     var adaptive = applyAdaptiveInk(palette), tr = adaptive && palette.tr ? palette.tr.pol : shown.ut.tr, br = adaptive && palette.br ? palette.br.pol : shown.ut.br;
     stage.className = 'stage bg-' + S.c.bg + ' l-' + S.c.layout + ' v-' + S.variant + ' m-' + (materialApplies() ? S.c.material : 'none') + ' f-' + S.c.focus + ' a-' + S.c.apps + ' u-' + S.c.controls + ' g-' + S.geom + ' tone-' + shown.tone + ' tr-' + tr + ' br-' + br + wallClasses(shown) + inkRungClasses(palette, adaptive) + ' at-' + t.id + ' font-' + homeFont() + (homeFont() !== 'manrope' ? ' font-custom' : '') + (S.fontSwitch ? ' is-font-switch' : '') + (adaptive ? ' has-adaptive-ink adaptive-tl-' + palette.tl.pol : '') + (!adaptive && shown.clockInk ? ' has-clock-ink' : '') + (!adaptive && shown.dockClockInk ? ' has-dock-clock-ink' : '') + (registeredMaterial(shown.id) ? ' registered-material' : '') + (sheet ? ' is-sheet' : '') + (S.reflow ? ' is-reflow' : '') + (S.serverCfg && S.serverCfg.ui && S.serverCfg.ui.senior ? ' senior' : '');
     if (!adaptive && shown.clockInk) stage.style.setProperty('--clock-ink', shown.clockInk);
@@ -2240,7 +2263,7 @@
           var swatch = item.axis === 'bg', body = '';
           if (swatch || item.thumbnail) body += item.value === 'light' || item.value === 'dark'
             ? '<span class="setting-swatch swatch-' + item.value + '" aria-hidden="true"></span>'
-            : '<img class="setting-swatch" src="' + WP + S.c.wall + '-thumb.jpg" alt="">';
+            : '<img class="setting-swatch" src="' + wallThumb(wallOr(S.c.wall)) + '" alt="">';
           body += '<span class="setting-copy"><span class="setting-name">' + esc(item.label) + '</span>'
             + (item.description ? '<span class="setting-description">' + esc(item.description) + '</span>' : '') + '</span>';
           if (!item.axis) body += icon('right', 'setting-forward');
@@ -2267,7 +2290,7 @@
     var rows = appearanceRows.querySelector('.wallpaper-rows'), shown = wall(S.wallShown) || wall(S.c.wall), candidate = WALLS[t.i], status, note, hint;
     keyed(rows, WALLS.map(function (w) { return { key: w.id, wall: w }; }), function (row, item, i) {
       var visible = i >= t.top && i < t.top + WALL_VISIBLE, w = item.wall, image;
-      setContent(row, w.id + '|' + visible, '<span class="wallpaper-thumb">' + (visible ? '<img src="' + WP + w.id + '-thumb.jpg" alt="">' : '') + '</span><span class="setting-copy"><span class="setting-name">' + esc(w.name) + '</span></span><span class="setting-tick" aria-hidden="true"></span>');
+      setContent(row, w.id + '|' + visible, '<span class="wallpaper-thumb">' + (visible ? '<img src="' + wallThumb(w) + '" alt="">' : '') + '</span><span class="setting-copy"><span class="setting-name">' + esc(w.name) + '</span></span><span class="setting-tick" aria-hidden="true"></span>');
       row.className = 'setting-choice wallpaper-choice' + (t.f.zone === 'photo' && t.i === i ? ' is-focus' : '') + (w.id === S.c.wall ? ' is-applied' : '');
       row.style.transform = 'translate3d(0,' + (i * WALL_ROW) + 'px,0)'; row.style.visibility = visible ? 'visible' : 'hidden';
       row.setAttribute('role', 'radio'); row.setAttribute('tabindex', '-1'); row.setAttribute('aria-label', w.name);
@@ -2584,8 +2607,16 @@
   /* ---------- Atomic appearance bundles ---------- */
   var wallToken = 0, committedBundle = null, reflowToken = 0, fontSwitchToken = 0;
   function registeredMaterial(id) { return S.c.bg === 'photo' && S.c.material === 'soft' && !!wall(id); }
-  function matSrc(id, material) { return 'assets/materials/' + id + (material === 'soft' ? '-study-soft.jpg' : material === 'tint' ? '-field-clear.jpg' : '-field-frost.jpg'); }
-  function fieldSrc(id, material) { return 'assets/materials/' + id + (material === 'soft' ? '-field-blur.jpg' : material === 'tint' ? '-field-clear.jpg' : '-field-frost.jpg'); }
+  function matSrc(id, material) {
+    var w = wall(id);
+    if (w && w.own) return wallSrc(w);
+    return 'assets/materials/' + id + (material === 'soft' ? '-study-soft.jpg' : material === 'tint' ? '-field-clear.jpg' : '-field-frost.jpg');
+  }
+  function fieldSrc(id, material) {
+    var w = wall(id);
+    if (w && w.own) return wallSrc(w);
+    return 'assets/materials/' + id + (material === 'soft' ? '-field-blur.jpg' : material === 'tint' ? '-field-clear.jpg' : '-field-frost.jpg');
+  }
   function makeImg(cls, src) { var im = document.createElement('img'); im.className = cls; im.alt = ''; im._src = src; im.src = src; return im; }
   function whenReady(im, done) {
     var fin = false, timer = setTimeout(function () { finish(false); }, 8000);
@@ -2597,7 +2628,7 @@
   function swapImg(k, im) { var old = IMG[k]; if (old === im) return; im.style.cssText = old.style.cssText; if (old.id) im.id = old.id; old.parentNode.replaceChild(im, old); IMG[k] = im; }
   function bundleKey(look) { return look.wall + '|' + look.material; }
   function loadBundle(look, token, done) {
-    var imgs = { photo: makeImg('photo', WP + look.wall + '.jpg'), bg: makeImg('sheet-bg', WP + look.wall + '-panel.jpg') }, keys, left, allOk = true;
+    var imgs = { photo: makeImg('photo', wallSrc(wallOr(look.wall))), bg: makeImg('sheet-bg', wallPanel(wallOr(look.wall))) }, keys, left, allOk = true;
     imgs.mat = makeImg('mat-img', matSrc(look.wall, look.material));
     imgs.field = makeImg('ph-field-img', fieldSrc(look.wall, look.material));
     imgs.fieldAlt = makeImg('ph-field-img', fieldSrc(look.wall, look.material));
@@ -3260,10 +3291,22 @@
 
   function readConfigThenStart() {
     try {
-      FrameDevice.loadConfig(function (err, cfg) {
-        if (cfg) applyServerConfig(cfg);
-        startApp();
-      });
+      var readConfig = function () {
+        FrameDevice.loadConfig(function (err, cfg) {
+          if (cfg) applyServerConfig(cfg);
+          startApp();
+        });
+      };
+      /* Before the configuration: a wallpaper id that is not in the package
+       * would otherwise be dropped as unknown and the choice would be lost. */
+      if (FrameDevice.loadSchema) {
+        FrameDevice.loadSchema(function (err, sch) {
+          if (!err && sch) mergeHubWalls(sch.look && sch.look.walls);
+          readConfig();
+        });
+      } else {
+        readConfig();
+      }
     } catch (e) {
       startApp();
     }

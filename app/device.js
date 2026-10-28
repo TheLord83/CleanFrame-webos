@@ -229,6 +229,14 @@
   }
 
   window.FrameDevice = {
+    /* The option schema carries the uploaded wallpapers; without it the
+     * launcher would drop a wallpaper id it does not know. */
+    loadSchema: function (cb) {
+      apiCall('GET', '/api/schema', null, function (err, data) {
+        if (err || !data || !data.schema) return cb(err || 'kein Schema', null);
+        cb(null, data.schema);
+      });
+    },
     /* Read the configuration; cb(null, null) if the server is missing. */
     loadConfig: function (cb) {
       apiCall('GET', '/api/config', null, function (err, data) {

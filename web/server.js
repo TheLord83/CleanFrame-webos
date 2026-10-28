@@ -43,12 +43,13 @@ var diag = require('./lib/diag');
 var ha = require('./lib/ha');
 var remote = require('./lib/remote');
 var systemkey = require('./lib/systemkey');
+var wallstore = require('./lib/wallstore');
 var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.5.9';
+var VERSION = '0.6.0';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
@@ -190,6 +191,26 @@ function readBody(req, cb) {
   });
 }
 
+/* A 1920x1080 JPEG is a few hundred kilobytes, and the base64 that carries it is
+ * a third larger again. The normal reader stops at 1 MB, which is right for a
+ * configuration and wrong for a picture. */
+function readBigBody(req, cb, limit) {
+  var type = String(req.headers['content-type'] || '').toLowerCase();
+  if (type.indexOf('application/json') !== 0) { cb(null, 'Content-Type muss application/json sein'); return; }
+  var raw = '', tooBig = false, cap = limit || 9 * 1024 * 1024;
+  req.setEncoding('utf8');
+  req.on('data', function (c) {
+    raw += c;
+    if (raw.length > cap) { tooBig = true; req.destroy(); }
+  });
+  req.on('end', function () {
+    if (tooBig) return cb(null, 'Anfrage zu gross');
+    var parsed;
+    try { parsed = JSON.parse(raw || '{}'); } catch (e) { return cb(null, 'ungueltiges JSON'); }
+    cb(parsed, '');
+  });
+}
+
 function serveStatic(u, res) {
   var rel = u.pathname === '/' ? 'index.html' : u.pathname.replace(/^\/+/, '');
   if (rel.indexOf('..') >= 0) return send(res, 400, 'bad path');
@@ -300,15 +321,47 @@ function handle(req, res) {
   if (req.method === 'GET' && p.indexOf('/api/wall/') === 0) {
     var wallId = decodeURIComponent(p.slice('/api/wall/'.length));
     var file = schema.wallFile(wallId);
-    if (!file) return json(res, 404, { ok: false, error: 'unbekanntes Wandbild' });
-    var wallPath = path.join(WALL_DIR, file);
-    /* Only files from the catalog, no path built from the request. */
-    if (wallPath.indexOf(WALL_DIR) !== 0) return json(res, 400, { ok: false, error: 'ungueltiger Pfad' });
+    var wallPath = null, wallType = 'image/jpeg';
+    if (file) {
+      wallPath = path.join(WALL_DIR, file);
+      /* Only files from the catalog, no path built from the request. */
+      if (wallPath.indexOf(WALL_DIR) !== 0) return json(res, 400, { ok: false, error: 'ungueltiger Pfad' });
+    } else {
+      wallPath = wallstore.fileOf(wallId);
+      if (wallPath && /\.png$/.test(wallPath)) wallType = 'image/png';
+    }
+    if (!wallPath) return json(res, 404, { ok: false, error: 'unbekanntes Wandbild' });
     return fs.readFile(wallPath, function (err, buf) {
       if (err) return json(res, 404, { ok: false, error: 'Wandbild nicht gefunden' });
-      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'max-age=86400' });
+      res.writeHead(200, { 'Content-Type': wallType, 'Content-Length': buf.length, 'Cache-Control': 'max-age=86400' });
       res.end(buf);
     });
+  }
+
+  /* Own pictures: the browser crops to 1920x1080 and sends a data URL. Only the
+   * hub writes here; the television reads them through /api/wall/<id>. */
+  if (p === '/api/walls' && req.method === 'POST') {
+    if (!postGuard(req, res)) return;
+    return readBigBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var out = wallstore.save(body && body.name, body && body.data);
+      if (out.error) {
+        console.log('[write-result] 400 wall refused: ' + out.error);
+        return json(res, 400, { ok: false, error: out.error });
+      }
+      console.log('[write] wall saved ' + out.id + ' (' + out.entry.bytes + ' bytes, ' + out.entry.kind + ')');
+      json(res, 200, { ok: true, id: out.id, walls: wallstore.list() });
+    });
+  }
+  if (p.indexOf('/api/walls/') === 0 && req.method === 'DELETE') {
+    if (!postGuard(req, res)) return;
+    var delId = decodeURIComponent(p.slice('/api/walls/'.length));
+    var gone = wallstore.remove(delId);
+    console.log('[write] wall delete ' + delId + ' -> ' + (gone ? 'gone' : 'unknown'));
+    return json(res, gone ? 200 : 404, gone ? { ok: true, walls: wallstore.list() } : { ok: false, error: 'unbekanntes Bild' });
+  }
+  if (p === '/api/walls' && req.method === 'GET') {
+    return json(res, 200, { ok: true, walls: wallstore.list(), dir: wallstore.DIR });
   }
 
   if (req.method === 'GET' && p === '/api/icons') {

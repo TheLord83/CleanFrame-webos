@@ -66,6 +66,13 @@ window.CF_LANG.en = {
   "card.bg.title": "Background",
   "card.bg.hint": "Photo, dark or light — the wallpaper only applies with “Photo”.",
   "card.bg.base": "Base",
+  "look.wall.add": "Add your own picture",
+  "look.wall.remove": "Remove picture",
+  "look.wall.working": "Cropping the picture …",
+  "look.wall.saved": "Saved. It is in the list now.",
+  "look.wall.failed": "The picture was not accepted:",
+  "look.wall.tooBig": "The file is larger than 12 MB.",
+  "look.wall.confirm": "Delete this picture?",
 
   "card.layout.title": "Layout",
   "card.layout.hint": "Where the tiles sit and how they are labelled.",

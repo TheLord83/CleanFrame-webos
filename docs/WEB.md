@@ -49,10 +49,31 @@ content type is delivered by the browser without a preflight.
 | GET | `/api/ha/entities` | entities that make sense on a tile (sensor, light, climate, …) |
 | GET | `/api/ha/values` | current values for the selected entities (`?entities=a.b,c.d`) |
 | POST | `/api/ha/toggle` | switch one selected light/switch/helper (`{"entity_id": "…"}`) |
+| GET | `/api/wall/<id>` | one wallpaper. Packaged ones live in the app, uploaded ones in `/var/lib/cleanframe/walls` |
+| GET | `/api/walls` | uploaded pictures: id, name, bytes, when they were added |
+| POST | `/api/walls` | upload a picture (`{"name": "…", "data": "data:image/jpeg;base64,…"}`), must be exactly 1920x1080 |
+| DELETE | `/api/walls/<id>` | remove an uploaded picture |
 | GET | `/api/backup` | configuration as a download (`cleanframe-backup-<date>.json`) |
 | POST | `/api/backup` | import such a file |
 | GET | `/api/selftest` | built-in assertions about validation, redaction, storage |
 | POST | `/api/system/restart` | restart the service (exit 0, the boot hook or `cleanframectl` brings it back) |
+
+### Uploaded wallpapers
+
+The browser crops a chosen file to 1920x1080 before it is sent: it scales the picture until it
+fills the screen and cuts the overhang in the middle, so nobody gets black bars baked into their
+start page. The hub checks the size again, from the file header rather than from what the page
+claims, and refuses anything else with 400. Stored files are JPEG or PNG up to 6 MB in
+`/var/lib/cleanframe/walls` (`CF_WALL_USER_DIR` points elsewhere for tests), indexed in
+`index.json` next to them.
+
+Uploaded pictures appear in `look.walls` with `own: true`, in front of the packaged ones, so both
+the hub and the television offer them. The launcher reads that list from `/api/schema` before it
+applies the configuration: without that order it would treat an unknown wallpaper id as invalid
+and quietly drop the choice.
+
+There are no prepared material variants for an uploaded picture, so the frosted surface uses the
+picture itself. The packaged wallpapers keep their baked `-field-*` images.
 
 ### Configuration schema
 

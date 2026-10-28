@@ -78,6 +78,11 @@ Wo die Firmware-Nummer am Fernseher steht, mit beiden Wegen:
 | **Ungetestet** | webOS 7, 9, 10, 11 („webOS 23" bis „webOS 26"), OLED C und G | Keine Ahnung. Dafür sind Tester da |
 | **Nicht unterstützt** | Fernseher ohne Root, ohne Homebrew Channel oder ohne Glasshouse | Der Launcher ist eine App, der Hub braucht eine Root-Shell |
 
+Ein eigenes Bild kommt in der Einstellungsseite unter Darstellung, Hintergrund: Datei auswählen,
+sie wird auf 1920x1080 zugeschnitten und neben der Konfiguration in `/var/lib/cleanframe/walls`
+abgelegt. Der Fernseher holt sie über den Hub, sie funktioniert also solange der Hub erreichbar
+ist; die mitgelieferten Wandbilder gehen auch ohne.
+
 ## Voraussetzungen
 
 - ein LG-Fernseher mit webOS, gerootet. In der Praxis heißt das

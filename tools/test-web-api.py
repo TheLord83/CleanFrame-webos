@@ -181,6 +181,7 @@ def main():
         "CF_ICONS_JSON": os.path.join(WEB, "assets", "icons.json"),
         "CF_ICONS_DIR": os.path.join(ROOT, "app", "assets", "icons"),
         "CF_WALL_DIR": os.path.join(ROOT, "app", "assets", "wallpapers"),
+        "CF_WALL_USER_DIR": os.path.join(tmpdir, "walls"),
         # Port without a counterpart: the screenshot test should exercise the error
         # path, not hit some forwarding that happens to run on the machine.
         "CF_OS_INFO": OSINFO,
@@ -248,6 +249,49 @@ def main():
             st2, d2, _ = req("GET", "/api/wall/gibtsnicht")
             assert st2 == 404, st2
 
+        # --- Eigene Wandbilder ---------------------------------------------------
+        # Der Server liest nur den Dateikopf auf die Groesse, also reicht hier ein
+        # JPEG-Kopf ohne Bilddaten: der Test braucht keinen Bilddecoder.
+        def _jpeg_header(w, h):
+            import struct
+            app0 = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+            sof = b"\xff\xc0" + struct.pack(">H", 17) + bytes([8]) + struct.pack(">HH", h, w) + bytes([3]) + b"\x01\x11\x00\x02\x11\x01\x03\x11\x01"
+            return b"\xff\xd8" + app0 + sof + b"\xff\xd9"
+
+        def _data_url(w, h):
+            import base64
+            return "data:image/jpeg;base64," + base64.b64encode(_jpeg_header(w, h)).decode()
+
+        def t_wall_upload():
+            st, d, _ = req("POST", "/api/walls", {"name": "Testbild", "data": _data_url(1920, 1080)})
+            assert st == 200 and d.get("ok") is True, (st, d)
+            wid = d["id"]
+            st, sch, _ = req("GET", "/api/schema")
+            walls = [w for w in sch["schema"]["look"]["walls"] if w["id"] == wid]
+            assert walls and walls[0].get("own") is True, walls
+            assert walls[0]["thumb"] == "/api/wall/" + wid, walls[0]
+            st, raw, hdrs = req("GET", "/api/wall/" + wid)
+            assert st == 200 and "image" in hdrs.get("Content-Type", ""), (st, hdrs)
+            st, d2, _ = req("DELETE", "/api/walls/" + wid, {})
+            assert st == 200 and d2.get("ok") is True, (st, d2)
+            st, sch2, _ = req("GET", "/api/schema")
+            assert not [w for w in sch2["schema"]["look"]["walls"] if w["id"] == wid], "Bild steht noch in der Auswahl"
+            st, d3, _ = req("GET", "/api/wall/" + wid)
+            assert st == 404, st
+
+        def t_wall_upload_refused():
+            st, d, _ = req("POST", "/api/walls", {"name": "klein", "data": _data_url(800, 600)})
+            assert st == 400 and "1920x1080" in d.get("error", ""), (st, d)
+            st, d, _ = req("POST", "/api/walls", {"name": "text", "data": "data:text/plain;base64,aGFsbG8="})
+            assert st == 400, (st, d)
+            st, d, _ = req("POST", "/api/walls", {"name": "leer", "data": ""})
+            assert st == 400, (st, d)
+
+        def t_wall_upload_foreign():
+            st, d, _ = req("POST", "/api/walls", {"name": "x", "data": _data_url(1920, 1080)},
+                           headers={"Origin": "http://evil.example"})
+            assert st == 403, (st, d)
+
         def t_hold_parameter():
             """holdMs is accepted (without a device: 503), invalid keys stay 400."""
             st, d, _ = req("POST", "/api/tv/key", {"keys": ["ok"], "holdMs": 900})
@@ -299,7 +343,7 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.5.9", d
+            assert d["hub"] == "0.6.0", d
             assert d["node"], d
 
         def t_tv_screenshot():
@@ -798,6 +842,9 @@ def main():
             ("wrong HA token is reported", t_ha_wrong_token),
             ("screensaver limits and entity selection", t_config_screensaver_and_entities),
             ("senior mode, text size and wizard state", t_config_ui_and_onboarding),
+            ("own wallpaper: upload, list, serve, delete", t_wall_upload),
+            ("own wallpaper: wrong size and junk are refused", t_wall_upload_refused),
+            ("own wallpaper: a foreign page cannot upload", t_wall_upload_foreign),
             ("icon catalog and SVG delivery", t_icons),
             ("CORS for the TV app (Origin: null)", t_tv_cors),
             ("views on the TV: list and rejection", t_tv_views),

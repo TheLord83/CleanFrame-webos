@@ -14,6 +14,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var wallstore = require('./wallstore');
 
 var WALLS_FILE = path.join(__dirname, '..', 'assets', 'walls.json');
 
@@ -85,12 +86,22 @@ function walls() {
   }
 }
 
-/* Complete schema including wallpapers (generated from the launcher catalog). */
+/* Complete schema including wallpapers: the packaged catalog first, then the
+ * pictures the operator uploaded. Both the hub and the launcher read this list,
+ * so an own picture shows up on the television as soon as it is uploaded — it
+ * is fetched from the hub there, not from the package. */
 function full() {
   var s = JSON.parse(JSON.stringify(SCHEMA));
-  s.look.walls = walls().map(function (w) {
+  var own = wallstore.list().map(function (e) {
+    return {
+      id: e.id, name: e.name, nameEn: e.name, tone: 'dark', own: true,
+      thumb: '/api/wall/' + e.id, src: '/api/wall/' + e.id
+    };
+  });
+  var packaged = walls().map(function (w) {
     return { id: w.id, name: w.name, nameEn: w.nameEn || w.name, tone: w.tone || '', thumb: '/api/wall/' + w.id };
   });
+  s.look.walls = own.concat(packaged);
   return s;
 }
 

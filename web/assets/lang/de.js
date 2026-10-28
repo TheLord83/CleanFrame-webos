@@ -69,6 +69,13 @@ window.CF_LANG.de = {
   "card.bg.title": "Hintergrund",
   "card.bg.hint": "Foto, dunkel oder hell — das Wandbild gilt nur bei „Foto“.",
   "card.bg.base": "Grundlage",
+  "look.wall.add": "Eigenes Bild hinzufügen",
+  "look.wall.remove": "Bild entfernen",
+  "look.wall.working": "Bild wird zugeschnitten …",
+  "look.wall.saved": "Bild gespeichert, es steht jetzt in der Auswahl.",
+  "look.wall.failed": "Das Bild wurde nicht übernommen:",
+  "look.wall.tooBig": "Die Datei ist grösser als 12 MB.",
+  "look.wall.confirm": "Dieses Bild löschen?",
 
   "card.layout.title": "Anordnung",
   "card.layout.hint": "Wo die Kacheln sitzen und wie sie beschriftet sind.",

@@ -73,6 +73,19 @@
   .wall-grid button.on { border-color: var(--accent); color: var(--ink); }
   .wall-grid img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
   .wall-grid span { display: block; padding: 6px 8px; font-size: 12px; text-align: left; }
+  .wall-item { position: relative; }
+  .wall-item > button { width: 100%; }
+  .wall-remove { position: absolute; top: 4px; right: 4px; z-index: 2; width: 26px; height: 26px; line-height: 1;
+    border-radius: 50%; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.6); color: #fff;
+    font-size: 16px; cursor: pointer; padding: 0; }
+  .wall-remove:hover { background: rgba(190,40,40,.9); }
+  .wall-own { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .wall-own label.file { display: inline-block; padding: 9px 14px; border-radius: 8px; border: 1px dashed var(--line);
+    cursor: pointer; font-size: 13px; }
+  .wall-own label.file:hover { border-color: var(--accent); }
+  .wall-own input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .wall-own .wall-msg { font-size: 12px; color: var(--muted); }
+  .wall-own .wall-msg.err { color: #f2b8b8; }
   .remote-pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 42px); gap: 6px; margin-top: 10px; }
   .remote-pad .rk { font-size: 20px; }
   .remote-pad .rk-ok { font-weight: 700; }
@@ -675,11 +688,18 @@
     var walls = (sch.look && sch.look.walls) || [];
     var html = '';
 
+    /* Own pictures carry a remove button; the packaged ones do not. Deleting a
+     * packaged one would only make it come back with the next package. */
     var wallGrid = '<div class="wall-grid">' + walls.map(function (w) {
       var on = w.id === look.wall ? ' class="on"' : '';
-      return '<button type="button" data-wall="' + esc(w.id) + '"' + on + ' title="' + esc(w.name) + '">' +
+      var tile = '<button type="button" data-wall="' + esc(w.id) + '"' + on + ' title="' + esc(w.name) + '">' +
         '<img src="' + esc(w.thumb) + '" alt="' + esc(w.name) + '" loading="lazy"><span>' + esc(w.name) + '</span></button>';
-    }).join('') + '</div>';
+      return w.own ? '<div class="wall-item">' + tile +
+        '<button type="button" class="wall-remove" data-wall-remove="' + esc(w.id) + '" title="' + esc(t('look.wall.remove')) + '">×</button></div>' : tile;
+    }).join('') + '</div>' +
+      '<div class="wall-own"><label class="file">' + esc(t('look.wall.add')) +
+      '<input type="file" id="wallFile" accept="image/jpeg,image/png"></label>' +
+      '<span class="wall-msg" id="wallMsg"></span></div>';
 
     html += card(t('card.bg.title'), t('card.bg.hint'),
       '<div class="grid">' + optSelect('bg', t('card.bg.base'), sch.look && sch.look.bg, look.bg || 'photo') + '</div>' + wallGrid);
@@ -739,6 +759,86 @@
         autoSave($('lookStatus'), 'look.applied');
       };
     });
+
+    /* Own picture: crop in the browser, upload the result. The canvas does the
+     * work the TV would otherwise do on every start, and the hub refuses
+     * anything that is not 1920x1080 anyway. */
+    var fileInput = $('wallFile');
+    if (fileInput) {
+      fileInput.onchange = function () {
+        var f = fileInput.files && fileInput.files[0];
+        if (!f) return;
+        wallMessage(t('look.wall.working'), false);
+        if (f.size > 12 * 1024 * 1024) { wallMessage(t('look.wall.tooBig'), true); fileInput.value = ''; return; }
+        cropAndUpload(f, function (err) {
+          fileInput.value = '';
+          if (err) { wallMessage(t('look.wall.failed') + ' ' + err, true); return; }
+          /* The message has to come after renderLook: that call rebuilds the
+           * card, and with it the element the message sits in. */
+          refreshSchema().then(function () { renderLook(); wallMessage(t('look.wall.saved'), false); });
+        });
+      };
+    }
+    Array.prototype.forEach.call($('lookCards').querySelectorAll('[data-wall-remove]'), function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var id = b.getAttribute('data-wall-remove');
+        if (!window.confirm(t('look.wall.confirm'))) return;
+        api('DELETE', '/api/walls/' + encodeURIComponent(id), {})
+          .then(function () {
+            /* The chosen picture is gone: fall back to the first packaged one,
+             * otherwise the television keeps a setting that points at nothing. */
+            if (state.cfg.look && state.cfg.look.wall === id) {
+              var rest = ((state.schema.look && state.schema.look.walls) || []).filter(function (w) { return !w.own; });
+              if (rest.length) state.cfg.look.wall = rest[0].id;
+            }
+            return refreshSchema();
+          })
+          .then(function () { renderLook(); autoSave($('lookStatus'), 'look.applied'); })
+          .catch(function (e) { wallMessage(t('look.wall.failed') + ' ' + e.message, true); });
+      };
+    });
+  }
+
+  function wallMessage(text, isError) {
+    var el = $('wallMsg');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'wall-msg' + (isError ? ' err' : '');
+  }
+
+  /* Refresh the option schema without touching the configuration. */
+  function refreshSchema() {
+    return api('GET', '/api/schema').then(function (d) { state.schema = d.schema || state.schema; return state.schema; })
+      .catch(function () { return state.schema; });
+  }
+
+  /* 1920x1080 "cover": scale so the picture fills the screen, then cut the
+   * overhang in the middle. Nobody wants letterboxing bars baked into their
+   * start page. */
+  function cropAndUpload(file, done) {
+    var reader = new FileReader();
+    reader.onerror = function () { done('Datei nicht lesbar'); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { done('kein lesbares Bild'); };
+      img.onload = function () {
+        var W = 1920, H = 1080;
+        var scale = Math.max(W / img.width, H / img.height);
+        var dw = Math.round(img.width * scale), dh = Math.round(img.height * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        var name = String(file.name || 'Eigenes Bild').replace(/\.[^.]+$/, '').slice(0, 60);
+        api('POST', '/api/walls', { name: name, data: dataUrl })
+          .then(function () { done(null); })
+          .catch(function (e) { done(e.message); });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   /* Write the current field values into the configuration. */

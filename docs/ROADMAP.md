@@ -21,8 +21,10 @@ and the page paints the wallpaper that is actually chosen before the configurati
 **Rename and re-icon a tile** (#11) — done in 0.5.9. Hold OK on a tile, Rename or Icon; the icon
 catalog is the one the hub uses, plus the app's own icon and plain letters.
 
-**Own wallpaper** (#2) — upload a picture in the settings page; it is cropped to 1920x1080 and
-stored next to the configuration, and the material variants are derived from it at runtime.
+**Own wallpaper** (#2) — done in 0.6.0. Upload in the settings page, cropped to 1920x1080 in the
+browser and checked again in the hub, stored next to the configuration, fetched by the television
+from the hub. The material surface falls back to the picture itself: there are no baked variants
+for a picture the package does not know.
 
 ## Next
 
