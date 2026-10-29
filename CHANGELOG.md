@@ -3,6 +3,31 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.16 (a check for pages that run off the bottom)
+
+CleanFrameDebug.layout() measures every selectable element against the stage
+(1920x1080) and reports lowest edge, remaining air, and what hangs below.
+uiState() carries fits/air, so the same reading works on the panel over the API.
+tools/test-layout-fit.js walks the start page, the tool row, All apps, the
+settings list and all eleven settings pages and fails any page that keeps less
+than 40 px of air at the bottom.
+
+It is not wired into check-all yet on purpose: seven pages fail today, and a
+stage that is always red teaches nothing. The numbers (stage pixels, screen is
+1080 high):
+
+  Hintergrund        1187   -107      (Fest)
+  Anordnung          1842   -762      (Beides, Nur Text, Nur Symbole, Beides)
+  Schrift            1996   -916      (six size buttons)
+  Fokus              1092    -12
+  Uhr und Sprache    1212   -132      (English)
+  Textgroesse        1996   -916
+  Wetter             2971  -1891      (ten choices)
+
+Also: focus() now reads the action from the marked element when a list keeps
+only an index, and only from a visible one - the closed page kept its marking in
+the DOM and every check after it read the old page.
+
 ## 0.6.15 (navigation can be checked without screenshots)
 
 New: the app reports what is selected after every key press, and the hub hands

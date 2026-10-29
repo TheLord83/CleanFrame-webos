@@ -3195,7 +3195,22 @@
    * Zustand an den Hub, damit auch am Geraet ohne Pixel gearbeitet werden kann. */
   var uiReportTimer = 0, uiLastReport = '';
   function uiState() {
-    var t = top(), a = t && t.f && t.f.action, el = null, out;
+    var t = top(), a = t && t.f && t.f.action, el = null, out, marked = null;
+    /* Nur ein SICHTBARES markiertes Element zaehlt: beim Schliessen einer Seite
+     * bleibt deren Markierung im DOM stehen, und dann liest man die Aktion der
+     * zuvor geoeffneten Seite (choice.bg.photo statt der Einstellungszeile). */
+    var cands = document.querySelectorAll('.is-focus'), ci;
+    for (ci = 0; ci < cands.length; ci++) {
+      var cr = cands[ci].getBoundingClientRect();
+      if (cr.width > 0 && cr.height > 0) { marked = cands[ci]; break; }
+    }
+    /* Listen (Einstellungen, Editor) fuehren den Fokus als Index, nicht als
+     * Aktion. Damit Pruefungen trotzdem nach Namen steuern koennen, wird die
+     * Aktion notfalls am markierten Element abgelesen. */
+    if (!a && marked) {
+      var inner = marked.querySelector ? marked.querySelector('[data-action]') : null;
+      a = marked.getAttribute('data-action') || (inner && inner.getAttribute('data-action')) || null;
+    }
     if (a) el = document.querySelector('[data-action="' + a + '"]');
     out = {
       view: t ? t.id : null,
@@ -3213,8 +3228,51 @@
     }
     return out;
   }
+  /* ---------- Passt die Seite auf den Schirm? ----------
+   * Misst jedes auswaehlbare Element gegen die Buehne (1920x1080) und meldet, was
+   * unten, oben oder seitlich herausragt. Grund: "Anordnung" in den Einstellungen
+   * schrieb unten heraus, und das sieht man auf einem Screenshot nur, wenn man
+   * weiss, wo die Kante liegt. Werte in CSS-Pixeln der Buehne. */
+  function layoutReport() {
+    var sceneR = sceneEl.getBoundingClientRect();
+    var scale = (sceneR.width / 1920) || 1;
+    var els = document.querySelectorAll('[data-action]');
+    var items = [];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      items.push({
+        action: el.getAttribute('data-action'),
+        label: String(el.textContent || '').trim().slice(0, 32),
+        left: Math.round((r.left - sceneR.left) / scale),
+        top: Math.round((r.top - sceneR.top) / scale),
+        right: Math.round((r.right - sceneR.left) / scale),
+        bottom: Math.round((r.bottom - sceneR.top) / scale)
+      });
+    }
+    var bottom = 0, right = 0;
+    items.forEach(function (it) {
+      if (it.bottom > bottom) bottom = it.bottom;
+      if (it.right > right) right = it.right;
+    });
+    return {
+      view: top() ? top().id : null,
+      screen: { width: 1920, height: 1080 },
+      lowest: bottom,
+      rightmost: right,
+      /* air = wie viel Platz unter dem untersten Element bleibt */
+      air: 1080 - bottom,
+      fits: bottom <= 1080 && right <= 1920,
+      below: items.filter(function (it) { return it.bottom > 1080; }),
+      beyond: items.filter(function (it) { return it.right > 1920; }),
+      items: items
+    };
+  }
   function reportUiState() {
-    var body = JSON.stringify(uiState());
+    var st = uiState(), lay = layoutReport();
+    st.fits = lay.fits; st.air = lay.air; st.lowest = lay.lowest;
+    if (!lay.fits) st.below = lay.below.map(function (it) { return it.label || it.action; });
+    var body = JSON.stringify(st);
     if (body === uiLastReport || typeof fetch !== 'function') return;
     uiLastReport = body;
     try {
@@ -3263,6 +3321,8 @@
     },
     /* Was ist ausgewaehlt? Ohne Bildschirmfoto. */
     focus: function () { return uiState(); },
+    /* Passt die Seite? Elemente, Kanten, Luft nach unten. */
+    layout: function () { return layoutReport(); },
     serverConfig: function () { return S.serverCfg || null; },
     weather: function () { return { enabled: wxState.enabled, text: weatherText(), data: wxState.data }; },
     look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },
