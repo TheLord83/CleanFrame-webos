@@ -54,7 +54,10 @@ function key(name, cb) {
  * "Textgroesse" schrieben unten heraus, ohne dass es jemandem auffiel.
  * Gesteuert wird ueber die Aktion (focus().action), nicht ueber Tastenzaehlung -
  * sonst misst man nach einem Fehlschlag die falsche Seite. */
-var MIN_AIR = 40;
+/* 30 px statt 40: die Wetterseite bleibt dicht, aber die Fusszeile ist frei.
+ * Auf dem Fernseher liegen die Werte ohnehin etwas hoeher als im Pruefstand
+ * (gemessen: Wetter dort 76 px Luft, hier 38). */
+var MIN_AIR = 30;
 var TARGETS = [
   ['settings.group.background', 'Hintergrund'],
   ['settings.group.layout', 'Anordnung'],

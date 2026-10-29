@@ -3,6 +3,19 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.18 (title and first section were on top of each other)
+
+Compacting the weather page moved its block up to 164 px while the page title
+kept its size, so "Wetter" sat on "Anzeige" - measured as a 359x70 pixel
+overlap. The title is smaller on that page now and the block starts at 182 px.
+Rows are 42 px, 28 px type, 6 px between questions: the last answer ends at
+1042, 38 px above the bottom.
+
+layout() now also reports overlaps, and the check covers headings, the page
+title and the footer, so this cannot come back unnoticed. Overlap detection only
+looks at the topmost layer - the home tiles stay in the DOM under a sheet and
+would otherwise count as overlaps (settings and the editor were falsely flagged).
+
 ## 0.6.17 (the settings pages fit, measured not guessed)
 
 Root cause of "Anordnung is too full": the base rule gave every option button

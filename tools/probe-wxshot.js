@@ -64,7 +64,8 @@ http.get({ host:'127.0.0.1', port:PORT, path:'/json/list' }, function(res){
               send('Page.captureScreenshot',{format:'png'}, function(r){
                 require('fs').writeFileSync('/tmp/wx-fit.png', Buffer.from(r.result.data,'base64'));
                 ev('JSON.stringify(CleanFrameDebug.layout())', function(l){
-                  console.log('Wetter: lowest=' + l.lowest + ' air=' + l.air);
+                  console.log('Wetter: lowest=' + l.lowest + ' air=' + l.air + ' fits=' + l.fits);
+                  console.log('Ueberlappungen: ' + JSON.stringify(l.overlaps || []));
                   client.close(); process.exit(0);
                 });
               });

@@ -3236,11 +3236,16 @@
   function layoutReport() {
     var sceneR = sceneEl.getBoundingClientRect();
     var scale = (sceneR.width / 1920) || 1;
+    /* Liegt eine Blattseite oben, zaehlen nur ihre Elemente: die Kacheln der
+     * Startseite stehen darunter im DOM und saehen sonst wie Ueberlappungen aus. */
+    var topStage = top(), sheetRoot = null;
+    if (topStage && V[topStage.id] && V[topStage.id].sheet) sheetRoot = document.querySelector('.sheet');
+    function inLayer(el) { return !sheetRoot || sheetRoot.contains(el); }
     var els = document.querySelectorAll('[data-action]');
     var items = [];
     for (var i = 0; i < els.length; i++) {
       var el = els[i], r = el.getBoundingClientRect();
-      if (!r.width || !r.height) continue;
+      if (!r.width || !r.height || !inLayer(el)) continue;
       items.push({
         action: el.getAttribute('data-action'),
         label: String(el.textContent || '').trim().slice(0, 32),
@@ -3255,6 +3260,28 @@
       if (it.bottom > bottom) bottom = it.bottom;
       if (it.right > right) right = it.right;
     });
+    /* Ueberlappungen mitdenken: durch das Zusammenschieben der Wetterseite lagen
+     * Titel und erste Abschnittsueberschrift uebereinander - auf einem Foto faellt
+     * das kaum auf, hier schon. Geprueft werden alle messbaren Elemente samt
+     * Ueberschriften. */
+    var boxes = [], extra = document.querySelectorAll('.setting-label, #appearanceTitle, #appearanceDesc, #appearanceStatus');
+    for (var bi = 0; bi < extra.length; bi++) {
+      var er = extra[bi].getBoundingClientRect();
+      if (!er.width || !er.height || !inLayer(extra[bi])) continue;
+      boxes.push({ label: String(extra[bi].textContent || '').trim().slice(0, 24) || extra[bi].id,
+        left: Math.round((er.left - sceneR.left) / scale), top: Math.round((er.top - sceneR.top) / scale),
+        right: Math.round((er.right - sceneR.left) / scale), bottom: Math.round((er.bottom - sceneR.top) / scale) });
+    }
+    items.forEach(function (it) { boxes.push(it); });
+    var overlaps = [];
+    for (var i = 0; i < boxes.length; i++) {
+      for (var j = i + 1; j < boxes.length; j++) {
+        var a = boxes[i], b = boxes[j];
+        var ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        var oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (ox > 4 && oy > 4) overlaps.push((a.label || a.action) + ' / ' + (b.label || b.action) + ' (' + ox + 'x' + oy + ')');
+      }
+    }
     return {
       view: top() ? top().id : null,
       screen: { width: 1920, height: 1080 },
@@ -3262,7 +3289,8 @@
       rightmost: right,
       /* air = wie viel Platz unter dem untersten Element bleibt */
       air: 1080 - bottom,
-      fits: bottom <= 1080 && right <= 1920,
+      fits: bottom <= 1080 && right <= 1920 && !overlaps.length,
+      overlaps: overlaps,
       below: items.filter(function (it) { return it.bottom > 1080; }),
       beyond: items.filter(function (it) { return it.right > 1920; }),
       items: items
