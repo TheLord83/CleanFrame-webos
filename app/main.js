@@ -840,9 +840,14 @@
         f.u = clamp(f.u, 0, U.length - 1);
         if (k === x.prev && f.u > 0) f.u--;
         else if (k === x.next && f.u < U.length - 1) f.u++;
-        /* Heraus mit der Taste, mit der man hineingekommen ist ("hinaus" = up),
-         * und weiterhin mit "zurueck". */
-        else if (k === x.out || k === x.inn || k === 'back') f.zone = 'apps';
+        /* Zurueck: nach unten in die Werteleiste, wenn eine da ist (sie sitzt
+         * zwischen Werkzeugen und Dock), sonst direkt auf die Kacheln. "up" fuehrt
+         * aus der obersten Zeile nirgendwohin mehr, "zurueck" immer zu den Kacheln. */
+        else if (k === x.inn) {
+          if (haChips().length) { f.zone = 'ha'; f.h = clamp(f.h || 0, 0, haChips().length - 1); }
+          else f.zone = 'apps';
+        }
+        else if (k === 'back') f.zone = 'apps';
         else if (k === 'ok') { S.lastUtil = f.u; utilAction(U[f.u]); return; }
         S.lastUtil = f.u;
         return;
@@ -867,12 +872,19 @@
           var back = haChipTile(f.h);
           if (back >= 0) setSel(h[back]);
         }
-        else if (k === x.inn) {
-          /* Unten aus der Leiste geht es weiter zu den Werkzeugen - dort sitzen die
-           * Einstellungen. Vorher landete man wieder auf der Kachel und kam so nie
-           * dorthin. Die Kachel bleibt ueber "zurueck" erreichbar. */
+        else if (k === x.out) {
+          /* Nach oben aus der Leiste in die Werkzeuge: die stehen in der Dock-Ansicht
+           * oben rechts (gemessen y 62, x ab 893), die Leiste sitzt darunter ueber
+           * dem Dock. Vorher hing hier x.inn (runter) - damit hatte "up" in der Leiste
+           * gar keinen Zweig, und man kam nie in die oberste Zeile. */
           f.zone = 'util';
           f.u = clamp(S.lastUtil, 0, U.length - 1);
+        }
+        else if (k === x.inn) {
+          /* Nach unten zurueck auf die Kachel, die unter dem Chip steht. */
+          f.zone = 'apps';
+          var zurueck = haChipTile(f.h);
+          if (zurueck >= 0) setSel(h[zurueck]);
         }
         else if (k === 'ok') {
           var chip = haChips()[f.h];

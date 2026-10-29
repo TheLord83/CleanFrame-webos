@@ -3,6 +3,25 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.12 (up from the strip never reached the tools)
+
+The utilities sit in the top right corner, the Home Assistant strip hangs above
+the dock - so "up" from the strip has to lead into the utilities. The code had
+"down" wired to that jump and no branch for "up" at all: pressing up did
+nothing, and the top row was unreachable from the strip. Now up enters the
+tools, down returns to the strip (or to the tiles when no strip is shown), and
+"back" still goes straight to the tiles.
+
+Found on the panel: Netflix -> up (window chip) -> up did nothing.
+
+## 0.6.11 (weather at the right edge sat on the tools)
+
+With the weather set to "right edge" the clock row was a fixed 1040 px wide and
+pushed the weather under the utilities in the top right corner. Two texts on
+top of each other: "Bildschirmschoner" read as 4Bild1s6h0ms - the digits were
+the weather, the letters the label. The row is now measured against the
+utilities' left edge minus a margin, capped at 1040 px and floored at 420 px.
+
 ## 0.6.9 (the logos were off by the height of themselves)
 
 The marks were positioned with a double offset, and the measurement that was supposed to
