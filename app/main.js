@@ -3149,6 +3149,7 @@
       }
     }
     press(k);
+    scheduleUiReport();
   });
   document.addEventListener('keyup', function (ev) {
     delete heldKeys[ev.keyCode];
@@ -3187,6 +3188,48 @@
   document.addEventListener('webOSLaunch', function () { focusTilesOnReturn(); });
   window.addEventListener('resize', fit);
 
+  /* ---------- Zustand fuer Pruefungen ----------
+   * Welches Element ist ausgewaehlt, in welcher Etage, mit welcher Beschriftung -
+   * und auf den Detailseiten das Zeilenraster. Damit laesst sich der Bedienweg
+   * pruefen, ohne Bildschirmfotos zu deuten. Der Fernseher meldet denselben
+   * Zustand an den Hub, damit auch am Geraet ohne Pixel gearbeitet werden kann. */
+  var uiReportTimer = 0, uiLastReport = '';
+  function uiState() {
+    var t = top(), a = t && t.f && t.f.action, el = null, out;
+    if (a) el = document.querySelector('[data-action="' + a + '"]');
+    out = {
+      view: t ? t.id : null,
+      zone: t && t.f ? t.f.zone : null,
+      action: a || null,
+      label: el ? String(el.textContent || '').trim().slice(0, 40) : null,
+      index: t && t.f ? t.f.i : null
+    };
+    if (t && t.id === 'appearance') {
+      var at = detailLocation(t);
+      out.row = at.row; out.column = at.column;
+      out.rows = at.rows.map(function (items) {
+        return items.map(function (it) { return it.label || it.action; });
+      });
+    }
+    return out;
+  }
+  function reportUiState() {
+    var body = JSON.stringify(uiState());
+    if (body === uiLastReport || typeof fetch !== 'function') return;
+    uiLastReport = body;
+    try {
+      /* text/plain absichtlich: mit application/json wuerde Chromium 79 auf dem
+       * Fernseher eine CORS-Vorabfrage schicken, die es fuer file:// nicht besteht -
+       * die Meldung kaeme nie an (siehe postGuard im Hub). */
+      fetch(HUB + '/api/ui/state', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: body })
+        .catch(function () { uiLastReport = ''; });
+    } catch (e) { uiLastReport = ''; }
+  }
+  function scheduleUiReport() {
+    clearTimeout(uiReportTimer);
+    uiReportTimer = setTimeout(reportUiState, 120);
+  }
+
   /* Readable browser checks use the real state and actions, without fake outcomes. */
   var NAV = { left: 'left', right: 'right', up: 'up', down: 'down', ok: 'ok', enter: 'ok', back: 'back', escape: 'back' };
 
@@ -3210,6 +3253,16 @@
       };
     },
     focusStage: focusStage,
+    /* Tasten wie von der Fernbedienung druecken - derselbe Weg wie keydown, damit
+     * Pruefungen den echten Ablauf sehen und nicht eine Nachbildung. */
+    press: function (keys) {
+      var list = Array.isArray(keys) ? keys : [keys];
+      list.forEach(function (k) { press(k); });
+      scheduleUiReport();
+      return this.focus();
+    },
+    /* Was ist ausgewaehlt? Ohne Bildschirmfoto. */
+    focus: function () { return uiState(); },
     serverConfig: function () { return S.serverCfg || null; },
     weather: function () { return { enabled: wxState.enabled, text: weatherText(), data: wxState.data }; },
     look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },

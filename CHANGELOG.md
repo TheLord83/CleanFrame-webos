@@ -3,6 +3,25 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.15 (navigation can be checked without screenshots)
+
+New: the app reports what is selected after every key press, and the hub hands
+it out. POST /api/ui/press sends keys and returns the selection in one call,
+GET /api/ui/state reads it. On a detail page the answer includes the row grid,
+e.g. [[Einstellungen],[Liste,Leiste],[Nur Text,Nur Symbole,Beides],[...]], so a
+check can follow the actual structure instead of guessing at pixels.
+CleanFrameDebug.press()/focus() do the same in the browser bench.
+
+Why: three fixes today were only verifiable through screenshots, and reading
+them was guesswork. The app posts with text/plain on purpose - Chromium 79 does
+not pass a CORS preflight for file:// pages.
+
+With this the "Anordnung is broken" report resolved: on 0.6.15 the page walks
+Einstellungen -> Liste/Leiste -> App-Darstellung -> Startseiten-Bedienung, and
+left/right moves within a row. The dead left/right I measured belonged to the
+old app process that webOS kept alive (the same resume problem fixed in 0.6.13)
+- the pages never had the new code.
+
 ## 0.6.14 (the tools open on Einstellungen)
 
 Entering the utility row now lands on "Einstellungen" instead of

@@ -50,8 +50,10 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.14';
+var VERSION = '0.6.15';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
+/* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
+var uiState = null;
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
 var TV_BASE = process.env.CF_GLASSHOUSE || 'http://127.0.0.1:8080';
@@ -724,6 +726,42 @@ function handle(req, res) {
         stream.on('error', function () { screen.forget(info.file); });
       });
     })();
+  }
+  /* ---------- Was ist gerade ausgewaehlt? ----------
+   * Die App meldet nach jedem Tastendruck ihren Zustand (Etage, Zone, Aktion,
+   * Beschriftung, auf Detailseiten das Zeilenraster). Damit laesst sich der
+   * Bedienweg am Fernseher pruefen, ohne Bildschirmfotos zu deuten: Tasten per
+   * /api/ui/press schicken, Antwort lesen. */
+  if (req.method === 'POST' && p === '/api/ui/state') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      uiState = { state: body || null, at: new Date().toISOString() };
+      json(res, 200, { ok: true });
+    });
+  }
+  if (req.method === 'GET' && p === '/api/ui/state') {
+    return json(res, 200, uiState ? { ok: true, state: uiState.state, at: uiState.at }
+      : { ok: true, state: null, hint: 'Die App hat noch nichts gemeldet (laeuft sie?)' });
+  }
+  if (req.method === 'POST' && p === '/api/ui/press') {
+    return readBody(req, function (body, err) {
+      if (err) return json(res, 400, { ok: false, error: err });
+      var keys = (body && body.keys) || [];
+      if (!Array.isArray(keys) || !keys.length || keys.length > 12) {
+        return json(res, 400, { ok: false, error: 'keys muss eine Liste mit 1 bis 12 Tasten sein' });
+      }
+      var waitMs = Math.max(200, Math.min(4000, (body && body.waitMs) || 600));
+      var payload = JSON.stringify({ keys: keys, holdMs: 0 });
+      var inner = http.request({ host: '127.0.0.1', port: PORT, path: '/api/tv/key', method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } },
+        function (resp) { resp.resume(); });
+      inner.on('error', function () {});
+      inner.end(payload);
+      setTimeout(function () {
+        json(res, 200, { ok: true, keys: keys, state: uiState ? uiState.state : null,
+          at: uiState ? uiState.at : null });
+      }, waitMs);
+    });
   }
   if (req.method === 'GET' && p === '/api/tv/keys') {
     return json(res, 200, { ok: true, keys: Object.keys(remote.KEYS) });
