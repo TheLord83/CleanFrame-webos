@@ -3,6 +3,17 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.8 (the list view had no way to the utilities)
+
+- **In the list view the utilities were unreachable from the rows.** They sit as a
+  vertical column at the bottom right, below the last row, but `listHomeKey` only knew
+  `right` as a way out of the rows — and nobody presses right when everything is
+  stacked vertically. Down from the last row now enters the column (top entry), up from
+  its top entry returns to the rows, and left/back still leaves it. Measured first with
+  `probe-list.js`: utilities at x 1465, y 673, six rows from y 191 to 746.
+- **New test** `test-list-utils.js` (6 checks: walking the rows, entering the column,
+  returning, and both old directions), wired into `check-all.sh`.
+
 ## 0.6.7 (keys follow the layout, and the clock has an off switch)
 
 - **Every key now moves in the direction the elements actually stand.** The weather and

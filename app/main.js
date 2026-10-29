@@ -912,6 +912,9 @@
       f.u = clamp(f.u, 0, U.length - 1);
       if (k === 'up' && f.u > 0) f.u--;
       else if (k === 'down' && f.u < U.length - 1) f.u++;
+      /* Die Saeule steht unter den Zeilen, also geht "hoch" von ihrem oberen Ende
+       * zurueck in die Liste - als Gegenrichtung zu "hinunter" aus der letzten Zeile. */
+      else if (k === 'up') { f.zone = 'apps'; setSel(h[Math.min(i, h.length - 1)]); return; }
       else if (k === 'left' || k === 'back') f.zone = 'apps';
       else if (k === 'ok') { S.lastUtil = f.u; utilAction(U[f.u]); return; }
       S.lastUtil = f.u;
@@ -919,8 +922,15 @@
     }
     f.zone = 'apps';
     if (k === 'up' && i > 0) setSel(h[i - 1]);
+    /* In der Liste stehen die Werkzeuge als Saeule unten rechts, unter der letzten
+     * Zeile - also geht "hinunter" aus der letzten Zeile dorthin. Vorher kannte dieser
+     * Zweig nur "rechts", und das war aus den Zeilen heraus die einzige Richtung; weil
+     * die Werkzeuge aber senkrecht stehen, hat niemand dort "rechts" gedrueckt. */
     else if (k === 'right') { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
-    else if (k === 'down' && i < h.length - 1) setSel(h[i + 1]);
+    /* i kommt aus ensureSel(): -1, wenn noch nichts gewaehlt ist. Die Grenze muss
+     * deshalb ueber "nicht letzte Zeile" laufen, nicht ueber "kleiner als". */
+    else if (k === 'down' && i >= 0 && i < h.length - 1) setSel(h[i + 1]);
+    else if (k === 'down') { f.zone = 'util'; f.u = 0; S.lastUtil = 0; }
     else if (k === 'back') openRecent();
     else if (k === 'ok') { if (h.length) launch(S.sel); else addAppsRoute(); }
   }
