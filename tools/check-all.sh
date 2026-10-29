@@ -152,6 +152,7 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "status strip" node tools/test-ha-strip.js --port "$PORT_DEBUG"
   run "list view keys" node tools/test-list-utils.js --port "$PORT_DEBUG"
   run "home keys" node tools/test-home-keys.js --port "$PORT_DEBUG"
+  run "layout fits" node tools/test-layout-fit.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)

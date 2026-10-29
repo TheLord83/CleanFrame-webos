@@ -3,6 +3,24 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.17 (the settings pages fit, measured not guessed)
+
+Root cause of "Anordnung is too full": the base rule gave every option button
+`width: 100%`, so inside a horizontal row only one fitted per line and every
+choice list stacked up - three questions became a dozen lines. `.is-horizontal
+.setting-choice` now sets `width: auto`.
+
+Two more limits were in the way: the option column was 640 px wide, too narrow
+for three buttons ("Nur Text / Nur Symbole / Beides" broke again), so the detail
+pages use 780 px - the preview starts at x 900. Weather (four questions with
+four answers each) needed its own density: 50 px rows, 29 px type, 12 px between
+questions.
+
+Measured with tools/test-layout-fit.js, stage "layout fits" in check-all:
+15/15 pages keep at least 40 px of air at the bottom. On the panel, over the API
+(POST /api/ui/press, GET /api/ui/state reports fits/air): Anordnung 950/130,
+Wetter 1004/76 - both fit, all four weather questions visible above the footer.
+
 ## 0.6.16 (a check for pages that run off the bottom)
 
 CleanFrameDebug.layout() measures every selectable element against the stage
