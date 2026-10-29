@@ -625,15 +625,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 /* Wetter hat vier Fragen mit je vier Antworten; bei 780 px passen zwei Knoepfe
  * nebeneinander, also zwei Zeilen je Frage. Etwas flacher, damit alle vier
  * Fragen ueber der Fusszeile bleiben (vorher 491 px zu tief). */
-.detail-weather .setting-options{gap:6px 10px}
-.detail-weather .setting-choice{min-height:42px;padding:4px 14px;font-size:28px;line-height:32px}
-.detail-weather .setting-section+.setting-section{margin-top:6px}
-.detail-weather .setting-label{margin-bottom:3px;font-size:24px;line-height:30px}
-.detail-weather .appearance-rows{top:182px}
+.detail-weather .setting-options{gap:10px 12px}
+/* Vier Fragen, jede eine Zeile: die Zusatzdichte von vorher (28 px Schrift) ist
+ * nicht mehr noetig, seitdem die Antworten erst beim Aufklappen erscheinen. */
+.detail-weather .setting-choice{min-height:72px;padding:12px 24px;font-size:36px;line-height:44px}
+.detail-weather .setting-section+.setting-section{margin-top:26px}
+.detail-weather .setting-label{margin-bottom:8px;font-size:28px;line-height:36px}
+.detail-weather .appearance-rows{top:236px}
 /* Der Titel "Wetter" lief in die Ueberschrift "Anzeige" (359x70 px Ueberlappung,
  * gemessen). Er wird auf dieser Seite kleiner, damit beide untereinander passen,
  * ohne dass die Antworten wieder unter den Rand rutschen. */
-.detail-weather #appearanceTitle{font-size:44px;line-height:52px}
+.detail-weather #appearanceTitle{font-size:56px;line-height:64px}
 .detail-weather .setting-tick{width:22px}
 .detail-weather .setting-tick .ico{width:22px;height:22px}
 /* Hintergrund: drei Zeilen plus Rotationszeile lagen 107 px zu tief. */
@@ -861,3 +863,30 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .ic-letters{font-size:52px;line-height:1;font-weight:600;letter-spacing:-1px}
 .ic-name{font-size:24px;line-height:27px;font-weight:500;color:var(--mute);max-width:160px;text-align:center;overflow:hidden;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ic-cell.is-focus .ic-name{color:var(--ink)}
+
+/* ---------- Zeile mit Wert (TV-Variante des Dropdowns) ----------
+ * Die Frage steht als Ueberschrift darueber, die Zeile zeigt nur den aktuellen
+ * Wert und klappt beim Druecken von OK die Antworten darunter auf. */
+.setting-choice.pick-row{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;text-align:left}
+.setting-choice.pick-row .setting-copy{flex:1 1 auto;min-width:0}
+.setting-choice.pick-row .setting-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setting-choice.pick-row .pick-chevron{flex:0 0 auto;display:flex;align-items:center;color:var(--mute);transition:transform .18s ease}
+.setting-choice.pick-row .pick-chevron .ico{width:28px;height:28px}
+.setting-choice.pick-row.is-open{background:rgba(255,255,255,.16)}
+.setting-choice.pick-row.is-open .pick-chevron{transform:rotate(180deg)}
+.setting-section.is-open .setting-label{color:var(--solid-ink)}
+/* Das ist der Punkt, an dem aus dem Aufklappen ein Dropdown wird: die Antworten
+ * schieben die Seite NICHT nach unten (gemessen: -116 px bei "Groesse", -482 px
+ * bei "Anzeige"), sondern legen sich als Karte ueber die Zeilen darunter. Die
+ * verdeckten Zeilen werden unsichtbar geschaltet, damit sie nicht durch die
+ * Karte scheinen und die Messung keine falsche Ueberlappung meldet. */
+.setting-section.is-picker{position:relative}
+.setting-section.is-covered{visibility:hidden}
+.setting-options.picker-list{position:absolute;top:100%;left:0;z-index:6;width:700px;margin-top:8px;
+  padding:14px;border-radius:20px;background:rgba(14,16,20,.93);border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 22px 60px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+/* 720 statt 780: die Vorschau beginnt bei x 872 (gemessen), sonst liegt die
+ * Karte auf ihr. */
+.setting-options.is-horizontal{flex-direction:row;flex-wrap:wrap;row-gap:10px;gap:12px;--cf-scale:1}
+.setting-options.is-horizontal .setting-choice{flex:0 1 auto;min-width:0;width:auto}
+.setting-options.picker-list .setting-choice{width:auto;flex:0 1 auto}

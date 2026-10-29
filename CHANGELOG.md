@@ -3,6 +3,35 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.21 (each question is one row, the answers open underneath)
+
+The weather page showed every answer as a chip: four questions with up to four
+buttons each, first underneath each other, then squeezed to 28 px type to fit.
+Stefan: "anzeige und wetter ueberlappen. und ist halt ganz schoen voll. kannst da
+net per dropdown oder machst dass net am tv sowas?"
+
+A native select is not a TV control - no hover, no typing, and the list opens as
+a system popup. The TV pattern (LG, Samsung, Apple TV) is the same thing done in
+rows: one line per question showing the current value, OK opens the answers
+under it. The settings list itself already worked that way; the detail pages
+were the exception.
+
+Weather and text size now use it. Four rows instead of six chip rows, type back
+at 36 px instead of 28. The answers open as a card over the rows below instead
+of pushing them down (measured: -116 px for size, -482 px for display). Only the
+rows the card actually touches are hidden, so the page does not look empty.
+
+Keys: up/down walk the questions, OK opens, left/right picks, OK again takes the
+value and closes, back closes one level. Walking down out of an open list closes
+it and lands on the next question - the old jump into nothing is gone.
+
+Two version bumps had silently missed: appinfo.json and server.js both still said
+0.6.15 while VERSION said 0.6.17, so three builds shipped a package labelled
+0.6.15. tools/check-version.py now compares all three and is a check-all stage.
+
+Tests: tools/test-picker.js (13 checks) as stage "picker rows"; layout() also
+reports overlaps now, and the layout stage is 15/15 with the open card.
+
 ## 0.6.18 (title and first section were on top of each other)
 
 Compacting the weather page moved its block up to 164 px while the page title

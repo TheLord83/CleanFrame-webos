@@ -105,7 +105,7 @@
   var REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   var S = {
     variant: 'B', geom: 'broad', c: null, stack: null,
-    sel: null, selIdx: 0, lastUtil: 0, appsFocus: null, settingsFocus: 'background', appearanceFocus: 'bg', detailFocus: {},
+    sel: null, selIdx: 0, lastUtil: 0, appsFocus: null, settingsFocus: 'background', appearanceFocus: 'bg', detailFocus: {}, picker: null,
     undo: [], removedAt: {}, note: null, err: null,
     writes: 0, failed: 0, log: [], logN: 0, lastLaunch: null, press: null,
     wallShown: null, wallPending: null, wallError: null,
@@ -758,6 +758,7 @@
   function addAppsRoute() { openEditor('home'); }
   function openSettings() { push({ id: 'settings', f: { id: S.settingsFocus } }); }
   function openAppearance(group) {
+    S.picker = null; /* aufgeklappte Zeile gilt nur fuer die Seite, auf der sie geoeffnet wurde */
     var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus' }[group];
     var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : group === 'rotation' ? 'rotation.' + S.c.mode : 'samsung.home');
     push({ id: 'appearance', group: group, f: { action: action } });
@@ -1385,7 +1386,9 @@
       { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
     if (t.group === 'typography') return [{ id: 'font', title: T('Font'), items: options('font', LOOK_VALUES.font) },
-      { id: 'text', title: T('Text size'), horizontal: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
+      /* Eine Zeile statt acht Knoepfe: der Wert steht in der Zeile, OK klappt die
+       * Auswahl darunter auf. */
+      { id: 'text', title: T('Text size'), picker: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
         var item = choice('textScale', v, false);
         item.label = v + ' %';
         return item;
@@ -1396,10 +1399,14 @@
        * the screen, which is what a single wide row per question did. */
       /* Left column: how it looks. Right column: where it sits. The grid fills
        * column by column, so this order is also the order "down" walks through. */
-      { id: 'wxStyle', title: T('Shown as'), horizontal: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
-      { id: 'wxSize', title: T('Size'), horizontal: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
-      { id: 'wxPos', title: T('Where it sits'), horizontal: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
-      { id: 'wxGap', title: T('Distance from the clock'), horizontal: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
+      /* Vier Fragen, vier Zeilen. Jede zeigt ihren Wert; OK klappt die Antworten
+       * direkt darunter auf. Vorher standen hier bis zu vier Knoepfe pro Frage
+       * untereinander - die Seite war voll und der Titel lag auf der ersten
+       * Ueberschrift. */
+      { id: 'wxStyle', title: T('Shown as'), picker: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      { id: 'wxSize', title: T('Size'), picker: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
+      { id: 'wxPos', title: T('Where it sits'), picker: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
+      { id: 'wxGap', title: T('Distance from the clock'), picker: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
     ];
     if (t.group === 'focus') return [
       { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
@@ -1431,7 +1438,15 @@
     var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : T('Settings') }]];
     detailSections(t).forEach(function (section) {
       var enabled = section.items.filter(function (item) { return !item.disabled; });
-      if (section.horizontal && enabled.length) rows.push(enabled);
+      if (section.picker) {
+        rows.push([pickerHead(section)]);
+        if (S.picker === section.id && enabled.length) {
+          /* Die Antwortzeile traegt ihre Herkunft: daran erkennt die Tasten-
+           * behandlung, dass hoch/runter hier zuklappen und weitergehen muss. */
+          enabled.pickOf = section.id;
+          rows.push(enabled);
+        }
+      } else if (section.horizontal && enabled.length) rows.push(enabled);
       else enabled.forEach(function (item) { rows.push([item]); });
     });
     if (S.lookError) rows.push([{ action: 'settings.retry', label: T('Try again') }]);
@@ -1458,9 +1473,22 @@
   }
   function detailBack() { cancelLook(); S.err = null; pop(); }
   function detailOk(t, item) {
-    var patch = {}, error = S.lookError;
+    var patch = {}, error = S.lookError, headAction = S.picker ? 'pick.' + S.picker : null;
     if (item.action === 'settings.back') { detailBack(); return; }
     if (item.disabled || S.pending) return;
+    if (item.picker) {
+      /* OK auf der zugeklappten Zeile klappt die Antworten auf und springt auf
+       * die gerade gueltige; nochmal OK macht sie wieder zu. */
+      var opening = S.picker !== item.section.id;
+      S.picker = opening ? item.section.id : null;
+      if (opening) {
+        var wanted = pickerValue(item.section), col = 0, list = item.section.items;
+        for (var li = 0; li < list.length; li++) if (list[li] === wanted || list[li].action === wanted.action) col = li;
+        detailFocus(t, wanted, col);
+      }
+      render();
+      return;
+    }
     if (item.action === 'settings.retry') {
       if (error && error.patch[error.row] !== undefined) detailFocus(t, choice(error.row, error.patch[error.row]), 0);
       if (error && error.row === 'mode') applyRotation(error.patch.mode);
@@ -1477,9 +1505,42 @@
     else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
     else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
+    /* Nach dem Setzen wieder zuklappen: der neue Wert steht dann in der Zeile,
+     * und die Frage darueber bleibt sichtbar. */
+    if (headAction && S.picker) {
+      S.picker = null;
+      detailRows(t).some(function (items) { return items.some(function (row) {
+        if (row.action !== headAction) return false;
+        detailFocus(t, row, 0); return true;
+      }); });
+      render();
+    }
+  }
+  /* Zuklappen und den Fokus zurueck auf die Zeile setzen. */
+  function closePicker(t, focusHead) {
+    var id = S.picker;
+    S.picker = null;
+    if (!focusHead) return;
+    var rows = detailRows(t), h = -1;
+    rows.forEach(function (items, i) { if (items[0] && items[0].action === 'pick.' + id) h = i; });
+    if (h >= 0) detailFocus(t, rows[h][0], 0);
+    render();
+  }
+  /* Aus der Antwortzeile heraus weiterblättern. */
+  function moveOutOfPicker(t, id, k) {
+    S.picker = null;
+    var rows = detailRows(t), head = -1;
+    rows.forEach(function (items, i) { if (items[0] && items[0].action === 'pick.' + id) head = i; });
+    var target = k === 'up' ? head : Math.min(head + 1, rows.length - 1);
+    if (target < 0) target = 0;
+    detailFocus(t, rows[target][0], 0);
+    render();
   }
   V.appearance = {
     norm: function (t) {
+      /* Eine aufgeklappte Zeile, die es auf dieser Seite nicht mehr gibt (etwa
+       * nach einem Sprachwechsel), darf nicht als Geist stehen bleiben. */
+      if (S.picker && !detailSections(t).some(function (sc) { return sc.picker && sc.id === S.picker; })) S.picker = null;
       var rows = detailRows(t), exists = false, applied = null;
       var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus', rotation: 'mode', weather: 'wxStyle' }[t.group];
       rows.forEach(function (items) { items.forEach(function (item) {
@@ -1491,12 +1552,23 @@
     },
     key: function (t, k) {
       var at = detailLocation(t), row = at.row, column = at.column;
-      if (k === 'back') { detailBack(); return; }
+      if (k === 'back') {
+        /* Zurueck schliesst erst die aufgeklappte Zeile - eine Ebene pro Druck,
+         * wie man es von Menues kennt. */
+        if (S.picker) { closePicker(t, true); return; }
+        detailBack(); return;
+      }
       if (k === 'ok') { detailOk(t, at.item); return; }
       if (k === 'up' || k === 'down') {
+        /* Steht der Fokus in den Antworten einer aufgeklappten Zeile, klappt
+         * hoch/runter sie zu und geht Eine Zeile weiter - nicht in die Antworten
+         * der Nachbarzeile, was frueher der Sprung ins Nichts war. */
+        if (at.rows[row].pickOf) { moveOutOfPicker(t, at.rows[row].pickOf, k); return; }
+        if (S.picker) { S.picker = null; at = detailLocation(t); row = at.row; }
         row = clamp(row + (k === 'up' ? -1 : 1), 0, at.rows.length - 1);
         column = Math.min(t.f.column || 0, at.rows[row].length - 1);
         detailFocus(t, at.rows[row][column]);
+        render();
       } else if (k === 'left' || k === 'right') {
         column = clamp(column + (k === 'left' ? -1 : 1), 0, at.rows[row].length - 1);
         detailFocus(t, at.rows[row][column], column);
@@ -2451,11 +2523,7 @@
     appearanceTitle.textContent = DETAIL_NAMES[t.group];
     var at = detailLocation(t), selected = at.item, error = S.lookError, status = '', hint;
     function command(item, inner, cls) {
-      var applied = item.applied === true || (item.axis && item.axis !== 'wxStyle' && item.axis !== 'wxPos' && item.axis !== 'wxSize' && item.axis !== 'wxGap' && item.axis !== 'textScale' && S.c[item.axis] === item.value)
-        || (item.axis === 'textScale' && String(parseInt(((S.serverCfg || {}).ui || {}).textScale, 10) || 100) === String(item.value))
-        || (item.action === 'clock.set.24' && S.c.clock24 !== false)
-        || (item.action === 'clock.set.12' && S.c.clock24 === false)
-        || (item.action.indexOf && item.action.indexOf('language.set.') === 0 && S.serverCfg && S.serverCfg.lang === item.action.slice('language.set.'.length));
+      var applied = isApplied(item);
       var loading = !!(item.axis && S.pending && S.pending.target[item.axis] === item.value && S.pending.row === item.axis);
       return '<button type="button" tabindex="-1" class="setting-choice' + (cls ? ' ' + cls : '') + (t.f.action === item.action ? ' is-focus' : '') + (item.disabled ? ' is-disabled' : '') + (applied ? ' is-applied' : '') + (loading ? ' is-loading' : '') + '"'
         + (item.axis ? ' role="radio" aria-checked="' + !!applied + '"' : '') + ' aria-label="' + esc(item.axis && item.value === 'both' ? T('Icons and text') : item.label) + '" aria-disabled="' + !!item.disabled + '" aria-busy="' + loading + '"'
@@ -2464,10 +2532,12 @@
     }
     setHTML(appearanceBack, command({ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : T('Settings') }, icon('left') + '<span>' + (t.group === 'rotation' ? T('Background') : T('Settings')) + '</span>', 'setting-back'));
     setHTML(appearanceRows, detailSections(t).map(function (section) {
-      return '<section class="setting-section' + (section.horizontal ? ' is-horizontal' : '') + ' section-' + section.id + '">'
+      var open = !!(section.picker && S.picker === section.id);
+      return '<section class="setting-section' + (section.horizontal ? ' is-horizontal' : '') + (section.picker ? ' is-picker' : '') + (open ? ' is-open' : '') + ' section-' + section.id + '">'
         + (section.title ? '<h3 class="setting-label" id="setting-' + section.id + '">' + section.title + '</h3>' : '')
-        + '<div class="setting-options"' + (section.items[0].axis ? ' role="radiogroup" aria-label="' + esc(section.title || LOOK_NAMES[section.id] || DETAIL_NAMES[t.group]) + '"' : '') + '>'
-        + section.items.map(function (item) {
+        + (section.picker ? '<div class="setting-options picker-head">' + pickerButton(section, open) + '</div>' : '')
+        + '<div class="setting-options' + (section.picker ? ' is-horizontal picker-list' : '') + '"' + (section.picker && !open ? ' hidden' : '') + (section.items[0].axis ? ' role="radiogroup" aria-label="' + esc(section.title || LOOK_NAMES[section.id] || DETAIL_NAMES[t.group]) + '"' : '') + '>'
+        + (section.picker && !open ? '' : section.items.map(function (item) {
           var swatch = item.axis === 'bg', body = '';
           if (swatch || item.thumbnail) body += item.value === 'light' || item.value === 'dark'
             ? '<span class="setting-swatch swatch-' + item.value + '" aria-hidden="true"></span>'
@@ -2476,9 +2546,26 @@
             + (item.description ? '<span class="setting-description">' + esc(item.description) + '</span>' : '') + '</span>';
           if (!item.axis) body += icon('right', 'setting-forward');
           return command(item, body, item.description ? 'has-description' : '');
-        }).join('') + '</div>'
+        }).join('')) + '</div>'
         + (section.reason ? '<p class="setting-reason">' + esc(section.reason) + '</p>' : '') + '</section>';
     }).join(''));
+    /* Die Karte liegt ueber den folgenden Zeilen. Nur die, die sie wirklich
+     * beruehrt, werden unsichtbar geschaltet - sonst wirkt die Seite leer, obwohl
+     * ein Dropdown offen ist. Sie behalten ihren Platz, also verschiebt sich
+     * nichts (visibility statt display). */
+    (function hideCovered() {
+      var openSec = appearanceRows.querySelector('.setting-section.is-picker.is-open');
+      if (!openSec) return;
+      var card = openSec.querySelector('.picker-list');
+      if (!card) return;
+      var cr = card.getBoundingClientRect(), secs = appearanceRows.querySelectorAll('.setting-section'), after = false;
+      Array.prototype.forEach.call(secs, function (sec) {
+        if (sec === openSec) { after = true; return; }
+        if (!after) return;
+        var r = sec.getBoundingClientRect();
+        if (r.bottom > cr.top + 2 && r.top < cr.bottom - 2) sec.className += ' is-covered';
+      });
+    })();
     if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
     else if (error) {
       status = '<p class="setting-error">' + (error.type === 'save' ? T('Couldn’t save this change.') : error.type === 'font' ? T('Couldn’t load ') + esc(FONTS[error.font].name) + '.' : T('Couldn’t load this appearance.')) + ' ' + T('Your current choice is kept.') + '</p>'
@@ -2487,6 +2574,35 @@
     setHTML(appearanceStatus, status);
     hint = selected.disabled ? '' : selected.action === 'settings.back' ? T('Return to ') + (t.group === 'rotation' ? T('Background') : T('Settings')) : selected.action === 'settings.retry' ? T('Retry this change') : selected.axis ? T('Apply selected setting') : selected.action === 'background.wallpaper' ? T('Choose a wallpaper') : selected.action === 'background.rotation' ? T('Choose a rotation interval') : T('Open on the TV');
     setHTML(appearanceDesc, hint ? '<span class="remote-key">OK</span><span>' + esc(hint) + '</span>' : '');
+  }
+  /* Ist diese Antwort die gerade gueltige? Wird an zwei Stellen gebraucht: fuer
+   * den Haken an der Antwort und fuer den Wert in der zusammengeklappten Zeile. */
+  function isApplied(item) {
+    return item.applied === true
+      || (item.axis && item.axis !== 'wxStyle' && item.axis !== 'wxPos' && item.axis !== 'wxSize' && item.axis !== 'wxGap' && item.axis !== 'textScale' && S.c[item.axis] === item.value)
+      || (item.axis === 'textScale' && String(parseInt(((S.serverCfg || {}).ui || {}).textScale, 10) || 100) === String(item.value))
+      || (item.action === 'clock.set.24' && S.c.clock24 !== false)
+      || (item.action === 'clock.set.12' && S.c.clock24 === false)
+      || (item.action.indexOf && item.action.indexOf('language.set.') === 0 && S.serverCfg && S.serverCfg.lang === item.action.slice('language.set.'.length));
+  }
+  /* Welche Antwort steht in der Zeile, solange sie zugeklappt ist? */
+  function pickerValue(section) {
+    var found = null;
+    section.items.forEach(function (item) { if (!found && isApplied(item)) found = item; });
+    return found || section.items[0] || null;
+  }
+  function pickerHead(section) {
+    return { action: 'pick.' + section.id, label: (pickerValue(section) || {}).label || '', picker: true, section: section };
+  }
+  /* Die zusammengeklappte Zeile: Frage links (steht als Ueberschrift darueber),
+   * Wert rechts, Pfeil, der beim Aufklappen nach oben zeigt. */
+  function pickerButton(section, open) {
+    var value = pickerValue(section), cur = top(), focus = !!(cur && cur.f && cur.f.action === 'pick.' + section.id);
+    return '<button type="button" tabindex="-1" class="setting-choice pick-row' + (focus ? ' is-focus' : '') + (open ? ' is-open' : '') + '" '
+      + 'aria-expanded="' + open + '" aria-controls="setting-' + section.id + '-list" data-z="detail" data-i="0" '
+      + 'data-id="pick.' + section.id + '" data-action="pick.' + section.id + '">'
+      + '<span class="setting-copy"><span class="setting-name">' + esc(value ? value.label : '') + '</span></span>'
+      + '<span class="pick-chevron" aria-hidden="true">' + icon('down') + '</span></button>';
   }
   function renderWallpaper(t) {
     V.wallpaper.norm(t);
@@ -3241,11 +3357,16 @@
     var topStage = top(), sheetRoot = null;
     if (topStage && V[topStage.id] && V[topStage.id].sheet) sheetRoot = document.querySelector('.sheet');
     function inLayer(el) { return !sheetRoot || sheetRoot.contains(el); }
+    function hiddenByPicker(el) {
+      var sec = el.closest ? el.closest('.setting-section.is-covered') : null;
+      return !!sec || (el.getAttribute && el.getAttribute('aria-hidden') === 'true');
+    }
     var els = document.querySelectorAll('[data-action]');
     var items = [];
     for (var i = 0; i < els.length; i++) {
       var el = els[i], r = el.getBoundingClientRect();
-      if (!r.width || !r.height || !inLayer(el)) continue;
+      /* verdeckte Zeilen bleiben im Layout stehen, sind aber nicht gemeint */
+      if (!r.width || !r.height || !inLayer(el) || hiddenByPicker(el)) continue;
       items.push({
         action: el.getAttribute('data-action'),
         label: String(el.textContent || '').trim().slice(0, 32),
@@ -3267,7 +3388,7 @@
     var boxes = [], extra = document.querySelectorAll('.setting-label, #appearanceTitle, #appearanceDesc, #appearanceStatus');
     for (var bi = 0; bi < extra.length; bi++) {
       var er = extra[bi].getBoundingClientRect();
-      if (!er.width || !er.height || !inLayer(extra[bi])) continue;
+      if (!er.width || !er.height || !inLayer(extra[bi]) || hiddenByPicker(extra[bi])) continue;
       boxes.push({ label: String(extra[bi].textContent || '').trim().slice(0, 24) || extra[bi].id,
         left: Math.round((er.left - sceneR.left) / scale), top: Math.round((er.top - sceneR.top) / scale),
         right: Math.round((er.right - sceneR.left) / scale), bottom: Math.round((er.bottom - sceneR.top) / scale) });

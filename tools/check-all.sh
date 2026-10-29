@@ -82,6 +82,7 @@ run "node-8 check" python3 tools/check-node8.py
 # --------------------------------------------------------------- Icons
 step "4/14 icon library"
 run "icon check" python3 tools/check-icons.py
+run "version check" python3 tools/check-version.py
 
 # ------------------------------------------------------------ API-Tests
 step "5/14 config server (API)"
@@ -153,6 +154,7 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "list view keys" node tools/test-list-utils.js --port "$PORT_DEBUG"
   run "home keys" node tools/test-home-keys.js --port "$PORT_DEBUG"
   run "layout fits" node tools/test-layout-fit.js --port "$PORT_DEBUG"
+  run "picker rows" node tools/test-picker.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)
