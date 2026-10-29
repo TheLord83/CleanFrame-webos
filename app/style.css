@@ -90,7 +90,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
  * 66 % Deckkraft und auf einem Foto-Hintergrund praktisch unsichtbar - deshalb fand
  * niemand den Weg in die Einstellungen. Ruhig bleibt die Leiste, aber lesbar; sobald
  * der Fokus sie erreicht, tritt sie voll hervor. */
-.quiet-utils{right:122.1px;gap:20px;z-index:3}
+/* 20 px zwischen Symbol+Text war zu eng: die drei Werkzeuge klebten aneinander,
+ * sobald die Leiste mit Text statt nur Symbolen laeuft. 44 px trennt sie sichtbar,
+ * ohne dass die Reihe in die Uhr oder das Wetter laeuft. */
+.quiet-utils{right:122.1px;gap:44px;z-index:3}
 .quiet-utils .u{opacity:.82}
 .quiet-utils.is-awake .u{opacity:1}
 .quiet-utils.is-awake{background:linear-gradient(90deg,rgba(14,10,6,0) 0%,rgba(14,10,6,.42) 18%,rgba(14,10,6,.42) 82%,rgba(14,10,6,0) 100%);border-radius:22px}
@@ -407,7 +410,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .er-name.is-focus{background:var(--plate);box-shadow:var(--plate-edge)}
 .er.is-lifted .er-name{background:var(--lift);box-shadow:var(--plate-edge)}
 .er.is-lifted .er-move{opacity:1}
-.er-rm{flex:none;width:304px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:500;letter-spacing:-.3px;color:var(--mute);visibility:hidden;transition:background-color 140ms linear,color 140ms linear}
+.er-rm{flex:none;width:96px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:500;letter-spacing:-.3px;color:var(--mute);visibility:hidden;transition:background-color 140ms linear,color 140ms linear}
+/* Ein X, kein Satz: .er-rm traegt nur noch das Symbol. Die Textform bleibt fuer den
+ * Grenzfall "letzte Kachel" (dann passt kein X, dort steht ein Hinweis). */
+.er-rm .ico{width:34px;height:34px;stroke-width:2}
+.er-rm.is-text{width:304px}
 .er.is-active .er-rm{visibility:visible}
 .er-rm.is-focus{background:var(--solid);color:var(--solid-ink)}
 .er-rm.is-limit{color:var(--warn)}
@@ -601,11 +608,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .detail-layout .setting-section+.setting-section,.detail-focus .setting-section+.setting-section{margin-top:64px}
 .detail-typography .setting-choice,.detail-rotation .setting-choice{min-height:88px}
 .detail-typography .appearance-rows,.detail-rotation .appearance-rows,.detail-samsung .appearance-rows{top:260px}
-/* Weather and typography carry four resp. two long lists. Stacked they ran off the
- * bottom of the screen, so the questions sit in two columns; the back button spans
- * both and the rows get a little shorter. Down still walks item by item. */
-.detail-weather .appearance-rows,.detail-typography .appearance-rows{display:grid;grid-template-columns:480px 480px;grid-auto-flow:column;align-content:start;column-gap:48px;width:1008px;top:236px}
-.detail-weather .appearance-rows>.setting-section+.setting-section,.detail-typography .appearance-rows>.setting-section+.setting-section{margin-top:0}
+/* Weather and typography used to sit in a two-column grid (grid-auto-flow: column),
+ * while the keys walked the entries linearly - so "down" jumped diagonally across the
+ * columns, and the wide grid covered the live preview on the right. One column width
+ * keeps the preview visible, and every question is one row picked with left/right. */
+.detail-weather .appearance-rows,.detail-typography .appearance-rows{top:236px}
+.detail-weather .appearance-rows>.setting-section+.setting-section,.detail-typography .appearance-rows>.setting-section+.setting-section{margin-top:28px}
 .detail-weather .setting-choice,.detail-typography .setting-choice{min-height:70px;padding:10px 20px;font-size:34px;line-height:42px}
 .detail-weather .setting-label,.detail-typography .setting-label{margin-bottom:8px;font-size:26px;line-height:34px}
 .setting-choice.has-description{min-height:120px}
@@ -674,8 +682,11 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .ha-chip.is-static{cursor:default}
 .ha-chip.is-switch.is-focus{background:rgba(24,20,16,.82);box-shadow:0 0 0 4px rgba(246,241,231,.92),inset 0 1px 0 rgba(255,255,255,.2)}
 /* Anzeigen (Fenster, Temperatur) lassen sich anwaehlen und werden hervorgehoben -
- * mit gestricheltem Rahmen, damit sichtbar bleibt, dass OK hier nichts schaltet. */
-.ha-chip.is-static.is-focus{background:rgba(24,20,16,.82);box-shadow:0 0 0 4px rgba(246,241,231,.55),inset 0 1px 0 rgba(255,255,255,.12);border:2px dashed rgba(246,241,231,.8)}
+ * mit gestricheltem Rahmen, damit sichtbar bleibt, dass OK hier nichts schaltet.
+ * Als outline, nicht als border: ein border macht das Element 4 px groesser, und
+ * beim Weiterschalten springen dann alle Chips. Und nur EIN Rahmen - vorher lag der
+ * gestrichelte Rahmen ueber dem Leuchtring des schaltbaren Chips, das sah doppelt aus. */
+.ha-chip.is-static.is-focus{background:rgba(24,20,16,.82);outline:2px dashed rgba(246,241,231,.85);outline-offset:-2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
 .ha-chip.is-error{box-shadow:0 0 0 4px rgba(255,120,80,.95)}
 .ha-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:10px;vertical-align:2px;background:rgba(246,241,231,.30);box-shadow:inset 0 0 0 1.5px rgba(246,241,231,.45)}
 .ha-chip.is-on .ha-dot{background:#8ee08a;box-shadow:0 0 10px rgba(142,224,138,.55)}

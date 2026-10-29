@@ -3,6 +3,41 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.7 (keys follow the layout, and the clock has an off switch)
+
+- **Every key now moves in the direction the elements actually stand.** The weather and
+  typography pages were a two-column grid (`grid-auto-flow: column`) while the keys
+  walked the entries linearly, so "down" jumped diagonally and "right" was the only way
+  to reach a value that sat beside its label. Both pages are one column now: down walks
+  the questions, left/right picks the value inside a question.
+- **The settings overview no longer traps the cursor.** Down used to stop at the end of
+  the first column, and right jumped from there into the same row of the second column —
+  which reads like a jump because the entries are visually stacked. Down now walks all
+  twelve entries, left/right still switches column.
+- **The clock is switched where it lives.** "Clock on/off" was its own row two entries
+  above "Clock and language"; the row carries 24 h / 12 h / Off instead, and the separate
+  switch is gone. Turning it off then on again works reliably now: the old code *toggled*
+  a value that could be `undefined`, so a second press switched it off again — the reason
+  the clock could not be brought back.
+- **A reading's focus no longer moves the strip.** The dashed frame on a non-switchable
+  chip was a `border`, which made that chip 4 px wider and taller and pushed its
+  neighbours around while walking the strip. It is an `outline` now — no layout change —
+  and it is the only frame there, instead of a second frame drawn over the glow ring.
+- **The three utilities are further apart** (20 px → 44 px): with text labels beside the
+  icons they read as one long word.
+- **Removing an app from the home screen is an X, not a sentence.** Every row carried the
+  same "Remove from Home" label, which made six rows restless; the X says the same and
+  keeps the row quiet. The last remaining tile still shows the hint in words.
+- **Logos are sized by their longest side, and weighted by stroke thickness.** Measuring
+  showed the old rule produced a 30 px wide Netflix (its mark is portrait, 132 × 240 in
+  the field) next to a 232 px wide Prime Video (230 × 53). Scaling by `sqrt(w*h)` had made
+  wide marks grow into their field and tall ones shrink. `ink` — drawn pixels over the
+  mark's own box — replaces the old `fill`, which was measured against the 240 square and
+  produced values above 1. `tools/measure-icons.py` measures both from the rendered SVG,
+  so a differently shaped `viewBox` can no longer shift a mark.
+- **New tools**: `probe-clock.js` (is the clock drawn, where), `shots-home.js` (photos the
+  home screen in the tile / strip / utilities state), `measure-icons.py` (the metrics).
+
 ## 0.6.6 (the whole strip, and a way to the settings)
 
 - **Every chip in the value strip can be focused now.** Before, only the switchable

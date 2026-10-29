@@ -90,6 +90,7 @@
     home: '<path d="M4 11 12 4.5l8 6.5v8a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1Z"/>',
     undo: '<path d="M9 6 5 10l4 4"/><path d="M5 10h9.5a4.5 4.5 0 0 1 0 9H11"/>',
     check: '<path d="m5.5 12.5 4 4 9-9"/>',
+    close: '<path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     left: '<path d="m14.5 5-7 7 7 7"/>',
     right: '<path d="m9.5 5 7 7-7 7"/>',
@@ -185,12 +186,22 @@
   function markHtml(id, w, h, size) {
     var m = window.FrameIconMetrics && window.FrameIconMetrics[id], st;
     if (m) {
-      var weight = clamp(Math.pow(0.45 / m.fill, 0.3), 0.84, 1.25);
-      /* Die gezeichnete Hoehe ist m.h (in Einheiten des 240er-Rasters), also muss die
-       * Skalierung direkt durch m.h geteilt werden. Vorher stand dort sqrt(w*h) - bei
-       * breiten Logos (Disney+ 200x184) kam dadurch eine Grafik von 149 px in einem
-       * 124-px-Feld heraus. */
-      var k = Math.min(w / m.w, h / m.h, size * weight / m.h);
+      /* Gewicht aus der Strichstaerke (m.ink), nicht aus dem Flaechenanteil: dicke
+       * Schrift darf groesser stehen als ein fetter gefuellter Kreis. Gefaltet um 0.5,
+       * damit alle Marken in einem engen Band bleiben (0.86 .. 1.18). */
+      var weight = clamp(Math.pow(0.5 / Math.max(m.ink || 0.5, 0.05), 0.25), 0.86, 1.18);
+      /* Sehr flache Wortmarken (Prime Video: 230x53) wuerden bei gleicher Laenge zum
+       * Strich. Sie bekommen Zuschlag, damit sie im Kachelbild mithalten. */
+      var aspect = m.w / Math.max(m.h, 1);
+      if (aspect > 2.5) weight = Math.min(weight * 1.45, 1.6);
+      /* Die Grafik wird ueber IHRE LAENGE begrenzt (size), nicht ueber die Feldhoehe.
+       * Ueber die Hoehe begrenzt wurde alles flache winzig (Prime Video 230x53 kam auf
+       * Lebensgroesse des Feldes und blieb breit wie das Feld) und alles hochkant
+       * winzig schmal (Netflix 132x240 wurde 30 px breit, ein "N" in einem 232-px-Feld).
+       * Ein Markenlogo liest man an seiner laengsten Seite - die soll bei allen gleich
+       * sein, dann stimmen Groesse und Gewicht ueberein. */
+      var longest = Math.max(m.w, m.h);
+      var k = Math.min(w / m.w, h / m.h, size * weight / longest);
       var s = m.n * k, drawn = m.h * k;
       /* Nicht die Feldmitte zentrieren, sondern den Abstand zur Namenszeile angleichen:
        * Netflix ist 75 px hoch, YouTube 47 - mit gleicher Mitte standen ihre Unterkanten
@@ -1156,7 +1167,6 @@
       { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
-      { id: 'clockon', label: T('Clock'), value: S.c.clock === false ? T('Off') : T('On') },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
       { id: 'text', label: T('Text size'), value: textSizeLabel() },
       { id: 'weather', label: T('Weather'), value: weatherSummary() },
@@ -1176,8 +1186,13 @@
       var ids = settingsIds(), n = ids.length, per = Math.ceil(n / 2), i = Math.max(0, ids.indexOf(t.f.id));
       var row = i % per, col = Math.floor(i / per);
       if (k === 'back') { pop(); return; }
-      else if (k === 'up' && row > 0) i--;
-      else if (k === 'down' && row < per - 1 && i + 1 < n) i++;
+      /* "runter" laeuft alle Eintraege durch, auch ueber das Spaltenende hinaus.
+       * Vorher blieb der Fokus am Ende der ersten Spalte stehen, und von der Mitte
+       * sprang "rechts" in dieselbe Zeile der zweiten Spalte - beides liest sich wie
+       * ein Sprung, weil die Tasten nicht der Richtung folgen, in der die Eintraege
+       * stehen. */
+      else if (k === 'up') i = (row > 0 ? i - 1 : i);
+      else if (k === 'down') i = (i + 1 < n ? i + 1 : i);
       else if (k === 'left' && col > 0) i = (col - 1) * per + row;
       else if (k === 'right' && col < 1 && i + per < n) i = i + per;
       i = clamp(i, 0, n - 1);
@@ -1187,8 +1202,7 @@
     point: function (t, z, i, id) { if (z === 'row' && id) { t.f.id = id; this.key(t, 'ok'); } }
   };
   function settingsOk(id) {
-    if (id === 'clockon') { toggleClock(); }
-    else if (id === 'ent') openEntities();
+    if (id === 'ent') openEntities();
     else if (id === 'text') openAppearance('typography');
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
@@ -1214,13 +1228,17 @@
   function clockLabel() { return S.c.clock24 !== false ? '24 h' : '12 h'; }
   /* Show or hide the clock. Lives next to the 24/12 switch because both change the
    * same caption, and both have to travel through lookOf. */
-  function toggleClock() {
+  /* Ausdruecklich setzen statt umschalten: "Aus" in der Uhr-Zeile muss die Uhr
+   * abschalten, auch wenn sie schon aus ist. Umschalten machte aus einem zweiten
+   * Druck wieder "an" - deshalb liess sich die Uhr nicht zuverlaessig zurueckholen. */
+  function setClock(on) {
     var c = next(S.c.home.slice(), S.c.recent.slice());
-    c.clock = S.c.clock === false;
+    c.clock = !!on;
     if (!write(c, T('Clock'))) return;
     if (S.serverCfg) { S.serverCfg.look = serverPayload(c).look; syncServer(c); }
     render(); updateClock();
   }
+  function toggleClock() { setClock(S.c.clock === false); }
   function setClock24(on) {
     var c = next(S.c.home.slice(), S.c.recent.slice());
     c.clock24 = !!on;
@@ -1344,7 +1362,7 @@
       { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
     if (t.group === 'typography') return [{ id: 'font', title: T('Font'), items: options('font', LOOK_VALUES.font) },
-      { id: 'text', title: T('Text size'), items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
+      { id: 'text', title: T('Text size'), horizontal: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
         var item = choice('textScale', v, false);
         item.label = v + ' %';
         return item;
@@ -1355,10 +1373,10 @@
        * the screen, which is what a single wide row per question did. */
       /* Left column: how it looks. Right column: where it sits. The grid fills
        * column by column, so this order is also the order "down" walks through. */
-      { id: 'wxStyle', title: T('Shown as'), items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
-      { id: 'wxSize', title: T('Size'), items: wxChoices('wxSize', ['small', 'normal', 'large']) },
-      { id: 'wxPos', title: T('Where it sits'), items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
-      { id: 'wxGap', title: T('Distance from the clock'), items: wxChoices('wxGap', [20, 72, 110, 150]) }
+      { id: 'wxStyle', title: T('Shown as'), horizontal: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      { id: 'wxSize', title: T('Size'), horizontal: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
+      { id: 'wxPos', title: T('Where it sits'), horizontal: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
+      { id: 'wxGap', title: T('Distance from the clock'), horizontal: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
     ];
     if (t.group === 'focus') return [
       { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
@@ -1370,9 +1388,12 @@
      * the panel feel broken. Two rows: down walks through them, left/right picks
      * the value inside a row. */
     if (t.group === 'clocklang') return [
-      { id: 'clock', title: T('Clock'), items: [
+      /* Aus gehoert hierher, nicht in eine eigene Zeile "Uhr an/aus": wer die Uhr
+       * abschaltet, sucht sie bei der Uhr - nicht zwei Eintraege weiter oben. */
+      { id: 'clock', title: T('Clock'), horizontal: true, items: [
         { action: 'clock.set.24', value: '24', label: '24 h' },
-        { action: 'clock.set.12', value: '12', label: '12 h' }] },
+        { action: 'clock.set.12', value: '12', label: '12 h' },
+        { action: 'clock.set.off', value: 'off', label: T('Off') }] },
       { id: 'lang', title: T('Language'), items: LANGS.map(function (l) {
         return { action: 'language.set.' + l.id, value: l.id, label: l.name };
       }) }];
@@ -1427,7 +1448,9 @@
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
-    else if (item.action.indexOf('clock.set.') === 0) setClock24(item.action.slice('clock.set.'.length) === '24');
+    else if (item.action === 'clock.set.off') setClock(false);
+    else if (item.action === 'clock.set.24') { setClock24(true); setClock(true); }
+    else if (item.action === 'clock.set.12') { setClock24(false); setClock(true); }
     else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
     else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
@@ -2619,7 +2642,11 @@
         row.querySelector('.er-num').textContent = String(i + 1);
         row.firstChild.className = 'er-name' + (here && (f.part === 'name' || lifted) ? ' is-focus' : '');
         row.lastChild.className = 'er-rm' + (here && f.part === 'remove' && !lifted ? ' is-focus' : '') + (H.length <= 1 ? ' is-limit' : '');
-        row.lastChild.firstChild.textContent = H.length <= 1 ? LAST : T('Remove from Home');
+        /* Ein X statt des Textes "von der Startseite": bei sechs Kacheln stand in jeder
+         * Zeile derselbe lange Satz und hat die Liste unruhig gemacht. Das Symbol sagt
+         * dasselbe, und die Fokus-Zeile bleibt ruhig. */
+        if (H.length <= 1) { row.lastChild.firstChild.textContent = LAST; row.lastChild.className += ' is-text'; }
+        else { row.lastChild.firstChild.innerHTML = icon('close'); row.lastChild.setAttribute('aria-label', T('Remove from Home') + ': ' + a.name); }
         attrs(row.firstChild, 'name', i, 'editor.move.' + it.id);
         attrs(row.lastChild, 'remove', i, 'editor.remove.' + it.id);
       });
