@@ -12,7 +12,12 @@
   /* ---------- Bundled data ---------- */
   var ASSETS = 'assets/', ICONS = ASSETS + 'icons/', WP = ASSETS + 'wallpapers/';
   var CAP = 9, SCRIM_Y = 560;
-  var DOCK_MODES = { both: { tw: 288, th: 200, pitch: 296 }, text: { tw: 288, th: 104, pitch: 296 }, icons: { tw: 176, th: 144, pitch: 184 } };
+  /* Tile sizes. "both" carries a mark and a label, so the mark may grow while the
+   * label keeps its own row at the bottom. "icons" has no label to make room for,
+   * which is why it grows the most. */
+  /* Tile sizes. "both" carries a mark and a label, so the tile grew to give the mark
+   * room above the label; "icons" has no label at all and grows the most. */
+  var DOCK_MODES = { both: { tw: 288, th: 216, pitch: 296 }, text: { tw: 288, th: 104, pitch: 296 }, icons: { tw: 200, th: 150, pitch: 208 } };
   var GRID_ROW = 240, GRID_COL = 344, COLS = 5;
   var ED_ROW = 80, ED_SEP = 56, ED_VIEW = 752, STRIP_PITCH = 188;
   var PH_TOP = 220, PH_PITCH = 128, PH_FULL = 5, PH_HEIGHT = 944, PH_COMPACT_TOP = 144, PH_COMPACT_PITCH = 88, PH_COMPACT_VISIBLE = 9;
@@ -111,7 +116,10 @@
     for (var i = 0; i < list.length; i++) if (list[i].toLowerCase() === v) return list[i];
     return fallback;
   }
-  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material, clock24: c.clock24 !== false }; }
+  /* "clock" belongs in here. It was missing, and serverPayload turned the absence
+   * into clock:false - so every write (changing 12/24 was enough) switched the
+   * clock off in the stored configuration, and nothing could switch it back on. */
+  function lookOf(c) { return { bg: c.bg, wall: c.wall, layout: c.layout, apps: c.apps, font: c.font, controls: c.controls, focus: c.focus, material: c.material, clock: c.clock !== false, clock24: c.clock24 !== false }; }
   function materialApplies(c) { c = c || S.c; return c.bg === 'photo' && (c.layout === 'dock' || c.focus === 'glass'); }
   function derivedTheme() { return S.c.layout === 'list' ? 'list' : 'shore'; }
 
@@ -160,16 +168,50 @@
     im.src = ICONS + id + '.svg';
   }
   /* Optical placement is identical for the CSS mask and the image fallback. */
+  /* Unterkante der Grafik so setzen, dass oben wie unten gleich viel Luft bleibt -
+   * gemessen wird gegen die Namenszeile, nicht gegen die Feldmitte. */
+  function markBaseline(fieldH, drawn) {
+    /* LABEL_TOP und GAP beziehen sich auf das Dock (Feld 124 hoch, Name ab 140). In
+     * kleineren Feldern (Apps-Raster, Listen, Vorschauen) wird beides mitskaliert,
+     * sonst schiebt sich die Grafik dort in den Namen. */
+    var scale = fieldH / 124;
+    /* 140 ist die Oberkante der Namenszeile, 12 px Luft dazwischen - gerechnet in
+     * Feldkoordinaten, damit es in kleineren Feldern mitwandert. */
+    var labelTop = 140 * scale, gap = 14 * scale;
+    var bottom = labelTop - gap;
+    if (bottom - drawn < 0) bottom = drawn;
+    return Math.round(bottom - drawn);
+  }
   function markHtml(id, w, h, size) {
     var m = window.FrameIconMetrics && window.FrameIconMetrics[id], st;
     if (m) {
       var weight = clamp(Math.pow(0.45 / m.fill, 0.3), 0.84, 1.25);
-      var k = Math.min(w / m.w, h / m.h, size * weight / Math.sqrt(m.w * m.h)), s = m.n * k;
-      st = 'width:' + px(s) + ';height:' + px(s) + ';left:' + px(w / 2 - (m.x + m.w / 2) * k) + ';top:' + px(h / 2 - (m.y + m.h / 2) * k);
+      /* Die gezeichnete Hoehe ist m.h (in Einheiten des 240er-Rasters), also muss die
+       * Skalierung direkt durch m.h geteilt werden. Vorher stand dort sqrt(w*h) - bei
+       * breiten Logos (Disney+ 200x184) kam dadurch eine Grafik von 149 px in einem
+       * 124-px-Feld heraus. */
+      var k = Math.min(w / m.w, h / m.h, size * weight / m.h);
+      var s = m.n * k, drawn = m.h * k;
+      /* Nicht die Feldmitte zentrieren, sondern den Abstand zur Namenszeile angleichen:
+       * Netflix ist 75 px hoch, YouTube 47 - mit gleicher Mitte standen ihre Unterkanten
+       * 25 px auseinander, und genau das Auge sieht den Abstand zum Text. Also Unterkante
+       * auf die Textzeile ausrichten, nach oben begrenzt, damit nichts aus dem Feld laeuft. */
+      var top = markBaseline(h, drawn) - m.y * k;
+      st = 'width:' + px(s) + ';height:' + px(s) + ';left:' + px(w / 2 - (m.x + m.w / 2) * k) + ';top:' + px(top);
     } else st = 'width:' + w + 'px;height:' + h + 'px;left:0;top:0;object-fit:contain';
     probeMark(id);
+    /* Die Maske bekommt das Seitenverhaeltnis der Zeichnung, nicht ein Quadrat: das SVG
+     * wird mit mask-size:100% 100% auf die Elementgroesse gezogen, und bei einem
+     * nicht-quadratischen viewBox (Prime Video: 13 x 3.4) haette das die Grafik verzerrt
+     * bzw. ihre Hoehe unbrauchbar gemacht. */
+    /* mw/mh sind die gezeichnete Groesse, nicht die Box (s): s beschreibt das ganze
+     * 240er-Raster, gezeichnet wird aber nur m.w x m.h daraus. Mit s als Hoehe wurde
+     * Disney+ (184 von 240 hoch) auf 149 px gestreckt und lief in den Namen. */
+    var mw = px(m ? m.w * k : w);
+    var mh = px(m ? m.h * k : h);
+    var mst = m ? ('width:' + mw + ';height:' + mh + ';left:' + px(w / 2 - (m.x + m.w / 2) * k) + ';top:' + px(markBaseline(h, drawn))) : st;
     return '<span class="mark' + (markProbes[id] === 'bad' ? ' is-bad' : '') + '" data-mark="' + id + '" style="width:' + w + 'px;height:' + h + 'px">'
-      + (maskSupport ? '<span class="mk" style="' + st + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + st + '">') + '</span>';
+      + (maskSupport ? '<span class="mk" style="' + mst + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + mst + '">') + '</span>';
   }
   function appMark(a, w, h, size) {
     /* A catalog icon chosen by the user wins: it is drawn as a tinted mask, so it
@@ -427,7 +469,7 @@
     /* Revision this change is based on — the server rejects older revisions. */
     cfg.rev = S.appliedRev || undefined;
     cfg.look = { bg: c.bg, layout: c.layout, apps: c.apps, controls: c.controls, focus: c.focus,
-                 material: c.material, wall: c.wall, font: c.font, clock: !!c.clock, clock24: c.clock24 !== false };
+                 material: c.material, wall: c.wall, font: c.font, clock: c.clock !== false, clock24: c.clock24 !== false };
     cfg.home = c.home.map(function (id) {
       var out = { appId: id };
       prev.forEach(function (e) { if (e && e.appId === id) { if (e.name) out.name = e.name; if (e.icon) out.icon = e.icon; if (e.url) out.url = e.url; } });
@@ -693,6 +735,10 @@
   /* prev/next run along the apps; out goes to the controls, inn comes back (or to a per-app action). */
   function axes() {
     var v = S.c.layout === 'list';
+    /* Gemessen, nicht angenommen: die Werteleiste sitzt mit ihrem unteren Rand
+     * oberhalb des Docks (renderHaStrip: top = dockTop - h - 24), die Werkzeuge
+     * darunter. Also geht "hinaus" nach oben in die Leiste und "hinein" nach unten
+     * zu den Werkzeugen. */
     return { prev: v ? 'up' : 'left', next: v ? 'down' : 'right', out: v ? 'right' : 'up', inn: v ? 'left' : 'down' };
   }
   function utilAction(u) {
@@ -785,7 +831,9 @@
         f.u = clamp(f.u, 0, U.length - 1);
         if (k === x.prev && f.u > 0) f.u--;
         else if (k === x.next && f.u < U.length - 1) f.u++;
-        else if (k === x.inn || k === 'back') f.zone = 'apps';
+        /* Heraus mit der Taste, mit der man hineingekommen ist ("hinaus" = up),
+         * und weiterhin mit "zurueck". */
+        else if (k === x.out || k === x.inn || k === 'back') f.zone = 'apps';
         else if (k === 'ok') { S.lastUtil = f.u; utilAction(U[f.u]); return; }
         S.lastUtil = f.u;
         return;
@@ -793,18 +841,45 @@
       /* The chips sit between the apps and the utilities: down from the dock
        * enters the strip, up leaves it again. */
       if (f.zone === 'ha') {
-        var n = haToggleChips().length;
+        /* Alle Chips, nicht nur die schaltbaren: die Anzeigen (Fenster, Temperatur)
+         * sollen erreichbar und sichtbar sein, sie reagieren nur nicht auf OK. */
+        var n = haChips().length;
         if (!n) { f.zone = 'apps'; return; }
         f.h = clamp(f.h || 0, 0, n - 1);
-        if (k === x.prev && f.h > 0) f.h--;
-        else if (k === x.next && f.h < n - 1) f.h++;
-        else if (k === x.out || k === 'back') f.zone = 'apps';
-        else if (k === 'ok') haToggle(haToggleChips()[f.h] && haToggleChips()[f.h].id);
+        /* Links/rechts gehoeren der Leiste, auch wenn die Achsen im Dock anders
+         * heissen. Vorher liefen sie ueber prev/next, und beim Einstieg ueber "hinaus"
+         * stimmte f.h nicht mit dem gezeigten Chip ueberein - dann bewegte sich nur
+         * eine unsichtbare Zahl und der Fokus blieb rechts kleben. */
+        if (k === 'left' && f.h > 0) f.h--;
+        else if (k === 'right' && f.h < n - 1) f.h++;
+        else if (k === 'back') {
+          /* Zurueck auf die Kachel, die unter dem Chip steht - nicht auf die erste. */
+          f.zone = 'apps';
+          var back = haChipTile(f.h);
+          if (back >= 0) setSel(h[back]);
+        }
+        else if (k === x.inn) {
+          /* Unten aus der Leiste geht es weiter zu den Werkzeugen - dort sitzen die
+           * Einstellungen. Vorher landete man wieder auf der Kachel und kam so nie
+           * dorthin. Die Kachel bleibt ueber "zurueck" erreichbar. */
+          f.zone = 'util';
+          f.u = clamp(S.lastUtil, 0, U.length - 1);
+        }
+        else if (k === 'ok') {
+          var chip = haChips()[f.h];
+          /* Bei einer Anzeige passiert nichts - kein Fehlerton, keine Meldung. */
+          if (chip && chip.switchable) haToggle(chip.id);
+        }
         return;
       }
       f.zone = 'apps';
-      if (k === x.inn && haToggleChips().length) { f.zone = 'ha'; f.h = clamp(f.h || 0, 0, haToggleChips().length - 1); }
-      else if (k === x.out) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
+      if (k === x.out && haChips().length) {
+        f.zone = 'ha';
+        /* Einstieg passend zur Kachel: rechts raus -> rechtes Ende, links raus ->
+         * linkes Ende, aus der Mitte -> der Chip ueber der Kachel. */
+        f.h = haEntryChip(i, h.length, haChips().length);
+      }
+      else if (k === x.inn) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
       else if (k === 'back') openRecent();
       else if (!h.length) { if (k === 'ok') addAppsRoute(); }
       else if (k === x.prev && i > 0) setSel(h[i - 1]);
@@ -1081,6 +1156,7 @@
       { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
+      { id: 'clockon', label: T('Clock'), value: S.c.clock === false ? T('Off') : T('On') },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
       { id: 'text', label: T('Text size'), value: textSizeLabel() },
       { id: 'weather', label: T('Weather'), value: weatherSummary() },
@@ -1089,21 +1165,30 @@
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
+  /* Two columns of six instead of one list of twelve: the list was shrinking font
+   * by font to stay above the footer hint, and a thirteenth entry would not have fit
+   * at all. Down walks one column, left/right switches columns. */
+  function settingsRowsPerColumn() { return Math.ceil(settingsIds().length / 2); }
   V.settings = {
     sheet: true,
     norm: function (t) { var ids = settingsIds(); if (ids.indexOf(t.f.id) < 0) t.f.id = ids[0]; },
     key: function (t, k) {
-      var ids = settingsIds(), i = Math.max(0, ids.indexOf(t.f.id));
-      if (k === 'up' && i > 0) i--;
-      else if (k === 'down' && i < ids.length - 1) i++;
-      else if (k === 'back') { pop(); return; }
+      var ids = settingsIds(), n = ids.length, per = Math.ceil(n / 2), i = Math.max(0, ids.indexOf(t.f.id));
+      var row = i % per, col = Math.floor(i / per);
+      if (k === 'back') { pop(); return; }
+      else if (k === 'up' && row > 0) i--;
+      else if (k === 'down' && row < per - 1 && i + 1 < n) i++;
+      else if (k === 'left' && col > 0) i = (col - 1) * per + row;
+      else if (k === 'right' && col < 1 && i + per < n) i = i + per;
+      i = clamp(i, 0, n - 1);
       t.f.id = ids[i]; S.settingsFocus = ids[i];
       if (k === 'ok') settingsOk(ids[i]);
     },
     point: function (t, z, i, id) { if (z === 'row' && id) { t.f.id = id; this.key(t, 'ok'); } }
   };
   function settingsOk(id) {
-    if (id === 'ent') openEntities();
+    if (id === 'clockon') { toggleClock(); }
+    else if (id === 'ent') openEntities();
     else if (id === 'text') openAppearance('typography');
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
@@ -1127,6 +1212,15 @@
    * interface is reloaded so the texts built at startup match too. */
   var LANGS = [{ id: 'system', name: T('Like the TV') }, { id: 'de', name: 'Deutsch' }, { id: 'en', name: 'English' }];
   function clockLabel() { return S.c.clock24 !== false ? '24 h' : '12 h'; }
+  /* Show or hide the clock. Lives next to the 24/12 switch because both change the
+   * same caption, and both have to travel through lookOf. */
+  function toggleClock() {
+    var c = next(S.c.home.slice(), S.c.recent.slice());
+    c.clock = S.c.clock === false;
+    if (!write(c, T('Clock'))) return;
+    if (S.serverCfg) { S.serverCfg.look = serverPayload(c).look; syncServer(c); }
+    render(); updateClock();
+  }
   function setClock24(on) {
     var c = next(S.c.home.slice(), S.c.recent.slice());
     c.clock24 = !!on;
@@ -1249,28 +1343,37 @@
       { id: 'apps', title: T('App display'), horizontal: true, items: options('apps', ['text', 'icons', 'both']) },
       { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
-    if (t.group === 'typography') return [{ id: 'font', title: '', items: options('font', LOOK_VALUES.font) },
-      { id: 'text', title: T('Text size'), horizontal: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
+    if (t.group === 'typography') return [{ id: 'font', title: T('Font'), items: options('font', LOOK_VALUES.font) },
+      { id: 'text', title: T('Text size'), items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
         var item = choice('textScale', v, false);
         item.label = v + ' %';
         return item;
       }), reason: T('Senior mode keeps the text at 125 % or more.') }];
     if (t.group === 'weather') return [
-      { id: 'wxStyle', title: T('Shown as'), horizontal: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
-      { id: 'wxPos', title: T('Where it sits'), horizontal: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
-      { id: 'wxSize', title: T('Size'), horizontal: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
-      { id: 'wxGap', title: T('Distance from the clock'), horizontal: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
+      /* One row per question: down walks the four rows, left/right picks a value.
+       * Wrapped (not horizontal) so four long rows cannot run off the bottom of
+       * the screen, which is what a single wide row per question did. */
+      /* Left column: how it looks. Right column: where it sits. The grid fills
+       * column by column, so this order is also the order "down" walks through. */
+      { id: 'wxStyle', title: T('Shown as'), items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      { id: 'wxSize', title: T('Size'), items: wxChoices('wxSize', ['small', 'normal', 'large']) },
+      { id: 'wxPos', title: T('Where it sits'), items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
+      { id: 'wxGap', title: T('Distance from the clock'), items: wxChoices('wxGap', [20, 72, 110, 150]) }
     ];
     if (t.group === 'focus') return [
       { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
       { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
         reason: inactive ? flat ? 'Materials are available with a Photo background.' : T('Choose Glass focus or the Dock layout to use materials.') : '' }
     ];
+    /* Clock and language used to sit in ONE horizontal row (two columns), so down
+     * skipped over "12 h" and landed on the language - exactly the jump that made
+     * the panel feel broken. Two rows: down walks through them, left/right picks
+     * the value inside a row. */
     if (t.group === 'clocklang') return [
-      { id: 'clock', title: T('Clock'), horizontal: true, items: [
+      { id: 'clock', title: T('Clock'), items: [
         { action: 'clock.set.24', value: '24', label: '24 h' },
         { action: 'clock.set.12', value: '12', label: '12 h' }] },
-      { id: 'lang', title: T('Language'), horizontal: true, items: LANGS.map(function (l) {
+      { id: 'lang', title: T('Language'), items: LANGS.map(function (l) {
         return { action: 'language.set.' + l.id, value: l.id, label: l.name };
       }) }];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
@@ -1928,6 +2031,28 @@
     return haChips().filter(function (c) { return c.switchable; });
   }
 
+  /* Welcher Chip gehoert zu welcher Kachel? Beides steht an derselben Stelle im Bild,
+   * also wird ueber die horizontale Mitte zugeordnet - nicht ueber einen Index, denn
+   * die Leiste enthaelt auch nicht schaltbare Messwerte. */
+  function haEntryChip(tileIndex, tileCount, chipCount) {
+    if (chipCount < 1) return 0;
+    if (tileCount < 1) return 0;
+    /* Die Chips verteilen sich ueber dieselbe Breite wie die Kacheln. Der Chip, dessen
+     * Mitte der Kachelmitte am naechsten liegt, ist der ueber dieser Kachel - das gilt
+     * auch, wenn mehr Chips als Kacheln da sind (dann hat der mittlere Chip keine
+     * Kachel unter sich, und die naechstgelegene gewinnt). */
+    var at = (tileIndex + 0.5) / tileCount;        /* 0..1 */
+    if (at <= 0) return 0;
+    if (at >= 1) return chipCount - 1;
+    return clamp(Math.round(at * chipCount - 0.5), 0, chipCount - 1);
+  }
+  /* Und zurueck: von einem Chip auf die Kachel unter ihm. */
+  function haChipTile(chipIndex) {
+    var tiles = S.c.home.length, chips = haChips().length;
+    if (chips < 2 || tiles < 2) return tiles ? 0 : -1;
+    return clamp(Math.round((chipIndex / (chips - 1)) * (tiles - 1)), 0, tiles - 1);
+  }
+
   /* Switch an entity. The answer from the hub carries the new state, so the chip
    * flips immediately and the full refresh only confirms it. */
   function haToggle(id) {
@@ -1958,7 +2083,7 @@
     if (!haStrip) return;
     var chips = haChips(), html = '', i, c, text, unit, raw, key, focus = -1, si = 0, on;
     if (!chips.length) { haStrip.hidden = true; haStrip.innerHTML = ''; haKey = ''; return; }
-    if (t && t.id === 'home' && t.f && t.f.zone === 'ha') focus = clamp(t.f.h || 0, 0, Math.max(0, haToggleChips().length - 1));
+    if (t && t.id === 'home' && t.f && t.f.zone === 'ha') focus = clamp(t.f.h || 0, 0, Math.max(0, haChips().length - 1));
     for (i = 0; i < chips.length; i++) {
       c = chips[i];
       text = haStateText(c.state, c.domain);
@@ -1969,7 +2094,7 @@
       html += '<' + (c.switchable ? 'button type="button" tabindex="-1"' : 'div') +
         ' class="ha-chip' + (c.switchable ? ' is-switch' : ' is-static') + (on ? ' is-on' : '') +
         (S.haError && S.haError.id === c.id ? ' is-error' : '') +
-        (c.switchable && si === focus ? ' is-focus' : '') + '"' +
+        (i === focus ? ' is-focus' : '') + '"' +
         (c.switchable ? ' data-z="ha" data-i="' + si + '" data-action="ha.toggle.' + esc(c.id) + '" aria-label="' + esc(c.name) + ': ' + esc(text + unit) + '"' : '') + '>' +
         '<span class="ha-chip-name">' + (c.switchable ? '<span class="ha-dot"></span>' : '') + esc(c.name) + '</span>' +
         '<span class="ha-chip-value">' + esc(text) + esc(unit) + '</span>' +
@@ -2039,8 +2164,8 @@
     var a, body;
     if (it.kind === 'add') return '<span class="add">' + icon('plus') + '</span><span class="label">' + (full ? T('Home is full') : T('Add app')) + '</span>';
     a = app(it.id);
-    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 152 : 200, S.c.apps === 'icons' ? 116 : 118, S.c.apps === 'icons' ? 88 : 96);
-    return body + (S.c.apps === 'icons' ? '' : '<span class="label" style="font-size:' + dockLabelSize(a.id) + 'px;top:' + ((S.c.apps === 'text' ? 28 : 128) + fontShift('primary', dockLabelSize(a.id))) + 'px"><span class="label-ink">' + esc(a.name) + '</span></span>') + '<span class="nudge nudge-l">' + icon('left') + '</span><span class="nudge nudge-r">' + icon('right') + '</span>';
+    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 178 : 232, S.c.apps === 'icons' ? 130 : 124, S.c.apps === 'icons' ? 100 : 118);
+    return body + (S.c.apps === 'icons' ? '' : '<span class="label" style="font-size:' + dockLabelSize(a.id) + 'px;top:' + ((S.c.apps === 'text' ? 28 : 140) + fontShift('primary', dockLabelSize(a.id))) + 'px"><span class="label-ink">' + esc(a.name) + '</span></span>') + '<span class="nudge nudge-l">' + icon('left') + '</span><span class="nudge nudge-r">' + icon('right') + '</span>';
   }
   /* A wide label can reach the shelf before its icon. Check the rendered icon box,
      including during the track's 180ms transition, so both disappear together. */
@@ -2433,7 +2558,9 @@
   };
   function gridTileHtml(id) {
     var a = app(id), state = onHome(id) ? badge(true) + '<span>' + T('On Home') + '</span>' : '';
-    return '<span class="panel-content">' + appMark(a, 120, 72, 58) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
+    /* The grid cell is 320x216 with the label at 114 and the badge at 164, so the
+     * mark has room up to roughly 180x84 above the label. It used to be 120x72. */
+    return '<span class="panel-content">' + appMark(a, 176, 84, 66) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
   }
   var FILLS = {
     /* The focus in the context menu comes from t.f.i and is set on every render.
@@ -2538,10 +2665,12 @@
         html += '<button type="button" tabindex="-1" class="settings-group' + (r.id === t.f.id ? ' is-focus' : '') + '" data-z="row" data-i="0" data-id="' + r.id + '" data-action="settings.' + (r.id === 'editor' ? 'editor' : 'group.' + r.id) + '"><span class="settings-group-copy"><span class="settings-group-name">' + esc(r.label) + '</span><span class="settings-group-value">' + esc(r.value) + '</span></span>' + icon('right') + '</button>';
       });
       setHTML(el.list, html);
-      /* Nine rows no longer fit above the footer hint; a tighter pitch keeps the
-       * last one reachable instead of letting it slide under the hint. Eleven need a
-       * second stage: normal height pushed the last row under the hint (434 > 392). */
-      el.list.className = 'settings-overview' + (settingsRows().length >= 11 ? ' is-dense2' : settingsRows().length > 8 ? ' is-dense' : '');
+      /* Two columns, and the normal row height: twelve entries no longer fit in one
+       * column above the footer hint, and shrinking them further was the wrong way
+       * to make room. */
+      var nRows = settingsRows().length, perCol = Math.ceil(nRows / 2);
+      el.list.className = 'settings-overview is-grid';
+      el.list.style.gridTemplateRows = 'repeat(' + perCol + ', auto)';
     },
     entities: function (t, el) {
       var all = haAll(), f = t.f, html = '';

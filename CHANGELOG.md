@@ -3,6 +3,114 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.6 (the whole strip, and a way to the settings)
+
+- **Every chip in the value strip can be focused now.** Before, only the switchable
+  ones were reachable, so with a strip of window / temperature / lamp there was exactly
+  one stop and left/right did nothing. Readings are now focusable and highlighted with a
+  dashed frame; OK on them switches nothing and says nothing. Entering the strip still
+  follows the tile you came from (right edge → rightmost chip, middle → the chip above
+  the tile), and back returns to the tile underneath.
+- **Down out of the strip goes to the utilities, not back to the tiles.** The tiles were
+  reachable from the strip but the utilities — and with them the settings — were not,
+  which is why the way into the settings seemed to be missing entirely. Back still
+  returns to the tile under the chip.
+- **The utilities row is visible.** It sat at 66 % opacity over a photo and was
+  effectively invisible in the room. It now rests at 82 % and comes fully forward
+  (`is-awake`) when the focus reaches it, with a soft backing so it reads on any
+  wallpaper.
+- **New test `tools/test-ha-walk.js`**: enters the strip from the right edge, walks to
+  the left end, checks that every chip is reachable and distinct, that OK on a reading
+  changes nothing, and that down leaves for the utilities while back returns to the
+  tiles. `tools/test-settings-reachable.js` additionally checks that the same down path
+  works from inside the strip.
+- **`tools/probe-ha.js`**: prints chip count, focused chip and zone after each key — the
+  tool that showed the first walk test was starting on the leftmost tile, so "left"
+  correctly did nothing and the test, not the code, was wrong.
+- **Logos sit on one line now, optically.** Two separate faults, both measured:
+  (1) the logo mask was a square and the SVG was stretched into it, so Disney+ was drawn
+  149 px high inside a 124 px field; the mask now takes the drawing's own aspect ratio.
+  (2) `markHtml` scaled against `sqrt(w*h)` instead of the drawn height, which let wide
+  marks grow past their field. Marks are now aligned by their *bottom edge* to the name
+  line (`markBaseline`), not by the centre of an invisible field: Netflix is 75 px high
+  and YouTube 47, and with a shared centre their bottom edges were 25 px apart — which is
+  exactly what the eye reads as "not centred". All six marks now end on the same line,
+  spread 0 px.
+- **`Prime Video` sat 60 px too high.** Its SVG has a `viewBox` of `5.6 12.6 13 3.4`,
+  not the 24×24 every other icon uses, and `metrics.js` assumed 24×24. The metrics are
+  now measured from the rendered SVG rather than hand-maintained, so a differently
+  shaped `viewBox` can no longer produce a wrong offset.
+- **New tests**: `tools/test-mark-alignment.js` (every logo's bottom edge against its
+  name, gaps within 3 px, nothing leaving its field) and `tools/probe-mark.js` (prints
+  each mark's style, box and gap — this is what exposed the square-mask fault).
+- **Settings navigation is documented by test, not assumed.** The overview is two columns
+  of six: down runs the first column and stops, right keeps the row in the second column
+  (from "Uhr" to "LG"), and from there the entry is *up*. `tools/test-ha-strip.js` now
+  walks that path and finds "Werte auf der Startseite" with the keyboard instead of
+  clicking it.
+
+## 0.6.5 (the strip, and the logo above its name)
+
+- **The way up and the way down were swapped.** The value strip is drawn above the dock
+  (`renderHaStrip`: `top = dockTop - h - 24`, measured: strip bottom 636, dock top 676),
+  the utilities row sits below it. 0.6.4 had it the other way round, so up went into the
+  utilities and the strip was reachable in the wrong direction. Now: up enters the strip,
+  down reaches the utilities, and up leaves the utilities again — the way you came
+  (with back still working).
+- **The strip could not be walked.** Coming into it with "out", `f.h` kept whatever the
+  last tile left behind while the drawn focus sat on the last chip; left/right then moved
+  a number nobody could see. The strip now uses left/right directly, and the entry point
+  follows the tile you came from: right edge → rightmost chip, left edge → leftmost chip,
+  middle → the chip above the tile. Leaving the strip with down puts the cursor back on
+  the tile under that chip instead of the first one.
+- **The logo was 16 px off centre.** The tile is 288 wide and the mark 232, but the rule
+  `.a-both .tile .mark` used `left:44px` — `(288-232)/2 = 28`. The name underneath was
+  centred, the logo above it was not, which is exactly what looked wrong in the room.
+  Measured after the fix: mark centre 812, tile centre 812, offset 0.
+- **New test `tools/test-settings-reachable.js`**: from the tiles, down to the utilities,
+  right to "Einstellungen", OK opens the overview, back returns — the path that was
+  blocked in the room.
+- **`tools/measure-home.js`**: prints tile/mark/label centres, the position of the strip
+  and its chips, and walks the strip with the arrow keys. Numbers, not screenshots, so
+  a report like "the icon is not centred" can be answered with a measurement.
+- `tools/test-home-keys.js` no longer pins the pre-0.6.4 tile size (200 high, label at
+  128) or the swapped axis; it checks 216/140 and up-into-strip, down-to-utilities.
+
+## 0.6.4 (navigation, panels, room for the icons)
+
+- **Down and up point where things actually are.** The strip of Home Assistant values
+  sits *above* the dock and the utilities row (screensaver, all apps, settings) *below*
+  it, but the keys were swapped: pressing down went up into the strip and pressing up
+  went down into the utilities. Now down reaches the utilities and up reaches the strip.
+  `tools/test-ha-strip.js` and `tools/test-home-keys.js` were wrong in the same way and
+  were corrected with it.
+- **The clock no longer disappears.** `lookOf()` did not carry the clock field, and
+  `serverPayload()` turned the missing field into `clock: false` — so every write
+  (switching 12/24 was enough) switched the clock off in the stored configuration, and
+  there was no way to switch it back on from the television. The field travels now, the
+  absent field means "on", and there is a **Clock** row in the settings to turn it on
+  and off at the TV.
+- **A tick box is a row, not a column.** Clock and language were one row with two
+  columns, so "down" jumped over "12 h" and landed on the language. Typography and
+  weather had the same shape. Every question is now its own row: down walks the entries,
+  left/right picks the value inside a row.
+- **The weather panel stays on the screen.** Four questions with four answers each were
+  taller than the television; they now sit in two columns (how it looks on the left,
+  where it sits on the right), and the panel ends at 928 of 1080 instead of running off
+  the bottom.
+- **Settings: two columns of six, at the normal size.** Twelve entries in one column
+  only fit by shrinking the type; a thirteenth would not have fit at all. Left/right
+  switches columns, down walks one column, and the last row now ends at 932 instead of
+  1034 (the footer hint starts at 968).
+- **Bigger marks.** The dock tile grew to 288x216 with the label at 140, the mark from
+  200x118 to 232x124; icons-only from 152x116 to 178x130 in a 200x150 tile; the all-apps
+  grid from 120x72 to 176x84. Measured, not estimated: no mark leaves its tile and none
+  touches its label.
+- **New tests**: `tools/test-home-keys.js` (cursor movement and tile geometry on the
+  start page) and `tools/test-detail-panels.js` (the three settings panels: item order
+  under the arrow keys, panel geometry, and that the clock survives every weather
+  position).
+
 ## 0.6.3 (installer wizard)
 
 - **`tools/install-wizard.py`**: one run from an untouched television to a configured

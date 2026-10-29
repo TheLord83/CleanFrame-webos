@@ -86,7 +86,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 
 /* The rightmost icon box ends at 1780; SVG paths retain their native optical padding.
    Editing actions use labels in both comparison styles. Neither style has a backing. */
+/* Die Werkzeuge (Bildschirmschoner / Alle Apps / Einstellungen) waren dauerhaft bei
+ * 66 % Deckkraft und auf einem Foto-Hintergrund praktisch unsichtbar - deshalb fand
+ * niemand den Weg in die Einstellungen. Ruhig bleibt die Leiste, aber lesbar; sobald
+ * der Fokus sie erreicht, tritt sie voll hervor. */
 .quiet-utils{right:122.1px;gap:20px;z-index:3}
+.quiet-utils .u{opacity:.82}
+.quiet-utils.is-awake .u{opacity:1}
+.quiet-utils.is-awake{background:linear-gradient(90deg,rgba(14,10,6,0) 0%,rgba(14,10,6,.42) 18%,rgba(14,10,6,.42) 82%,rgba(14,10,6,0) 100%);border-radius:22px}
 .quiet-utils .u{position:relative;height:64px;padding:0 14px;border-radius:0;gap:10px;font-size:28px;line-height:36px;letter-spacing:-.2px;color:#f6f1e7;background:none;box-shadow:none;outline:none;opacity:.66;text-shadow:0 1px 2px rgba(14,10,6,.40),0 2px 8px rgba(14,10,6,.24);transition:opacity 140ms linear}
 .quiet-utils .u-label{min-width:0}
 .quiet-utils .u .ico{width:32px;height:32px;stroke-width:1.8;transform-origin:50% 50%;transition:transform 140ms var(--ease)}
@@ -290,7 +297,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .grid-in{position:absolute;left:0;top:0;width:1696px;transition:transform 220ms var(--ease);will-change:transform}
 .gt{position:absolute;left:0;top:0;width:320px;height:216px;border-radius:32px;transition:background-color 140ms linear}
 .gt.is-focus{background:var(--plate);box-shadow:var(--plate-edge)}
-.gt .mark{position:absolute;left:100px;top:30px;opacity:.88;transition:opacity 160ms linear,transform var(--t) var(--ease)}
+.gt .mark{position:absolute;left:72px;top:22px;opacity:.88;transition:opacity 160ms linear,transform var(--t) var(--ease)}
 .gt.is-focus .mark{opacity:1;transform:translateY(-3px) scale(1.04)}
 .gt .label{position:absolute;left:12px;right:12px;top:114px;text-align:center;font-size:34px;line-height:44px;font-weight:500;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gt .t-name{position:absolute;left:12px;right:12px;top:56px;text-align:center;font-size:40px;line-height:56px;font-weight:600;letter-spacing:-1px;white-space:nowrap;overflow:hidden}
@@ -330,6 +337,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 
 /* Settings overview: each group carries one short, committed summary. */
 .settings-overview{position:absolute;left:112px;top:212px;width:1056px}
+/* Twelve entries in two columns of six, at the normal row height. The old answer was
+ * to shrink the rows until they fit - the list only got smaller and a thirteenth
+ * entry would not have fit at all. */
+.settings-overview.is-grid{display:grid;grid-template-columns:520px 520px;grid-auto-flow:column;column-gap:32px;row-gap:8px;width:1072px}
+.settings-overview.is-grid .settings-group{height:112px;padding:12px 28px 12px 26px;gap:20px}
+/* The sibling margin from the single-column list would move every row but the first,
+ * which put the two columns 4 px out of step. The grid gap does the spacing here. */
+.settings-overview.is-grid .settings-group+.settings-group{margin-top:0}
+.settings-overview.is-grid .settings-group-copy{flex-direction:column;gap:4px;align-items:flex-start;min-width:0}
+.settings-overview.is-grid .settings-group-name{font-size:34px;line-height:42px}
+.settings-overview.is-grid .settings-group-value{font-size:25px;line-height:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.settings-overview.is-grid .settings-group>.ico{width:24px;height:24px}
 .settings-group{width:100%;height:112px;padding:12px 32px 12px 28px;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:32px;color:var(--ink);transition:background-color 140ms linear,color 140ms linear}
 .settings-group+.settings-group{margin-top:8px}
 .settings-group-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -366,7 +385,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .settings-overview.is-dense2 .settings-group+.settings-group{margin-top:2px}
 .settings-overview.is-dense2 .settings-group-name{font-size:31px;line-height:38px}
 .settings-overview.is-dense2 .settings-group-value{font-size:22px;line-height:28px}
-.settings-overview.is-dense2 .settings-group-copy{gap:0;flex-direction:row;align-items:baseline;gap:18px;min-width:0}
+/* Enough air between label and value that they read as two things, not one word.
+ * 18 px was a single space at this type size. */
+.settings-overview.is-dense2 .settings-group-copy{gap:0;flex-direction:row;align-items:baseline;gap:44px;min-width:0}
 .settings-overview.is-dense2 .settings-group-value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .settings-overview-hint{position:absolute;left:140px;top:968px;display:flex;align-items:center;gap:16px;font-size:26px;line-height:36px;color:var(--mute)}
 .remote-key{display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:34px;padding:0 10px;border:1.5px solid currentColor;border-radius:17px;font-size:21px;line-height:28px;font-weight:600;letter-spacing:0}
@@ -580,6 +601,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .detail-layout .setting-section+.setting-section,.detail-focus .setting-section+.setting-section{margin-top:64px}
 .detail-typography .setting-choice,.detail-rotation .setting-choice{min-height:88px}
 .detail-typography .appearance-rows,.detail-rotation .appearance-rows,.detail-samsung .appearance-rows{top:260px}
+/* Weather and typography carry four resp. two long lists. Stacked they ran off the
+ * bottom of the screen, so the questions sit in two columns; the back button spans
+ * both and the rows get a little shorter. Down still walks item by item. */
+.detail-weather .appearance-rows,.detail-typography .appearance-rows{display:grid;grid-template-columns:480px 480px;grid-auto-flow:column;align-content:start;column-gap:48px;width:1008px;top:236px}
+.detail-weather .appearance-rows>.setting-section+.setting-section,.detail-typography .appearance-rows>.setting-section+.setting-section{margin-top:0}
+.detail-weather .setting-choice,.detail-typography .setting-choice{min-height:70px;padding:10px 20px;font-size:34px;line-height:42px}
+.detail-weather .setting-label,.detail-typography .setting-label{margin-bottom:8px;font-size:26px;line-height:34px}
 .setting-choice.has-description{min-height:120px}
 .setting-description{font-size:26px;line-height:36px;font-weight:400;letter-spacing:0;color:var(--mute);white-space:normal}
 .setting-choice.is-focus .setting-description{color:var(--solid-mute)}
@@ -645,6 +673,9 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .ha-chip.is-switch{pointer-events:auto;transition:background-color 140ms linear,box-shadow 140ms linear}
 .ha-chip.is-static{cursor:default}
 .ha-chip.is-switch.is-focus{background:rgba(24,20,16,.82);box-shadow:0 0 0 4px rgba(246,241,231,.92),inset 0 1px 0 rgba(255,255,255,.2)}
+/* Anzeigen (Fenster, Temperatur) lassen sich anwaehlen und werden hervorgehoben -
+ * mit gestricheltem Rahmen, damit sichtbar bleibt, dass OK hier nichts schaltet. */
+.ha-chip.is-static.is-focus{background:rgba(24,20,16,.82);box-shadow:0 0 0 4px rgba(246,241,231,.55),inset 0 1px 0 rgba(255,255,255,.12);border:2px dashed rgba(246,241,231,.8)}
 .ha-chip.is-error{box-shadow:0 0 0 4px rgba(255,120,80,.95)}
 .ha-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:10px;vertical-align:2px;background:rgba(246,241,231,.30);box-shadow:inset 0 0 0 1.5px rgba(246,241,231,.45)}
 .ha-chip.is-on .ha-dot{background:#8ee08a;box-shadow:0 0 10px rgba(142,224,138,.55)}
@@ -717,7 +748,10 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 
 /* webOS port: larger brand logos in the bar (operator feedback) and the intended
    header spacing that Chromium 79 loses without flex gap. */
-.a-both .tile .mark{left:44px;top:14px}
+/* Die Marke sass 16 px rechts der Mitte: die Kachel ist 288 breit, die Marke 232,
+   also gehoert sie auf (288-232)/2 = 28. Der Text darunter war schon mittig, das
+   Logo nicht - genau der Versatz, der im Wohnzimmer auffiel. */
+.a-both .tile .mark{left:28px;top:14px}
 .a-icons .tile .mark{left:12px;top:12px}
 .quiet-utils > * + *{margin-left:20px}
 .quiet-utils.is-icons > * + *{margin-left:16px}

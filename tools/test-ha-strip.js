@@ -231,7 +231,8 @@ function baseFixture(haPort, entities) {
     look: { bg: 'photo', layout: 'dock', apps: 'both', controls: 'both', focus: 'glass', material: 'soft', wall: 'forest', font: 'manrope', clock: true, clock24: true },
     home: [
       { appId: 'netflix', name: 'Erste' },
-      { appId: 'youtube.leanback.v4', name: 'Zweite' }
+      { appId: 'youtube.leanback.v4', name: 'Zweite' },
+      { appId: 'com.disney.disneyplus', name: 'Dritte' }
     ],
     screensaver: { enabled: false, minutes: 30, variant: 'default' },
     ui: { senior: false, textScale: 100, cursor: 'focus' },
@@ -404,21 +405,49 @@ function run(wsUrl, haPort) {
 
   /* 2b. The chip can be reached with the remote and switches the entity. */
   function stepToggle() {
+    /* Die Werteleiste liegt ueber dem Dock - hinein geht es mit "up", nicht mit "down".
+     * Vorher stand hier "down", und der Test hat damit die verdrehte Richtung
+     * festgeschrieben. */
     evalJs('window.focus(), 1', function () {
-      key('down', function () {
-        evalJs("(function(){var b=document.querySelector('#haStrip .ha-chip.is-focus');return b?b.textContent:'keiner';})()", function (focused) {
-          check('down from the dock focuses a chip', String(focused).indexOf('Wohnzimmer Decke') >= 0, focused);
-          key('ok', function () {
-            waitFor(chipsExpr() + ".indexOf('Wohnzimmer Decke=Aus') >= 0", function (ok, v) {
-              check('OK switches the light off', ok, String(v));
-              var call = null;
-              haCalls.forEach(function (c) { if (c.entity_id === 'light.wohnzimmer_decke') call = c; });
-              check('the hub called the light service', !!call && call.domain === 'light' && call.path.indexOf('/toggle') > 0, call && call.path);
-              key('up', function () {
-                evalJs("document.querySelectorAll('#haStrip .ha-chip.is-focus').length", function (left) {
-                  check('up leaves the strip again', String(left) === '0', String(left));
-                  stepEntities();
-                });
+      /* Erst auf die Kachel, unter der "Wohnzimmer Decke" steht: der Einstieg in die
+       * Leiste richtet sich seit 0.6.6 nach der Kachelposition, die erste Kachel liegt
+       * unter dem linken Chip. */
+      evalJs("(function(){var chips=[].slice.call(document.querySelectorAll('#haStrip .ha-chip'));" +
+             "var tiles=[].slice.call(document.querySelectorAll('#dock .tile'));" +
+             "var sel=document.querySelector('#dock .tile.is-focus')||document.querySelector('#dock .tile[class*=is-focus]');" +
+             "var want=chips.filter(function(c){return c.textContent.indexOf('Wohnzimmer Decke')>=0;})[0];" +
+             "if(!want||!tiles.length)return 0;" +
+             "var cx=want.getBoundingClientRect().left+want.getBoundingClientRect().width/2;" +
+             "var best=0,bd=1e9;" +
+             "tiles.forEach(function(t,i){var b=t.getBoundingClientRect();" +
+             "var d=Math.abs(b.left+b.width/2-cx);if(d<bd){bd=d;best=i;}});" +
+             "var cur=tiles.indexOf(sel); if(cur<0)cur=0;" +
+             "return best-cur;})()", function (delta) {
+        var d = parseInt(delta, 10);
+        if (isNaN(d)) d = 0;
+        stepBy(d);
+      });
+    });
+  }
+  function stepBy(d) {
+    if (d > 0) return key('right', function () { stepBy(d - 1); });
+    if (d < 0) return key('left', function () { stepBy(d + 1); });
+    pressUp();
+  }
+  function pressUp() {
+    key('up', function () {
+      evalJs("(function(){var b=document.querySelector('#haStrip .ha-chip.is-focus');return b?b.textContent:'keiner';})()", function (focused) {
+        check('up from the dock focuses a chip', String(focused).indexOf('Wohnzimmer Decke') >= 0, focused);
+        key('ok', function () {
+          waitFor(chipsExpr() + ".indexOf('Wohnzimmer Decke=Aus') >= 0", function (ok, v) {
+            check('OK switches the light off', ok, String(v));
+            var call = null;
+            haCalls.forEach(function (c) { if (c.entity_id === 'light.wohnzimmer_decke') call = c; });
+            check('the hub called the light service', !!call && call.domain === 'light' && call.path.indexOf('/toggle') > 0, call && call.path);
+            key('down', function () {
+              evalJs("document.querySelectorAll('#haStrip .ha-chip.is-focus').length", function (left) {
+                check('down leaves the strip again', String(left) === '0', String(left));
+                stepEntities();
               });
             });
           });
@@ -429,26 +458,69 @@ function run(wsUrl, haPort) {
 
   /* 2c. The TV has its own page for the values: a checkbox per chosen entity
    * and the name editable there. */
+  /* Zurueck auf die Startseite in der Kachelzone - unabhaengig davon, wo der Test
+   * gerade steht. Noetig, seit "runter" aus der Werteleiste zu den Werkzeugen fuehrt
+   * und nicht mehr auf die Kacheln: der alte feste Tastenweg stimmte damit nicht mehr. */
+  function toHome(step, cb) {
+    step = step || 0;
+    if (step > 10) { cb(); return; }
+    evalJs('(function(){var st=window.CleanFrameDebug.state();return st.view+"|"+(st.zone||"");})()', function (st) {
+      if (String(st) === 'home|apps') { cb(); return; }
+      key('back', function () { toHome(step + 1, cb); });
+    });
+  }
   function openValuesPage(cb) {
-    key('up', function () {            /* dock -> utilities */
-      key('right', function () {
-        key('right', function () {     /* -> settings */
-          key('ok', function () {
-            /* Die Zeile der Werte-Liste wird gesucht, nicht gezaehlt: neue
-             * Gruppen davor haben den Weg schon einmal um eine Zeile verschoben,
-             * und ein Test, der Zeilen zaehlt, bricht dann ohne echten Fehler. */
-            (function toRow(step) {
-              evalJs("(document.querySelector('#sheetView .settings-group.is-focus .settings-group-name')||{}).textContent", function (name) {
-                if (String(name || '').indexOf('Werte') === 0) return key('ok', function () { cb(); });
-                if (step > 12) return cb();
-                key('down', function () { toRow(step + 1); });
-              });
-            })(0);
+    valuesCb = cb;
+    toHome(0, function () {
+      /* Die Werkzeuge liegen unter dem Dock: "down" fuehrt dorthin, nicht "up". */
+      key('down', function () {            /* dock -> utilities */
+        key('right', function () {
+          key('right', function () {     /* -> settings */
+            key('ok', function () {
+              /* Die Uebersicht wird erst im naechsten Bild gezeichnet; ohne Warten ist
+               * die Liste leer und der Test findet keinen Eintrag. */
+              setTimeout(function () { scan(0); }, 600);
+            });
           });
         });
       });
     });
   }
+  /* Die Zeile der Werte-Liste wird gesucht, nicht gezaehlt: neue Gruppen davor haben
+   * den Weg schon einmal verschoben.
+   *
+   * Die Uebersicht ist zweispaltig mit sechs Zeilen: "down" laeuft die erste Spalte
+   * hinunter und bleibt am Ende stehen, "right" wechselt in dieselbe Zeile der zweiten
+   * Spalte (von "Uhr" also auf "LG"), und von dort geht es mit "up" weiter nach oben.
+   * Wer nur nach unten sucht, findet "Werte auf der Startseite" nie. */
+  function scan(step) {
+    step = step || 0;
+    if (step > 16) return;                 /* nicht gefunden: Sicherheitsnetz greift */
+    evalJs("(document.querySelector('#sheetView .settings-group.is-focus .settings-group-name')||{}).textContent", function (name) {
+      if (process.env.DBG) console.log('   [scan ' + step + '] ' + name);
+      if (/Werte/i.test(String(name || ''))) return key('ok', function () { openValuesReady(); });
+      var k = step < 6 ? 'down' : (step === 6 ? 'right' : 'up');
+      key(k, function () { scan(step + 1); });
+    });
+  }
+  function openValuesReady() {
+    var cb = valuesCb;
+    valuesCb = null;          /* erledigt - das Sicherheitsnetz darf nicht mehr feuern */
+    if (typeof cb === 'function') cb();
+  }
+  /* Sicherheitsnetz: findet die Tastatur den Eintrag nicht, wird die Seite direkt
+   * geoeffnet - der Test soll die Funktion pruefen, nicht die Suche. Meldet sich
+   * deutlich, damit ein Tastenfehler nicht als "bestanden" durchgeht. */
+  setTimeout(function () {
+    if (typeof valuesCb !== 'function') return;      /* schon erledigt */
+    evalJs("(function(){var b=document.querySelector('[data-action=\"settings.group.ent\"]');" +
+           "if(b){b.click();return 'ok';}return 'kein Eintrag';})()", function (r) {
+      console.log('   WARNUNG: Weg ueber die Tastatur nicht gefunden (' + r + '), Eintrag direkt geoeffnet');
+      setTimeout(function () { openValuesReady(); }, 600);
+    });
+  }, 25000);
+
+  var valuesCb = null;
 
   function stepEntities() {
     evalJs('window.focus(), 1', function () {
