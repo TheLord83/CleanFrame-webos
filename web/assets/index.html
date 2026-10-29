@@ -450,6 +450,7 @@
     <label class="panel-check"><input type="checkbox" id="holdPick"> <span data-t="tv.hold.on">auf der gewählten Kachel</span></label>
   </div>
   <div class="panel-keys">
+    <button type="button" id="btnHome" data-t="tv.key.home">Home</button>
     <button type="button" data-key="back" data-t="tv.key.back">Zurück</button>
     <button type="button" data-key="menu" data-t="tv.key.menu">Menü</button>
     <button type="button" data-key="exit" data-t="tv.key.exit">Exit</button>
@@ -1348,6 +1349,21 @@
     d.className = 'panel-dot' + (state ? ' ' + state : '');
   }
 
+  /* Home ist keine Taste, sondern ein App-Start: der Home-Knopf der LG-Fernbedienung
+   * startet com.webos.app.home. Ueber den Pointer-Socket waere er nicht erreichbar. */
+  function sendHome() {
+    fetch('/api/tv/home', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.ok) {
+          note($('tvStatus'), 'tv.key.fail', { err: j.error || t('err.unknown') }, false);
+          return;
+        }
+        setTimeout(loadShot, 500);
+      }).catch(function (e) {
+        note($('tvStatus'), 'tv.key.fail', { err: e.message }, false);
+      });
+  }
+
   function sendKey(name, holdMs) {
     fetch('/api/tv/key', {
       method: 'POST',
@@ -1376,6 +1392,7 @@
   document.querySelectorAll('[data-key]').forEach(function (b) {
     b.onclick = function () { sendKey(b.dataset.key); };
   });
+  if ($('btnHome')) $('btnHome').onclick = sendHome;
 
   /* Long press: hold OK for 0.9 s (launcher threshold on the device: 650 ms). */
   document.querySelectorAll('[data-hold]').forEach(function (b) {

@@ -333,6 +333,51 @@ function press(keys, opts, cb) {
   })(known);
 }
 
+/* Eine App starten - hier die Home-Oberflaeche des Fernsehers.
+ *
+ * Der Home-Knopf der LG-Fernbedienung schickt keinen Tastencode, sondern startet
+ * com.webos.app.home. Ueber den Pointer-Socket ist Home deshalb nicht erreichbar:
+ * dort gibt es nur Richtungen, OK, Zurueck und Ziffern. Der Weg ist ein normaler
+ * SSAP-Request an system.launcher/launch, ueber denselben gekoppelten Kanal.
+ */
+function launch(appId, opts, cb) {
+  opts = opts || {};
+  var host = opts.host || '127.0.0.1';
+  if (!appId) return cb('keine App-ID');
+  var known = readKey();
+  if (!known || !known.key) return cb('noch nicht gekoppelt');
+  Ws.connect(host, SSAP_PORT, function (e2, ws) {
+    if (e2) return cb(e2);
+    ws.send({ type: 'register', id: 'reg', payload: {
+      forcePairing: false, pairingType: 'PROMPT', manifest: MANIFEST,
+      'client-key': known.key
+    } });
+    var versuche = 0;
+    function warteAufRegistered() {
+      versuche += 1;
+      if (versuche > 6) { ws.close(); return cb('Registrierung abgelehnt'); }
+      ws.recv(function (e3, text) {
+        if (e3) { ws.close(); return cb(e3); }
+        var msg = null;
+        try { msg = JSON.parse(text); } catch (e4) { msg = null; }
+        if (msg && msg.type === 'error') { ws.close(); return cb(msg.error || 'Fehler'); }
+        if (!msg || msg.type !== 'registered') return warteAufRegistered();
+        ws.send({ type: 'request', id: 'lch',
+          uri: 'ssap://system.launcher/launch', payload: { id: appId } });
+        ws.recv(function (e5, text2) {
+          ws.close();
+          if (e5) return cb(e5);
+          var antwort = null;
+          try { antwort = JSON.parse(text2); } catch (e6) { return cb('unlesbare Antwort'); }
+          if (antwort && antwort.type === 'error') return cb(antwort.error || 'Fernseher hat abgelehnt');
+          cb(null, { app: appId, payload: (antwort && antwort.payload) || {} });
+        });
+      }, 8000);
+    }
+    warteAufRegistered();
+  });
+}
+
 /* The pointer socket is a unix socket on the device and a ws:// URL on the network.
  * The frame is plain text, not JSON:
  *     type:button
@@ -382,4 +427,4 @@ function status() {
   return { paired: !!(k && k.key), tv: (k && k.tv) || '', saved: (k && k.saved) || '' };
 }
 
-module.exports = { register: register, press: press, status: status, BUTTONS: BUTTONS };
+module.exports = { register: register, press: press, launch: launch, status: status, BUTTONS: BUTTONS };
