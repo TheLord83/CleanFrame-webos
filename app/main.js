@@ -876,9 +876,12 @@
           /* Nach oben aus der Leiste in die Werkzeuge: die stehen in der Dock-Ansicht
            * oben rechts (gemessen y 62, x ab 893), die Leiste sitzt darunter ueber
            * dem Dock. Vorher hing hier x.inn (runter) - damit hatte "up" in der Leiste
-           * gar keinen Zweig, und man kam nie in die oberste Zeile. */
+           * gar keinen Zweig, und man kam nie in die oberste Zeile.
+           * Einstieg landet auf "Einstellungen": das ist der Punkt, den man dort
+           * sucht, und der einzige Grund, die Zeile ueberhaupt anzusteuern. */
           f.zone = 'util';
-          f.u = clamp(S.lastUtil, 0, U.length - 1);
+          f.u = U.length - 1;
+          S.lastUtil = f.u;
         }
         else if (k === x.inn) {
           /* Nach unten zurueck auf die Kachel, die unter dem Chip steht. */
@@ -900,7 +903,7 @@
          * linkes Ende, aus der Mitte -> der Chip ueber der Kachel. */
         f.h = haEntryChip(i, h.length, haChips().length);
       }
-      else if (k === x.inn) { f.zone = 'util'; f.u = clamp(S.lastUtil, 0, U.length - 1); }
+      else if (k === x.inn) { f.zone = 'util'; f.u = U.length - 1; S.lastUtil = f.u; }
       else if (k === 'back') openRecent();
       else if (!h.length) { if (k === 'ok') addAppsRoute(); }
       else if (k === x.prev && i > 0) setSel(h[i - 1]);
@@ -1909,15 +1912,19 @@
    * Werkzeugen Platz ist. Vorher war sie fest 1040 px breit und schob das Wetter
    * damit unter "Bildschirmschoner" - zwei Texte uebereinander, unlesbar. Die
    * Werkzeuge stehen oben rechts und sind immer da, also messen statt raten. */
-  function wxEndRoom() {
+  /* place = Platz bis zu den Werkzeugen (CSS-Pixel), room = die Breite, die die
+   * Zeile bekommt. Beides zurueck, damit die Pruefung die Rechnung nachvollziehen
+   * kann, statt eine Zahl zu raten. */
+  function wxRowMetrics() {
     var capR = caption.getBoundingClientRect();
     var uR = utilsEl.getBoundingClientRect();
     var sceneR = sceneEl.getBoundingClientRect();
     var scale = (sceneR.width / 1920) || 1;
-    if (!capR.width || !uR.width) return 1040;
-    var room = (uR.left - capR.left) / scale - 56;
-    return Math.max(420, Math.min(1040, Math.round(room)));
+    if (!capR.width || !uR.width) return { room: 1040, place: 1920 };
+    var place = (uR.left - capR.left) / scale;
+    return { room: Math.max(420, Math.min(1040, Math.round(place - 56))), place: Math.round(place) };
   }
+  function wxEndRoom() { return wxRowMetrics().room; }
 
   function utilBtn(z, i, action, inner, extra, name) {
     return '<button type="button" tabindex="-1" class="u' + (extra || '') + '" data-z="' + z + '" data-i="' + i + '" data-action="' + action + '" aria-label="' + esc(name) + '"><span class="u-content">' + inner + '</span></button>';
@@ -3206,6 +3213,9 @@
     serverConfig: function () { return S.serverCfg || null; },
     weather: function () { return { enabled: wxState.enabled, text: weatherText(), data: wxState.data }; },
     look: function (patch) { setLook(patch || {}); return { layout: S.c.layout, apps: S.c.apps, wall: S.c.wall, font: S.c.font, clock: !!S.c.clock }; },
+    /* Breite, die die Uhr-/Wetterzeile bis zu den Werkzeugen hat (px). Nur zum
+     * Pruefen: das Wetter stand mit fester Breite unter "Bildschirmschoner". */
+    wxRoom: function () { return wxRowMetrics(); },
     walls: function () { return WALLS.map(function (w) { return w.id; }); },
     serverPayload: function () { return serverPayload(S.c); },
     syncLog: function () { return (S.syncLog || []).slice(-6); },

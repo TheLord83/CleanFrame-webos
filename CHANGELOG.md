@@ -3,6 +3,18 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.14 (the tools open on Einstellungen)
+
+Entering the utility row now lands on "Einstellungen" instead of
+"Bildschirmschoner" - that is the entry anyone goes there for, and it saves two
+key presses. Both ways in (up from the strip, down from the tiles) use it.
+
+Also: the three fixes of today finally have checks. `tools/test-home-keys.js`
+verifies that the tools open on Einstellungen, that the clock/weather row's
+width stays left of the tools (measured, not guessed: the row reports the room
+it had and the width it took), and that resuming the app puts the focus back on
+the tiles. It is stage "home keys" in check-all.
+
 ## 0.6.13 (resuming the app kept the focus in the top row)
 
 webOS keeps the app alive in the background: "starting" CleanFrame again only
