@@ -1881,12 +1881,30 @@
     else if (wxState.pos === 'below') html = clk + wxEl;
     else {
       var rowStyle = ' style="gap:' + (wxState.gap | 0) + 'px"';
-      if (wxState.pos === 'end') html = '<span class="clock-row wx-end"' + rowStyle + '>' + clk + wxEl + '</span>';
+      if (wxState.pos === 'end') {
+        var room = wxEndRoom();
+        html = '<span class="clock-row wx-end" style="gap:' + (wxState.gap | 0) + 'px;width:' + room +
+          'px;max-width:' + room + 'px">' + clk + wxEl + '</span>';
+      }
       else if (wxState.pos === 'left') html = '<span class="clock-row"' + rowStyle + '>' + wxEl + clk + '</span>';
       else html = '<span class="clock-row"' + rowStyle + '>' + clk + wxEl + '</span>';
     }
     if (S.c.apps !== 'icons' && hs.items[hs.i] && (S.c.layout === 'list' ? photoLabel(hs.items[hs.i].id, false).size < 88 || photoLabel(hs.items[hs.i].id, false).ellipsis : hs.zone === 'apps' && reducedDockLabel(hs.items[hs.i].id))) html += '<span class="cap-line full-name">' + esc(app(hs.items[hs.i].id).name) + '</span>';
     setHTML(caption, html);
+  }
+
+  /* Wetter am rechten Rand: die Zeile darf nur so breit sein, wie bis zu den
+   * Werkzeugen Platz ist. Vorher war sie fest 1040 px breit und schob das Wetter
+   * damit unter "Bildschirmschoner" - zwei Texte uebereinander, unlesbar. Die
+   * Werkzeuge stehen oben rechts und sind immer da, also messen statt raten. */
+  function wxEndRoom() {
+    var capR = caption.getBoundingClientRect();
+    var uR = utilsEl.getBoundingClientRect();
+    var sceneR = sceneEl.getBoundingClientRect();
+    var scale = (sceneR.width / 1920) || 1;
+    if (!capR.width || !uR.width) return 1040;
+    var room = (uR.left - capR.left) / scale - 56;
+    return Math.max(420, Math.min(1040, Math.round(room)));
   }
 
   function utilBtn(z, i, action, inner, extra, name) {
