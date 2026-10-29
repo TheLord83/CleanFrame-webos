@@ -3,6 +3,25 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.22 (the dropdown got narrower)
+
+Stefan, looking at 0.6.21 on the TV: "das drop down ragt ins vorschaubild rein und
+ist bissl breit".
+
+The answer card was 700 px wide inside a 780 px column, so its right edge reached
+x 870 - right where the home screen shows through next to the settings page. Now
+the column is 720 px and the card 560 px: the card ends around x 726, the column
+at 860. Nothing touches the visible home screen any more.
+
+Also fixed in the measuring itself: layout() counted the home tiles behind the
+appearance pages, which produced a right edge of 1798 and a "lowest" of 1017 that
+belonged to no row. It now only measures the layer that is open.
+
+Test: the picker stage checks the card width at the element (560 px), because the
+x axis of the headless bench is shifted - the stage is 800 px wide in a 1920 px
+window, so horizontal rects there are not trustworthy.
+
+Not installed yet: the TV was off for the evening.
 ## 0.6.21 (each question is one row, the answers open underneath)
 
 The weather page showed every answer as a chip: four questions with up to four

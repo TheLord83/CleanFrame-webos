@@ -3349,13 +3349,30 @@
    * unten, oben oder seitlich herausragt. Grund: "Anordnung" in den Einstellungen
    * schrieb unten heraus, und das sieht man auf einem Screenshot nur, wenn man
    * weiss, wo die Kante liegt. Werte in CSS-Pixeln der Buehne. */
+  /* Linke Kante der Vorschau (TV-Mock rechts neben den Einstellungen). Ohne
+   * Vorschau wird die Buehnenbreite gemeldet - dann gibt es nichts zu treffen. */
+  function previewLeft() {
+    var cands = document.querySelectorAll('.preview, .appearance-preview, .phone, .tv-frame, .preview-frame'), best = null, i, r, sr = sceneEl.getBoundingClientRect(), scale = (sr.width / 1920) || 1;
+    for (i = 0; i < cands.length; i++) {
+      r = cands[i].getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      var left = Math.round((r.left - sr.left) / scale);
+      if (left > 100 && (best === null || left < best)) best = left;
+    }
+    return best;
+  }
   function layoutReport() {
     var sceneR = sceneEl.getBoundingClientRect();
     var scale = (sceneR.width / 1920) || 1;
     /* Liegt eine Blattseite oben, zaehlen nur ihre Elemente: die Kacheln der
      * Startseite stehen darunter im DOM und saehen sonst wie Ueberlappungen aus. */
     var topStage = top(), sheetRoot = null;
-    if (topStage && V[topStage.id] && V[topStage.id].sheet) sheetRoot = document.querySelector('.sheet');
+    /* Auch die Aussehen-Seiten sind eine eigene Ebene: die Startseite scheint
+     * rechts daneben durch, ihre Kacheln sind aber nicht Teil der Messung (sie
+     * lieferten eine rechte Kante von 1798 und einen "tiefsten Punkt" von 1017,
+     * der zu keiner Zeile gehoerte). */
+    if (topStage && isSettingsDetail(topStage)) sheetRoot = appearanceEl;
+    else if (topStage && V[topStage.id] && V[topStage.id].sheet) sheetRoot = document.querySelector('.sheet');
     function inLayer(el) { return !sheetRoot || sheetRoot.contains(el); }
     function hiddenByPicker(el) {
       var sec = el.closest ? el.closest('.setting-section.is-covered') : null;
@@ -3410,6 +3427,11 @@
       rightmost: right,
       /* air = wie viel Platz unter dem untersten Element bleibt */
       air: 1080 - bottom,
+      /* Die Vorschau rechts darf nicht angeschnitten werden: ihre linke Kante und
+       * die rechteste Kante aller Elemente werden mitgemeldet, damit "ragt in die
+       * Vorschau" messbar ist und nicht nur eine Meinung. */
+      right: right,
+      previewLeft: previewLeft(),
       fits: bottom <= 1080 && right <= 1920 && !overlaps.length,
       overlaps: overlaps,
       below: items.filter(function (it) { return it.bottom > 1080; }),
@@ -3419,7 +3441,7 @@
   }
   function reportUiState() {
     var st = uiState(), lay = layoutReport();
-    st.fits = lay.fits; st.air = lay.air; st.lowest = lay.lowest;
+    st.fits = lay.fits; st.air = lay.air; st.lowest = lay.lowest; st.right = lay.right;
     if (!lay.fits) st.below = lay.below.map(function (it) { return it.label || it.action; });
     var body = JSON.stringify(st);
     if (body === uiLastReport || typeof fetch !== 'function') return;

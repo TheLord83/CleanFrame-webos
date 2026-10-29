@@ -68,7 +68,9 @@ function rows(cb) {
      'for(var i=0;i<s.length;i++){var b=s[i].querySelector(".pick-row"),l=s[i].querySelector(".setting-label");' +
      'if(!b&&!l)continue;out.push({q:l?l.textContent.trim():"",v:b?b.querySelector(".setting-name").textContent.trim():null,' +
      'open:!!s[i].className.match(/is-open/),covered:!!s[i].className.match(/is-covered/),' +
-     'opts:s[i].querySelectorAll(".picker-list .setting-choice").length});}return JSON.stringify(out);})()', cb);
+     'opts:s[i].querySelectorAll(".picker-list .setting-choice").length});}' +
+     'var card=document.querySelector(".picker-list");' +
+     'return JSON.stringify({sections:out,cardW:card?Math.round(parseFloat(getComputedStyle(card).width)):0});})()', cb);
 }
 function goTo(action, cb, tries) {
   tries = tries || 0;
@@ -109,24 +111,30 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
         setTimeout(function () {
           openWeather(function (ok) {
             if (!ok) { console.log('  FEHL  Wetterseite nicht erreichbar'); return finish(); }
-            rows(function (r) {
+            rows(function (rr) { var r = rr.sections;
               check(r.length === 4 && r.every(function (x) { return x.v; }), 'vier Zeilen mit Wert', JSON.stringify(r.map(function (x) { return x.q + '=' + x.v; })));
               check(r.every(function (x) { return !x.open; }), 'alle zugeklappt');
               var first = r[0].v;
               press(['ok'], function () {
                 setTimeout(function () {
-                  rows(function (r2) {
+                  rows(function (rr2) { var r2 = rr2.sections;
                     check(r2[0].open, 'OK klappt die Zeile auf');
                     check(r2[0].opts === 4, 'vier Antworten im Panel', 'opts=' + r2[0].opts);
+                    /* Stefan: "das dropdown ragt ins vorschaubild rein und ist bissl breit".
+                     * Die x-Achse des Pruefstands ist verschoben, die Breite nicht. */
+                    check(rr2.cardW > 0 && rr2.cardW <= 600, 'Karte ist schmal (max 600 px)', 'Breite=' + rr2.cardW + ' px');
                     check(r2[1] && r2[1].covered, 'Zeile unter der Karte ist verdeckt (keine Ueberlappung)', r2.map(function (x) { return x.q + (x.covered ? '=zu' : '=offen'); }).join(' '));
                     layout(function (l) {
                       check(l.fits && l.air >= MIN_AIR, 'aufgeklappt passt es', 'lowest=' + l.lowest + ' air=' + l.air);
                       check(!(l.overlaps || []).length, 'aufgeklappt keine Ueberlappung', JSON.stringify((l.overlaps || []).slice(0, 2)));
+                      /* Rechts beginnt bei x 872 die Flaeche, in der die Startseite
+                       * durchscheint. Stefan: "das dropdown ragt ins vorschaubild rein". */
+
                       ev('JSON.stringify(CleanFrameDebug.focus())', function (f) {
                         check(f.action.indexOf('wx.wxStyle') === 0, 'Fokus steht in den Antworten', f.action);
                         press(['down'], function () {
                           setTimeout(function () {
-                            rows(function (r3) {
+                            rows(function (rr3) { var r3 = rr3.sections;
                               check(!r3[0].open && !r3[1].covered, 'runter klappt zu');
                               ev('JSON.stringify(CleanFrameDebug.focus())', function (g) {
                                 check(g.action === 'pick.wxSize', 'runter landet auf der naechsten Frage', g.action);
@@ -137,7 +145,7 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
                                         var picked = h.label;
                                         press(['ok'], function () {
                                           setTimeout(function () {
-                                            rows(function (r4) {
+                                            rows(function (rr4) { var r4 = rr4.sections;
                                               check(!r4[1].open, 'OK uebernimmt und klappt zu');
                                               check(r4[1].v === picked, 'neuer Wert steht in der Zeile', r4[1].v + ' (erwartet ' + picked + ')');
                                               check(r4[0].v === first, 'erste Zeile unveraendert', r4[0].v);

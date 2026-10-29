@@ -620,6 +620,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .detail-layout .appearance-rows,.detail-background .appearance-rows,
 .detail-weather .appearance-rows,.detail-typography .appearance-rows,
 .detail-focus .appearance-rows,.detail-clocklang .appearance-rows{width:780px}
+/* Wetter und Schrift haben Zeilen statt Reihungen - und brauchen die volle Breite
+ * nicht. 140 + 720 = 860 bleibt vor der Vorschau (ab 872). */
+.detail-weather .appearance-rows,.detail-typography .appearance-rows{width:720px}
 .detail-weather .appearance-rows>.setting-section+.setting-section,.detail-typography .appearance-rows>.setting-section+.setting-section{margin-top:28px}
 .detail-weather .setting-choice,.detail-typography .setting-choice{min-height:70px;padding:10px 20px;font-size:34px;line-height:42px}
 /* Wetter hat vier Fragen mit je vier Antworten; bei 780 px passen zwei Knoepfe
@@ -882,11 +885,12 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
  * Karte scheinen und die Messung keine falsche Ueberlappung meldet. */
 .setting-section.is-picker{position:relative}
 .setting-section.is-covered{visibility:hidden}
-.setting-options.picker-list{position:absolute;top:100%;left:0;z-index:6;width:700px;margin-top:8px;
-  padding:14px;border-radius:20px;background:rgba(14,16,20,.93);border:1px solid rgba(255,255,255,.16);
+.setting-options.picker-list{position:absolute;top:100%;left:0;z-index:6;width:560px;margin-top:8px;
+  padding:12px;border-radius:20px;background:rgba(14,16,20,.93);border:1px solid rgba(255,255,255,.16);
   box-shadow:0 22px 60px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
-/* 720 statt 780: die Vorschau beginnt bei x 872 (gemessen), sonst liegt die
- * Karte auf ihr. */
+/* 560 statt 780: Stefan am 29.10. "das drop down ragt ins vorschaubild rein und
+ * ist bissl breit". 140 + 560 + 2x12 Polster = 726 - die Karte endet damit gut
+ * 130 px vor der Stelle, an der die Startseite durchscheint. */
 .setting-options.is-horizontal{flex-direction:row;flex-wrap:wrap;row-gap:10px;gap:12px;--cf-scale:1}
 .setting-options.is-horizontal .setting-choice{flex:0 1 auto;min-width:0;width:auto}
 .setting-options.picker-list .setting-choice{width:auto;flex:0 1 auto}

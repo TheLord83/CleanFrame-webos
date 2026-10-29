@@ -52,6 +52,19 @@ function key(name, cb) {
 function ev(e, cb){ js(e, function(v){ cb(JSON.parse(v)); }); }
 function go(keys, cb){ ev('JSON.stringify(CleanFrameDebug.press('+JSON.stringify(keys)+'))', cb); }
 
+function goTo(action, cb, tries){ tries=tries||0; if(tries>18) return cb(false);
+  ev('JSON.stringify(CleanFrameDebug.focus())', function(f){
+    if(f.action===action) return cb(true);
+    go(['down'], function(f2){ if(f2.action===f.action) go(['right'], function(){ goTo(action,cb,tries+1); }); else goTo(action,cb,tries+1); });
+  });
+}
+function toSettings(cb, tries){ tries=tries||0;
+  ev('JSON.stringify(CleanFrameDebug.focus())', function(f){
+    if(f.view==='settings') return cb();
+    if(f.view!=='home') return go(['back'], function(){ toSettings(cb,tries+1); });
+    go(['down'], function(){ go(['ok'], function(){ toSettings(cb,tries+1); }); });
+  });
+}
 http.get({ host:'127.0.0.1', port:PORT, path:'/json/list' }, function(res){
   var b=''; res.on('data',function(c){b+=c;}); res.on('end', function(){
     var page=JSON.parse(b).filter(function(t){return t.type==='page';})[0];
@@ -60,20 +73,25 @@ http.get({ host:'127.0.0.1', port:PORT, path:'/json/list' }, function(res){
     }, function(){
       send('Page.enable',{}, function(){ send('Page.navigate',{url:PAGE}, function(){
         setTimeout(function(){
-          go(['down','ok','right','down','ok'], function(){
-            setTimeout(function(){
+          toSettings(function(){
+            goTo('settings.group.weather', function(ok){
+              if(!ok){ console.log('Wetter nicht erreichbar'); client.close(); process.exit(1); }
               go(['ok'], function(){ setTimeout(function(){
-                js('(function(){var c=document.querySelector(".picker-list");var p=document.querySelector(".detail-weather .preview, .preview, .appearance-preview");' +
-                   'var out={card:c?Math.round(c.getBoundingClientRect().right):null};' +
-                   'var all=document.querySelectorAll("*");var best=null;' +
-                   'for(var i=0;i<all.length;i++){var r=all[i].getBoundingClientRect();if(r.left>850&&r.width>100&&r.width<900){if(!best||r.left<best.left)best={left:Math.round(r.left),w:Math.round(r.width),cls:String(all[i].className).slice(0,40)};}}' +
-                   'out.right=best;return JSON.stringify(out);})()', function(v){
-                  var d=JSON.parse(v);
-                  console.log('Karte endet bei x=' + d.card + ' | Vorschau ab x=' + (d.right&&d.right.left) + ' (' + (d.right&&d.right.cls) + ')');
-                  client.close(); process.exit(0);
-                });
+                go(['ok'], function(){ setTimeout(function(){
+                  js('(function(){var sc=document.getElementById("scene").getBoundingClientRect();var k=sc.width/1920;' +
+                     'var card=document.querySelector(".picker-list");var rows=document.querySelector(".detail-weather .appearance-rows");' +
+                     'function rr(el){var r=el.getBoundingClientRect();return {l:Math.round((r.left-sc.left)/k),rt:Math.round((r.right-sc.left)/k),b:Math.round((r.bottom-sc.top)/k)};}' +
+                     'var l=CleanFrameDebug.layout();return JSON.stringify({vw:window.innerWidth,scale:Math.round(k*1000)/1000,card:card?rr(card):null,rows:rows?rr(rows):null,lowest:l.lowest,air:l.air,n:l.items.length});})()', function(v){
+                    var d=JSON.parse(v);
+                    console.log('Fenster ' + d.vw + ' px, Skala ' + d.scale);
+                    console.log('Spalte: x' + (d.rows?d.rows.l:'-') + '..' + (d.rows?d.rows.rt:'-'));
+                    console.log('Karte : x' + (d.card?d.card.l:'-') + '..' + (d.card?d.card.rt:'-') + '  unten y' + (d.card?d.card.b:'-'));
+                    console.log('layout: lowest=' + d.lowest + ' air=' + d.air + ' n=' + d.n);
+                    client.close(); process.exit(0);
+                  });
+                }, 1200); });
               }, 900); });
-            }, 800);
+            });
           });
         }, 4400);
       }); });
