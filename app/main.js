@@ -184,45 +184,43 @@
     return Math.round(bottom - drawn);
   }
   function markHtml(id, w, h, size) {
-    var m = window.FrameIconMetrics && window.FrameIconMetrics[id], st;
+    var m = window.FrameIconMetrics && window.FrameIconMetrics[id], st, mst = null, mw = w, mh = h, ml = 0, mt = 0;
     if (m) {
-      /* Gewicht aus der Strichstaerke (m.ink), nicht aus dem Flaechenanteil: dicke
-       * Schrift darf groesser stehen als ein fetter gefuellter Kreis. Gefaltet um 0.5,
-       * damit alle Marken in einem engen Band bleiben (0.86 .. 1.18). */
-      var weight = clamp(Math.pow(0.5 / Math.max(m.ink || 0.5, 0.05), 0.25), 0.86, 1.18);
-      /* Sehr flache Wortmarken (Prime Video: 230x53) wuerden bei gleicher Laenge zum
-       * Strich. Sie bekommen Zuschlag, damit sie im Kachelbild mithalten. */
-      var aspect = m.w / Math.max(m.h, 1);
-      if (aspect > 2.5) weight = Math.min(weight * 1.45, 1.6);
-      /* Die Grafik wird ueber IHRE LAENGE begrenzt (size), nicht ueber die Feldhoehe.
-       * Ueber die Hoehe begrenzt wurde alles flache winzig (Prime Video 230x53 kam auf
-       * Lebensgroesse des Feldes und blieb breit wie das Feld) und alles hochkant
-       * winzig schmal (Netflix 132x240 wurde 30 px breit, ein "N" in einem 232-px-Feld).
-       * Ein Markenlogo liest man an seiner laengsten Seite - die soll bei allen gleich
-       * sein, dann stimmen Groesse und Gewicht ueberein. */
-      var longest = Math.max(m.w, m.h);
-      var k = Math.min(w / m.w, h / m.h, size * weight / longest);
-      var s = m.n * k, drawn = m.h * k;
-      /* Nicht die Feldmitte zentrieren, sondern den Abstand zur Namenszeile angleichen:
-       * Netflix ist 75 px hoch, YouTube 47 - mit gleicher Mitte standen ihre Unterkanten
-       * 25 px auseinander, und genau das Auge sieht den Abstand zum Text. Also Unterkante
-       * auf die Textzeile ausrichten, nach oben begrenzt, damit nichts aus dem Feld laeuft. */
-      var top = markBaseline(h, drawn) - m.y * k;
-      st = 'width:' + px(s) + ';height:' + px(s) + ';left:' + px(w / 2 - (m.x + m.w / 2) * k) + ';top:' + px(top);
+      /* Groesse nach FLAECHE, nicht nach der laengsten Seite. Ueber die Laenge wurde
+       * Netflix (13,2 x 24) schmal und Prime Video (12,5 x 2,9) lang und duenn - zwei
+       * Marken, die nie gleich wirken. Gleiche Flaeche heisst: die Wurzel aus Breite mal
+       * Hoehe ist bei allen gleich, dann liest das Auge sie als gleich gross. */
+      var area = Math.sqrt(Math.max(m.w, 0.01) * Math.max(m.h, 0.01));
+      /* Strichstaerke als Feinkorrektur: Disney+ (ink 0.28) wirkt bei gleicher Flaeche
+       * leichter als YouTube (0.89), deshalb bekommt es einen kleinen Zuschlag. Enges
+       * Band, damit die Flaeche die Groesse bestimmt und nicht das Gewicht. */
+      var weight = clamp(Math.pow(0.5 / Math.max(m.ink || 0.5, 0.05), 0.2), 0.90, 1.12);
+      /* size ist die Kantenlaenge, die eine quadratische Marke bekommt (88 im Dock).
+       * Grenzen enger als das Feld: 190 von 232 Breite, 92 von 124 Hoehe. Bei 226/104
+       * lief zuerst Netflix in die Hoehengrenze (wirkte am groessten) und Prime in die
+       * Breitengrenze (breit und flach wie ein Strich). */
+      var k = size * weight / area;
+      k = Math.min(k, 190 / Math.max(m.w, 0.01), 92 / Math.max(m.h, 0.01));
+      /* Das Element ist der GANZE viewBox, nicht die Tinte. Die Maske zieht das SVG mit
+       * mask-size:100% 100% auf die Elementgroesse - war das Element nur so gross wie die
+       * Tinte, wurde der viewBox hineingequetscht und der Versatz ein zweites Mal
+       * addiert. Genau daher kam "Netflix links unten" (sein viewBox ist 24x24, seine
+       * Tinte nur 13,2x24: der Fehler wirkte sich dort am staerksten aus). */
+      mw = m.vw * k; mh = m.vh * k;
+      ml = w / 2 - (m.x - m.vx + m.w / 2) * k;
+      /* markBaseline() gibt schon die OBERKANTE der Grafik zurueck (Unterkante minus
+       * gezeichnete Hoehe). Hier darf die Hoehe deshalb NICHT noch einmal abgezogen
+       * werden - genau das tat der erste Versuch, und alle Marken sassen 108 px zu hoch,
+       * wurden von der Leiste abgeschnitten und wirkten winzig (Netflix 57x52 statt
+       * 59x108, "links unten"). Nur der viewBox-Ursprung wird noch abgezogen. */
+      mt = markBaseline(h, m.h * k) - (m.y - m.vy) * k;
+      st = 'width:' + px(mw) + ';height:' + px(mh) + ';left:' + px(ml) + ';top:' + px(mt);
+      mst = st + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)';
     } else st = 'width:' + w + 'px;height:' + h + 'px;left:0;top:0;object-fit:contain';
+    if (!mst) mst = st;
     probeMark(id);
-    /* Die Maske bekommt das Seitenverhaeltnis der Zeichnung, nicht ein Quadrat: das SVG
-     * wird mit mask-size:100% 100% auf die Elementgroesse gezogen, und bei einem
-     * nicht-quadratischen viewBox (Prime Video: 13 x 3.4) haette das die Grafik verzerrt
-     * bzw. ihre Hoehe unbrauchbar gemacht. */
-    /* mw/mh sind die gezeichnete Groesse, nicht die Box (s): s beschreibt das ganze
-     * 240er-Raster, gezeichnet wird aber nur m.w x m.h daraus. Mit s als Hoehe wurde
-     * Disney+ (184 von 240 hoch) auf 149 px gestreckt und lief in den Namen. */
-    var mw = px(m ? m.w * k : w);
-    var mh = px(m ? m.h * k : h);
-    var mst = m ? ('width:' + mw + ';height:' + mh + ';left:' + px(w / 2 - (m.x + m.w / 2) * k) + ';top:' + px(markBaseline(h, drawn))) : st;
     return '<span class="mark' + (markProbes[id] === 'bad' ? ' is-bad' : '') + '" data-mark="' + id + '" style="width:' + w + 'px;height:' + h + 'px">'
-      + (maskSupport ? '<span class="mk" style="' + mst + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + mst + '">') + '</span>';
+      + (maskSupport ? '<span class="mk" style="' + mst + '"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + st + '">') + '</span>';
   }
   function appMark(a, w, h, size) {
     /* A catalog icon chosen by the user wins: it is drawn as a tinted mask, so it

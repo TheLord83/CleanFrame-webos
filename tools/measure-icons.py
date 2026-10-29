@@ -79,9 +79,28 @@ def decode_png(png):
 
 
 def ink_box(svg):
-    """Lage, Groesse und Strichstaerke der Grafik im quadratisch gezogenen Feld."""
-    px = GRID
-    w, h, rows = decode_png(bytes(resvg_py.svg_to_bytes(svg_string=svg, width=px, height=px)))
+    """Lage, Groesse und Strichstaerke der Grafik - im Koordinatensystem ihres viewBox.
+
+    Gerendert wird im Seitenverhaeltnis des viewBox, nicht in ein Quadrat: Prime Video
+    hat viewBox="5.6 12.6 13 3.4", ein Quadrat-Render staucht das auf ein Drittel
+    zusammen, und alle daraus abgeleiteten Masse sind falsch.
+    """
+    vb = re.search(r'viewBox\s*=\s*"([^"]+)"', svg)
+    if vb:
+        vx, vy, vw, vh = [float(v) for v in re.split(r"[\s,]+", vb.group(1).strip())]
+    else:
+        wm = re.search(r'width\s*=\s*"([\d.]+)', svg)
+        hm = re.search(r'height\s*=\s*"([\d.]+)', svg)
+        vx = vy = 0.0
+        vw = float(wm.group(1)) if wm else 24.0
+        vh = float(hm.group(1)) if hm else 24.0
+    if vw <= 0 or vh <= 0:
+        vw = vh = 24.0
+
+    px = GRID                                   # Breite des Renders in Pixeln
+    py = max(1, int(round(GRID * vh / vw)))     # Hoehe im gleichen Seitenverhaeltnis
+    w, h, rows = decode_png(bytes(resvg_py.svg_to_bytes(svg_string=svg, width=px, height=py)))
+
     top = bot = left = right = None
     count = 0
     for y in range(h):
@@ -98,17 +117,20 @@ def ink_box(svg):
                     right = x
     if top is None or bot is None or left is None or right is None:
         raise SystemExit("nichts gezeichnet")
-    scale = float(GRID) / px
-    box_w = (right - left + 1) * scale
-    box_h = (bot - top + 1) * scale
+
+    u = vw / float(px)                          # Pixel -> Nutzer-Einheiten
+    box_w = (right - left + 1) * u
+    box_h = (bot - top + 1) * u
     return {
         "n": GRID,
-        "x": round(left * scale, 1),
-        "y": round(top * scale, 1),
-        "w": round(box_w, 1),
-        "h": round(box_h, 1),
+        "vx": round(vx, 2), "vy": round(vy, 2),
+        "vw": round(vw, 2), "vh": round(vh, 2),
+        "x": round(vx + left * u, 2),
+        "y": round(vy + top * u, 2),
+        "w": round(box_w, 2),
+        "h": round(box_h, 2),
         # Anteil der Tinte an der eigenen Box = wie dick die Striche sind
-        "ink": round(count * scale * scale / max(box_w * box_h, 1.0), 3),
+        "ink": round(count * u * u / max(box_w * box_h, 1e-6), 3),
     }
 
 
@@ -129,9 +151,8 @@ def main():
         prev = old.get(name)
         if prev and any(abs(prev.get(k, -1) - box[k]) > 1 for k in ("x", "y", "w", "h")):
             changed.append(name)
-        vb = re.search(r'viewBox="([^"]+)"', svg)
-        print("%-14s %-20s x=%6.1f y=%6.1f w=%6.1f h=%6.1f ink=%.3f%s" % (
-            name, vb.group(1) if vb else "-> 24x24", box["x"], box["y"],
+        print("%-14s %-18s x=%6.2f y=%6.2f w=%6.2f h=%6.2f ink=%.3f%s" % (
+            name, "%gx%g" % (box["vw"], box["vh"]), box["x"], box["y"],
             box["w"], box["h"], box["ink"],
             "   <-- Lage geaendert" if name in changed else ""))
 
@@ -140,8 +161,9 @@ def main():
     if write:
         io.open(path, "w", encoding="utf-8").write(
             "/* Gemessen mit tools/measure-icons.py - nicht von Hand pflegen.\n"
-            " * x/y/w/h: Lage und Groesse im 240er-Raster. ink: Strichstaerke\n"
-            " * (gezeichnete Pixel / eigene Box) - daraus kommt das Gewicht. */\n"
+            " * x/y/w/h: Lage und Groesse der Grafik in Nutzer-Einheiten des viewBox,\n"
+            " * vx/vy/vw/vh: der viewBox selbst. ink: Strichstaerke (gezeichnete\n"
+            " * Pixel / eigene Box) - daraus kommt das Gewicht. */\n"
             "window.FrameIconMetrics = "
             + json.dumps(out, separators=(",", ":"), sort_keys=True) + ";\n")
         print("\nmetrics.js geschrieben (%d Icons)" % len(out))

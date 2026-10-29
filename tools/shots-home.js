@@ -77,6 +77,20 @@ http.get({ host: '127.0.0.1', port: 9333, path: '/json/list' }, function (res) {
       send('Page.enable', {}, function () {
         send('Page.navigate', { url: PAGE }, function () {
           setTimeout(function () {
+            /* Auf Wunsch einfarbiger Grund: sonst misst man auf dem Foto die Wolken
+             * statt der Logos (weisse Marken auf hellem Himmel sind nicht trennbar). */
+            if (process.env.PLAIN) {
+              /* Nur die Tapete wegnehmen (die beiden Ebenen #bg und #bootWall), NICHT
+               * alle Bilder: auf webOS sind die Marken selbst <img>, die hat der erste
+               * Versuch mitgeloescht - dann war das Bild leer. */
+              js('(function(){document.body.style.background="#101010";' +
+                 'var b=document.querySelectorAll("#bg,#bootWall,.bg");' +
+                 'for(var i=0;i<b.length;i++){b[i].style.display="none";}' +
+                 'return 1;})()', function () {
+                run();
+              });
+            } else run();
+            function run() {
             // 1) Kachelzone, dritte Kachel (Disney)
             key('right', function () { key('right', function () {
               js(FOCUS, function (a) {
@@ -100,6 +114,7 @@ http.get({ host: '127.0.0.1', port: 9333, path: '/json/list' }, function (res) {
                 });
               });
             }); });
+            }
           }, 4500);
         });
       });

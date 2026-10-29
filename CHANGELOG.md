@@ -3,6 +3,36 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.9 (the logos were off by the height of themselves)
+
+The marks were positioned with a double offset, and the measurement that was supposed to
+prove otherwise measured a distorted render. Both are fixed:
+
+- **`markBaseline()` already returns the top of the drawing** (label line minus the drawn
+  height). The new sizing code subtracted the height a second time, so every mark sat
+  exactly one logo-height too high — 108 px at the dock — and was cut off by the strip.
+  That is why Netflix read as 57 × 52 instead of 59 × 108: not small, but clipped. Only
+  the viewBox origin is subtracted now.
+- **The mask element is the whole viewBox again, not the ink box.** `mask-size: 100% 100%`
+  maps the entire SVG onto the element, so sizing the element to the ink squeezed the
+  viewBox into it while the offset was applied a second time — worst for Netflix, whose
+  viewBox is 24 × 24 but whose ink is only 13.2 × 24 wide.
+- **Metrics are in user units now.** `tools/measure-icons.py` rendered every SVG into a
+  240 square; Prime Video's `viewBox="5.6 12.6 13 3.4"` was squashed to a third, so its
+  numbers were meaningless. It renders at the viewBox aspect and records `vx/vy/vw/vh`
+  plus ink bounds in user units.
+- **Size by area, not by the longest side.** Equal area (geometric mean) makes a portrait
+  mark and a wide wordmark read as equally large; the old longest-side rule made Netflix
+  thin and Prime Video a 232 px line. The mild ink weighting stays (0.90–1.12), and the
+  caps are 190 × 92 so nothing hits the field edge — at 226 × 104 Netflix pinned the
+  height cap and looked the biggest, Prime the width cap and looked like a rule.
+- **Measured on the rendered picture, not in my head**: `tools/measure-render.py` reads
+  the screenshot, clusters the white pixels into six columns, splits mark from label by
+  the largest gap, and prints bottoms, centres and areas. Result: bottoms 814–815 (1 px
+  spread), gap to the name 10–11 px, centres within 1.5 px, areas 4 600–11 088.
+- `tools/shots-home.js` gained `PLAIN=1`: photographs the home screen on a flat
+  background. Without it the measurement read the wallpaper (57 px "Netflix" was a cloud).
+
 ## 0.6.8 (the list view had no way to the utilities)
 
 - **In the list view the utilities were unreachable from the rows.** They sit as a
