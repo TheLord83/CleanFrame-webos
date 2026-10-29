@@ -230,6 +230,7 @@ window.CF_LANG.en = {
   "tv.hold.ok": "Hold OK",
   "tv.hold.title": "Hold the OK key for 0.9 s — opens the tile menu",
   "tv.hold.on": "on the selected tile",
+  "tv.key.cleanframe": "CleanFrame",
   "tv.key.home": "Home",
   "tv.key.back": "Back",
   "tv.key.menu": "Menu",

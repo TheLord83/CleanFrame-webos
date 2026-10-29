@@ -782,24 +782,49 @@ function handle(req, res) {
     });
   }
 
+  /* Apps, die der Hub starten darf. Bewusst eine Liste und kein freier Parameter:
+   * der Hub lauscht im LAN ohne Anmeldung. */
+  var LAUNCHABLE = ['com.webos.app.home', 'com.blackpearl.cleanframe'];
+
+  /* Startet eine App ueber den gekoppelten SSAP-Kanal. Home hat als Rueckfall die
+   * HOME-Taste von Home Assistant (die gibt es dort); fuer CleanFrame gibt es keinen
+   * Rueckfall, weil Home Assistant nur Tasten kennt, keine App-Starts. */
+  function launchApp(appId, withHaFallback, res) {
+    var conf = store.read() || {};
+    function scheitern(errSsap) {
+      if (!withHaFallback) {
+        return json(res, 503, { ok: false, error: String(errSsap || ''), app: appId,
+          hint: 'Fernseher nicht gekoppelt: im Hub unter System auf "Jetzt koppeln"' });
+      }
+      systemkey.press(['home'], (conf.integrations || {}).ha, function (e, reply) {
+        if (!e) return json(res, 200, { ok: true, via: 'homeassistant', sent: reply && reply.pressed });
+        json(res, 503, { ok: false, error: String(e), errorSsap: String(errSsap || ''),
+          hint: 'Fernseher nicht gekoppelt: im Hub unter System auf "Jetzt koppeln"' });
+      });
+    }
+    if (!ssap.status().paired) return scheitern('noch nicht gekoppelt');
+    ssap.launch(appId, { tv: conf.tv || '' }, function (e2, done) {
+      if (!e2) return json(res, 200, { ok: true, via: 'ssap', app: done.app });
+      scheitern(String(e2));
+    });
+  }
+
   /* Home: die Home-Oberflaeche des Fernsehers. Kein Tastencode, sondern ein
    * App-Start - der Home-Knopf der LG-Fernbedienung macht dasselbe. Deshalb laeuft
    * das ueber system.launcher/launch und nicht ueber den Pointer-Socket. */
   if (req.method === 'POST' && p === '/api/tv/home') {
+    return readBody(req, function () { launchApp('com.webos.app.home', true, res); });
+  }
+  /* Beliebige App starten. appId wird gegen eine kurze Liste geprueft: der Endpunkt
+   * haengt ohne Anmeldung im LAN, und ein offener "starte irgendwas"-Aufruf waere
+   * eine Fernbedienung fuer jeden im Netz. */
+  if (req.method === 'POST' && p === '/api/tv/launch') {
     return readBody(req, function (body) {
-      var conf = store.read() || {};
-      function viaHa(errSsap) {
-        systemkey.press(['home'], (conf.integrations || {}).ha, function (e, reply) {
-          if (!e) return json(res, 200, { ok: true, via: 'homeassistant', sent: reply && reply.pressed });
-          json(res, 503, { ok: false, error: String(e), errorSsap: String(errSsap || ''),
-            hint: 'Fernseher nicht gekoppelt: im Hub unter System auf "Jetzt koppeln"' });
-        });
+      var appId = String((body && body.appId) || '');
+      if (LAUNCHABLE.indexOf(appId) < 0) {
+        return json(res, 400, { ok: false, error: 'unbekannte App: ' + appId, allowed: LAUNCHABLE });
       }
-      if (!ssap.status().paired) return viaHa('noch nicht gekoppelt');
-      ssap.launch('com.webos.app.home', { tv: conf.tv || '' }, function (e2, done) {
-        if (!e2) return json(res, 200, { ok: true, via: 'ssap', app: done.app });
-        viaHa(String(e2));
-      });
+      launchApp(appId, false, res);
     });
   }
 

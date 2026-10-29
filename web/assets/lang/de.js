@@ -233,6 +233,7 @@ window.CF_LANG.de = {
   "tv.hold.ok": "OK lange halten",
   "tv.hold.title": "OK-Taste 0,9 s gedrückt halten — öffnet das Kachel-Menü",
   "tv.hold.on": "auf der gewählten Kachel",
+  "tv.key.cleanframe": "CleanFrame",
   "tv.key.home": "Home",
   "tv.key.back": "Zurück",
   "tv.key.menu": "Menü",
