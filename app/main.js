@@ -3158,11 +3158,26 @@
   }
   window.addEventListener('blur', function () { heldKeys = {}; });
   window.addEventListener('focus', function () { release(); focusStage(); after(); updateClock(); });
+  /* webOS haelt die App im Hintergrund am Leben und holt sie beim naechsten Start
+   * nur nach vorne. Der Fokus blieb dann in der obersten Zeile auf "Einstellungen"
+   * stehen, statt wie beim Kaltstart auf den Kacheln zu sein. Beim Zurueckkommen
+   * also zurueck auf die Kacheln - die Auswahl (letzte App) bleibt erhalten. */
+  function focusTilesOnReturn() {
+    var t = top();
+    if (t && t.id === 'home' && (t.f.zone === 'util' || t.f.zone === 'ha')) {
+      t.f.zone = 'apps'; t.f.u = 0; S.lastUtil = 0; ensureSel(); render();
+    }
+  }
   document.addEventListener('visibilitychange', function () {
     heldKeys = {};
     if (document.hidden) { pauseRotation(); clearTimeout(clockTimer); }
-    else { release(); after(); updateClock(); focusStage(); }
+    else { focusTilesOnReturn(); release(); after(); updateClock(); focusStage(); }
   });
+  /* Beim Fortsetzen meldet webOS die App direkt an - je nach Firmware als
+   * webOSRelaunch oder webOSLaunch. Beide abfangen, sonst greift nur der
+   * Sichtbarkeitswechsel. */
+  document.addEventListener('webOSRelaunch', function () { focusTilesOnReturn(); });
+  document.addEventListener('webOSLaunch', function () { focusTilesOnReturn(); });
   window.addEventListener('resize', fit);
 
   /* Readable browser checks use the real state and actions, without fake outcomes. */

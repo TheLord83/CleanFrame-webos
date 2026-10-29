@@ -3,6 +3,17 @@
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew
 Channel shows; the tag matches it.
 
+## 0.6.13 (resuming the app kept the focus in the top row)
+
+webOS keeps the app alive in the background: "starting" CleanFrame again only
+brings it to the front, so it kept whatever was focused last - typically
+"Einstellungen" in the utility row. On return the focus now goes back to the
+app tiles (the selected app stays selected). Hooked on visibilitychange plus
+webOSRelaunch/webOSLaunch, because the firmware differs in which one it sends.
+
+Verified on the panel: focus pushed to the tools, Home, CleanFrame again - the
+ring is back on the Netflix tile.
+
 ## 0.6.12 (up from the strip never reached the tools)
 
 The utilities sit in the top right corner, the Home Assistant strip hangs above
