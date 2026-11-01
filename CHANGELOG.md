@@ -1,3 +1,17 @@
+## 0.6.27
+
+While the focus sat in the tool row at the top right (screen saver, all apps,
+settings), the app bar below still showed a plate behind one tile - it read as
+"this app is selected" although nothing there had the focus. The dock drew that
+remembered marker as `on-sel`, a white 11 % plate.
+
+Now only the tile zone marks a tile. Anywhere else the app bar stays calm; the
+position is still remembered and gets its plate back as soon as the focus returns
+to the tiles.
+
+`test-home-keys.js` gained a fourth check for it: down into the tools, then
+"no tile marked" - no `.is-sel` and no `on-*` on the plate. Putting the old line
+back makes it fail with `plate: "plate on-sel", selTiles: 1` (3/4).
 ## 0.6.26
 
 Diagnostics reported "Configuration folder writable: missing EROFS: read-only

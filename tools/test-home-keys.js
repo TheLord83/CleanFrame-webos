@@ -57,7 +57,11 @@ var ST = (function () {
     'var wx=(window.CleanFrameDebug.wxRoom?CleanFrameDebug.wxRoom():null);' +
     'return JSON.stringify({zone:s.zone,util:u?u.getAttribute("aria-label"):null,room:wx?wx.room:null,place:wx?wx.place:null,' +
     'utilsLeft:uw?Math.round(uw.getBoundingClientRect().left):0,' +
-    'capLeft:cp?Math.round(cp.getBoundingClientRect().left):0});' +
+    'capLeft:cp?Math.round(cp.getBoundingClientRect().left):0,' +
+    /* Die Platte hinter der Kachel und die als "sel" markierten Kacheln: in der
+     * Werkzeugleiste darf beides nicht zu sehen sein. */
+    'plate:(document.querySelector(".dock .plate")||{}).className||"",' +
+    'selTiles:document.querySelectorAll(".dock .tile.is-sel").length});' +
     '})()';
 })();
 var fails = 0, total = 0;
@@ -104,9 +108,19 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
                           check('Fortsetzen bringt den Fokus auf die Kacheln', function (s) {
                             return s.zone === 'apps';
                           }, function () {
-                            console.log('RESULT ' + (total - fails) + '/' + total);
-                            client.close();
-                            process.exit(fails ? 1 : 0);
+                            /* 4) Und wieder hoch: in der Werkzeugleiste ist die
+                             *    App-Leiste nicht markiert (kein "sel", keine Platte).
+                             *    Die gemerkte Kachel ist kein Zustand, den man sieht. */
+                            key('down', function () {
+                              check('in der Werkzeugleiste ist keine Kachel markiert', function (s) {
+                                return s.zone === 'util' && s.selTiles === 0 &&
+                                  String(s.plate).indexOf('on-') < 0;
+                              }, function () {
+                                console.log('RESULT ' + (total - fails) + '/' + total);
+                                client.close();
+                                process.exit(fails ? 1 : 0);
+                              });
+                            });
                           });
                         }, 400);
                       });

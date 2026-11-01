@@ -2340,7 +2340,10 @@
     var items = hs.items, n = items.length, empty = hs.mode !== 'arrange' && !n, g = dockGeom(empty ? -1 : n);
     var anchor = clamp(hs.i, 0, Math.max(0, n - 1)), off = empty ? 0 : dockOffset(n, anchor, g);
     var full = hs.arr ? live(hs.arr.slots).length >= CAP : false, ns = hs.arr ? hs.arr.slots.length : n;
-    var tileFocus = hs.zone === 'apps' || hs.zone === 'tiles', tileSel = hs.zone === 'util' || hs.zone === 'act' || hs.zone === 'ctl' || hs.zone === 'preview';
+    /* Nur die Kachelzone markiert eine Kachel. Steht der Fokus oben in der
+     * Werkzeugleiste (oder irgendwo sonst), bleibt die App-Leiste ruhig: die
+     * gemerkte Position ist kein Zustand, den man als Auswahl sehen soll. */
+    var tileFocus = hs.zone === 'apps' || hs.zone === 'tiles', tileSel = false;
     var focusItem = items[anchor], s, ax, label, width;
 
     dock.className = 'dock' + (empty ? ' is-empty' : '');
@@ -2377,7 +2380,7 @@
       dockEdgeUntil = Date.now() + 220;
       if (!dockEdgeFrame) dockEdgeFrame = window.requestAnimationFrame(trackDockEdges);
     }
-    plate.className = 'plate' + (!n || empty || hs.zone === null ? '' : hs.lifted ? ' on-lift' : tileFocus ? ' on-focus' : tileSel ? ' on-sel' : '');
+    plate.className = 'plate' + (!n || empty || hs.zone === null ? '' : hs.lifted ? ' on-lift' : tileFocus ? ' on-focus' : '');
     plate.style.transform = 'translate3d(' + (anchor * g.pitch) + 'px,0,0)';
 
     cueL.style.left = (g.x - 72) + 'px'; cueR.style.left = (g.x + g.w + 24) + 'px';
