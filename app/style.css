@@ -617,12 +617,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
  * nebeneinander, sie brachen um und schoben die Seite unter den Bildrand
  * (gemessen: Anordnung 237 px, Wetter 841 px zu tief). Die Vorschau beginnt erst
  * bei x 900, 780 px bleiben also frei. */
+/* Eine Breite fuer alle Detailseiten: 700 px enden bei x 840, die Vorschau
+   beginnt bei 858. Vorher standen hier 780 px - die Spalte lief damit 62 px in
+   das Vorschaubild (auf der Hintergrund-Seite an den Auswahlfeldern zu sehen). */
 .detail-layout .appearance-rows,.detail-background .appearance-rows,
 .detail-weather .appearance-rows,.detail-typography .appearance-rows,
-.detail-focus .appearance-rows,.detail-clocklang .appearance-rows{width:780px}
+.detail-focus .appearance-rows,.detail-clocklang .appearance-rows{width:700px}
 /* Wetter und Schrift haben Zeilen statt Reihungen - und brauchen die volle Breite
  * nicht. 140 + 720 = 860 bleibt vor der Vorschau (ab 872). */
-.detail-weather .appearance-rows,.detail-typography .appearance-rows{width:720px}
+.detail-weather .appearance-rows,.detail-typography .appearance-rows{width:700px}
 .detail-weather .appearance-rows>.setting-section+.setting-section,.detail-typography .appearance-rows>.setting-section+.setting-section{margin-top:28px}
 .detail-weather .setting-choice,.detail-typography .setting-choice{min-height:70px;padding:10px 20px;font-size:34px;line-height:42px}
 /* Wetter hat vier Fragen mit je vier Antworten; bei 780 px passen zwei Knoepfe

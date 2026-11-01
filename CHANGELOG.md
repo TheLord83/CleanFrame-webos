@@ -1,3 +1,21 @@
+## 0.6.25
+
+On the background page the option rows ran into the preview picture: the column
+was 780 px wide and ended at x 920, the preview starts at 858 - a 62 px overlap
+right where the fields sit. The layout report never noticed, because `previewLeft()`
+looked for `.preview`, `.phone` and `.tv-frame`; on these pages the preview is the
+`.scene` itself, so it always answered "no preview" and `fits` was only ever
+measured against the screen edge at 1920.
+
+Every settings detail page now uses one column width of 700 px (ends at 840, 18 px
+of air before the preview), and `fits` fails when the column reaches into the
+preview (`intoPreview`). The layout page could not keep its chips: at 700 px the
+three rows of buttons wrapped and the page ran 237 px off the bottom, so it uses
+the same row-with-value pattern as weather and text size.
+
+`tools/probe-preview.js` measures column and preview on all eight pages and
+writes /tmp/preview-background.png.
+
 ## 0.6.23
 
 The brand marks in the dock were not centred. Every mark was anchored to the

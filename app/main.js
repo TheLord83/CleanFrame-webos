@@ -1384,9 +1384,13 @@
       { id: 'rotation', title: T('Rotation'), items: [{ action: 'background.rotation', label: mode().name, disabled: flat }], reason: flat ? T('Choose Photo to use wallpaper and rotation.') : '' }
     ];
     if (t.group === 'layout') return [
-      { id: 'layout', title: T('Layout'), horizontal: true, items: options('layout', ['list', 'dock']) },
-      { id: 'apps', title: T('App display'), horizontal: true, items: options('apps', ['text', 'icons', 'both']) },
-      { id: 'controls', title: T('Home controls'), horizontal: true, items: options('controls', ['text', 'icons', 'both']) }
+      /* Drei Fragen, drei Zeilen - dasselbe Muster wie Wetter und Textgroesse.
+       * Die Knoepfe nebeneinander brauchten 780 px Spaltenbreite; seit die Spalte
+       * 700 px hat (sonst laeuft sie in die Vorschau), brachen sie um und die Seite
+       * lief 237 px aus dem Bild. */
+      { id: 'layout', title: T('Layout'), picker: true, items: options('layout', ['list', 'dock']) },
+      { id: 'apps', title: T('App display'), picker: true, items: options('apps', ['text', 'icons', 'both']) },
+      { id: 'controls', title: T('Home controls'), picker: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
     if (t.group === 'typography') return [{ id: 'font', title: T('Font'), items: options('font', LOOK_VALUES.font) },
       /* Eine Zeile statt acht Knoepfe: der Wert steht in der Zeile, OK klappt die
@@ -3358,7 +3362,10 @@
   /* Linke Kante der Vorschau (TV-Mock rechts neben den Einstellungen). Ohne
    * Vorschau wird die Buehnenbreite gemeldet - dann gibt es nichts zu treffen. */
   function previewLeft() {
-    var cands = document.querySelectorAll('.preview, .appearance-preview, .phone, .tv-frame, .preview-frame'), best = null, i, r, sr = sceneEl.getBoundingClientRect(), scale = (sr.width / 1920) || 1;
+    /* Die Vorschau auf den Detailseiten ist die .scene selbst (Bild + Uhr + Kacheln
+     * im Rahmen). Die alten Namen .preview/.phone/.tv-frame gibt es dort nicht -
+     * deshalb stand hier immer "keine Vorschau" und die Ueberlappung fiel nie auf. */
+    var cands = document.querySelectorAll('.scene, .preview, .appearance-preview, .phone, .tv-frame, .preview-frame'), best = null, i, r, sr = sceneEl.getBoundingClientRect(), scale = (sr.width / 1920) || 1;
     for (i = 0; i < cands.length; i++) {
       r = cands[i].getBoundingClientRect();
       if (!r.width || !r.height) continue;
@@ -3438,7 +3445,11 @@
        * Vorschau" messbar ist und nicht nur eine Meinung. */
       right: right,
       previewLeft: previewLeft(),
-      fits: bottom <= 1080 && right <= 1920 && !overlaps.length,
+      /* Ragt die Spalte in die Vorschau? Das war bisher nirgends geprueft: die
+       * Hintergrund-Seite lief 62 px in das Vorschaubild, gemeldet wurde trotzdem
+       * "fits", weil nur gegen die Bildschirmkante 1920 gemessen wurde. */
+      intoPreview: previewLeft() ? Math.max(0, right - previewLeft()) : 0,
+      fits: bottom <= 1080 && right <= 1920 && !overlaps.length && !(previewLeft() && right > previewLeft()),
       overlaps: overlaps,
       below: items.filter(function (it) { return it.bottom > 1080; }),
       beyond: items.filter(function (it) { return it.right > 1920; }),
@@ -3448,6 +3459,7 @@
   function reportUiState() {
     var st = uiState(), lay = layoutReport();
     st.fits = lay.fits; st.air = lay.air; st.lowest = lay.lowest; st.right = lay.right;
+    st.previewLeft = lay.previewLeft; st.intoPreview = lay.intoPreview;
     if (!lay.fits) st.below = lay.below.map(function (it) { return it.label || it.action; });
     var body = JSON.stringify(st);
     if (body === uiLastReport || typeof fetch !== 'function') return;
