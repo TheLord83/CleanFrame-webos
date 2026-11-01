@@ -1,3 +1,19 @@
+## 0.6.23
+
+The brand marks in the dock were not centred. Every mark was anchored to the
+name line: with names the ink sat 3 px inside the label, and in "icons only"
+mode - where there is no name at all - all six logos ended on the same line at
+the bottom edge of the tile, so a short mark like Prime looked glued down and a
+tall one like Netflix hung low. Mark placement now centres the ink in the space
+it actually has: the full field with icons only, the room above the name with
+icons and text. Measured across six apps: icons only 37/37, 29/29, 53/53 px
+above and below the ink; with names the ink centres line up within 3 px and the
+gap to the label stays 21-45 px.
+
+`tools/probe-dock.js` reads tile, field and the real ink box over the debug port
+and writes both views to /tmp, so the next change to this bar can be measured
+instead of eyeballed.
+
 # Changelog
 
 Newest first. The version in `app/appinfo.json` and in the IPK is the number the Homebrew

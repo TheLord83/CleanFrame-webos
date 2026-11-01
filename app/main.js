@@ -183,7 +183,7 @@
     if (bottom - drawn < 0) bottom = drawn;
     return Math.round(bottom - drawn);
   }
-  function markHtml(id, w, h, size) {
+  function markHtml(id, w, h, size, space) {
     var m = window.FrameIconMetrics && window.FrameIconMetrics[id], st, mst = null, mw = w, mh = h, ml = 0, mt = 0;
     if (m) {
       /* Groesse nach FLAECHE, nicht nach der laengsten Seite. Ueber die Laenge wurde
@@ -213,7 +213,10 @@
        * werden - genau das tat der erste Versuch, und alle Marken sassen 108 px zu hoch,
        * wurden von der Leiste abgeschnitten und wirkten winzig (Netflix 57x52 statt
        * 59x108, "links unten"). Nur der viewBox-Ursprung wird noch abgezogen. */
-      mt = markBaseline(h, m.h * k) - (m.y - m.vy) * k;
+      /* Ohne Namen wird die Tinte in ihrem Platz MITTIG gesetzt. Ueber markBaseline
+       * haengt sie sonst an der Namenszeile - und die gibt es im Modus "nur Symbole"
+       * nicht, also klebte jede Marke am unteren Rand der Kachel. */
+      mt = (space ? Math.round((space - m.h * k) / 2) : markBaseline(h, m.h * k)) - (m.y - m.vy) * k;
       st = 'width:' + px(mw) + ';height:' + px(mh) + ';left:' + px(ml) + ';top:' + px(mt);
       mst = st + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)';
     } else st = 'width:' + w + 'px;height:' + h + 'px;left:0;top:0;object-fit:contain';
@@ -222,11 +225,11 @@
     return '<span class="mark' + (markProbes[id] === 'bad' ? ' is-bad' : '') + '" data-mark="' + id + '" style="width:' + w + 'px;height:' + h + 'px">'
       + (maskSupport ? '<span class="mk" style="' + mst + '"></span>' : '<img alt="" src="' + ICONS + id + '.svg" style="' + st + '">') + '</span>';
   }
-  function appMark(a, w, h, size) {
+  function appMark(a, w, h, size, space) {
     /* A catalog icon chosen by the user wins: it is drawn as a tinted mask, so it
      * takes the text colour like the brand marks do. */
-    if (a.iconKey) return markHtml(a.iconKey, w, h, size);
-    if (a.mark && (maskSupport || S.c.bg !== 'light')) return markHtml(a.brand || a.id, w, h, size);
+    if (a.iconKey) return markHtml(a.iconKey, w, h, size, space);
+    if (a.mark && (maskSupport || S.c.bg !== 'light')) return markHtml(a.brand || a.id, w, h, size, space);
     var words = a.name.split(/\s+/), letters = words[0].charAt(0) + (words.length > 1 ? words[1].charAt(0) : '');
     return '<span class="mark monogram' + (a.icon ? ' native-icon' : '') + '" style="width:' + w + 'px;height:' + h + 'px;font-size:' + Math.round(size * .65) + 'px"><span>' + esc(letters.toUpperCase()) + '</span>'
       + (a.icon ? '<img alt="" data-native-icon="true" src="' + esc(a.icon) + '">' : '') + '</span>';
@@ -2304,7 +2307,10 @@
     var a, body;
     if (it.kind === 'add') return '<span class="add">' + icon('plus') + '</span><span class="label">' + (full ? T('Home is full') : T('Add app')) + '</span>';
     a = app(it.id);
-    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 178 : 232, S.c.apps === 'icons' ? 130 : 124, S.c.apps === 'icons' ? 100 : 118);
+    /* Wie viel Platz hat die Marke? Bei "nur Symbole" das ganze Feld, bei "Symbole
+     * und Text" der Raum ueber der Namenszeile (CSS: Name ab 140, Markenfeld ab 14,
+     * 14 px Luft dazwischen). Die Tinte sitzt darin mittig, nicht am unteren Rand. */
+    body = S.c.apps === 'text' ? '' : appMark(a, S.c.apps === 'icons' ? 178 : 232, S.c.apps === 'icons' ? 130 : 124, S.c.apps === 'icons' ? 100 : 118, S.c.apps === 'icons' ? 130 : 112);
     return body + (S.c.apps === 'icons' ? '' : '<span class="label" style="font-size:' + dockLabelSize(a.id) + 'px;top:' + ((S.c.apps === 'text' ? 28 : 140) + fontShift('primary', dockLabelSize(a.id))) + 'px"><span class="label-ink">' + esc(a.name) + '</span></span>') + '<span class="nudge nudge-l">' + icon('left') + '</span><span class="nudge nudge-r">' + icon('right') + '</span>';
   }
   /* A wide label can reach the shelf before its icon. Check the rendered icon box,
