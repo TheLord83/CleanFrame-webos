@@ -50,7 +50,7 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.25';
+var VERSION = '0.6.26';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -486,7 +486,11 @@ function handle(req, res) {
   }
 
   if (req.method === 'GET' && p === '/api/diag') {
-    return diag.run({ configPath: path.basename(CONFIG_PATH) }, function (out) {
+    /* Voller Pfad fuer die Pruefung, kurzer Name fuer die Anzeige: mit
+     * path.basename() landete die Schreibpruefung im Programmordner (auf dem
+     * Fernseher ein schreibgeschuetztes Squashfs) und meldete "EROFS", obwohl die
+     * Konfiguration unter /var/lib/cleanframe/ einwandfrei schreibbar ist. */
+    return diag.run({ configPath: CONFIG_PATH, configLabel: path.basename(CONFIG_PATH) }, function (out) {
       json(res, out.ok ? 200 : 200, out);
     });
   }

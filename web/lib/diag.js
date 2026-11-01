@@ -47,15 +47,21 @@ function run(opts, cb) {
     });
   }
 
+  /* Angezeigt wird nur der Dateiname (der volle Pfad geht niemanden im LAN etwas
+   * an), geprueft wird der Ordner, in dem die Datei liegt. */
+  var shown = opts.configLabel || require('path').basename(opts.configPath || '');
   add('Konfigurationsdatei lesbar', 'Configuration file readable',
-      !!opts.configPath, opts.configPath || 'kein Pfad');
+      !!opts.configPath, shown || 'kein Pfad');
   try {
     var dir = require('path').dirname(opts.configPath);
+    if (!opts.configPath) throw new Error('kein Pfad');
     configLib.mkdirp(dir);
     fs.accessSync(dir, fs.constants.W_OK);
-    add('Konfigurationsordner schreibbar', 'Configuration folder writable', true, dir);
+    add('Konfigurationsordner schreibbar', 'Configuration folder writable', true,
+        require('path').basename(dir));
   } catch (e) {
-    add('Konfigurationsordner schreibbar', 'Configuration folder writable', false, String(e && e.message));
+    add('Konfigurationsordner schreibbar', 'Configuration folder writable', false,
+        String((e && e.code) || (e && e.message)));
   }
 
   add('Root-Rechte', 'Root privileges',

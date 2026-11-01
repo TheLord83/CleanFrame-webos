@@ -709,6 +709,15 @@ def main():
             names = [c["name"] for c in d["checks"]]
             assert any("Konfigurationsordner" in n for n in names), names
             assert any("Glasshouse" in n for n in names), names
+            # Der Ordner mit der Konfiguration ist hier schreibbar - der Test hat
+            # das nie geprueft, deshalb blieb unbemerkt, dass der Server der
+            # Pruefung nur den Dateinamen gab und sie damit im (auf dem Fernseher
+            # schreibgeschuetzten) Programmordner landete: "EROFS".
+            folder = [c for c in d["checks"] if "Konfigurationsordner" in c["name"]][0]
+            assert folder["ok"] is True, folder
+            # Gemeldet wird der Ordner der Konfigurationsdatei - nicht "." (der
+            # Programmordner), denn der ist auf dem Fernseher schreibgeschuetzt.
+            assert folder["detail"] == os.path.basename(os.path.dirname(cfg_path)), folder
             # Glasshouse deliberately does not run here -> the check must be false
             gh = [c for c in d["checks"] if "Glasshouse" in c["name"]][0]
             assert gh["ok"] is False, "dead port 9 should have failed"

@@ -1,3 +1,15 @@
+## 0.6.26
+
+Diagnostics reported "Configuration folder writable: missing EROFS: read-only
+file system, access '.'" on the TV, while saving settings worked fine. The hub
+handed the check `path.basename(CONFIG_PATH)` - just `config.json` - so the check
+tested the process working directory, which is the app folder inside a read-only
+squashfs. It now gets the full path and reads the folder from it; the interface
+still only shows the folder's name, never the path.
+
+The API test asserted only that the check exists, not what it says, which is why
+this could sit there. It now requires `ok` and the real folder name - verified by
+putting the old line back: the stage fails with `detail: '.'`.
 ## 0.6.25
 
 On the background page the option rows ran into the preview picture: the column
