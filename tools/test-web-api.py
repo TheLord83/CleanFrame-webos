@@ -9,6 +9,7 @@ Usage:  python3 tools/test-web-api.py
 """
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -547,7 +548,11 @@ def main():
             assert "hardwareId" not in d, d
             assert "osPath" not in d and "devicePath" not in d, d
             assert d["board"] and d["ram"], d
-            assert d["hub"] == "0.6.22", d
+            # Nicht auf eine feste Nummer pruefen: der Fernseher traegt die zuletzt
+            # installierte Fassung, das Repo laengst eine neuere. Genau daran ist
+            # dieser Test gescheitert, als 0.6.23 auf dem Geraet lag (hier stand
+            # "0.6.22"). Geprueft wird die Form, nicht der Stand.
+            assert re.match(r"^\d+\.\d+\.\d+$", str(d["hub"])), d
             assert d["node"], d
 
         def t_tv_screenshot():
