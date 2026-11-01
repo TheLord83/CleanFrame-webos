@@ -563,6 +563,16 @@ def main():
             assert d["width"] == 1920 and d["height"] == 1080, d
             assert d["file"].endswith(".png"), d
 
+        def t_tv_screenshot_keeps_ratio():
+            # Nur eine Kante angegeben: die andere muss aus dem Bildverhaeltnis
+            # folgen. Vorher blieb die Hoehe auf 1080 stehen, das Bild kam
+            # gestaucht heraus (1600x1080 statt 1600x900).
+            st, d, _ = req("POST", "/api/tv/screenshot", {"format": "PNG", "width": 1600})
+            assert st == 200 and d["ok"], (st, d)
+            assert (d["width"], d["height"]) == (1600, 900), (d["width"], d["height"])
+            st, d, _ = req("POST", "/api/tv/screenshot", {"format": "PNG", "height": 540})
+            assert st == 200 and (d["width"], d["height"]) == (960, 540), (d["width"], d["height"])
+
         def t_tv_screenshot_png():
             st, body, hdrs = req("GET", "/api/tv/screenshot.png", raw=True)
             assert st == 200, st
@@ -1029,6 +1039,7 @@ def main():
             ("screenshot without a device reports an error", t_tv_snapshot_without_tv),
             ("/api/tv/info returns model, webOS and firmware", t_tv_info),
             ("POST /api/tv/screenshot captures the whole screen", t_tv_screenshot),
+            ("a screenshot with one edge keeps the picture's ratio", t_tv_screenshot_keeps_ratio),
             ("GET /api/tv/screenshot.png delivers the picture", t_tv_screenshot_png),
             ("default configuration is empty and valid", t_config_default),
             ("catalog comes from the stub and contains system apps", t_catalog),

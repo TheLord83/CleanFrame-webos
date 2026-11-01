@@ -50,12 +50,26 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.27';
+var VERSION = '0.6.28';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
 var CONFIG_PATH = process.env.CF_CONFIG || '/var/lib/cleanframe/config.json';
 var ASSETS = path.join(__dirname, 'assets');
+
+/* Die Bildschirmaufnahme skaliert selbst - auf genau die Zahlen, die man ihr
+ * gibt. Wer nur ?width=1600 schickt, bekam deshalb 1600x1080 zurueck, also ein
+ * gestauchtes Bild (die Hoehe blieb auf dem Vorgabewert). Fehlt eine Kante,
+ * wird sie aus dem Verhaeltnis der Anzeige gerechnet (1920x1080). */
+var SCREEN_RATIO = 1080 / 1920;
+function shotSize(width, height) {
+  var w = parseInt(width, 10) || 0, h = parseInt(height, 10) || 0;
+  if (w && !h) h = Math.round(w * SCREEN_RATIO);
+  else if (h && !w) w = Math.round(h / SCREEN_RATIO);
+  if (w) w = Math.min(1920, Math.max(160, w));
+  if (h) h = Math.min(1080, Math.max(90, h));
+  return { width: w || undefined, height: h || undefined };
+}
 var TV_BASE = process.env.CF_GLASSHOUSE || 'http://127.0.0.1:8080';
 /* The icons live with the launcher (one source for TV and web interface).
  * The path points at the installed app directory; if it is missing (test
@@ -690,8 +704,9 @@ function handle(req, res) {
   if (req.method === 'POST' && p === '/api/tv/screenshot') {
     return readBody(req, function (body, err) {
       if (err) return json(res, 400, { ok: false, error: err });
-      screen.capture({ format: body && body.format, width: body && body.width,
-        height: body && body.height }, function (e2, info) {
+      var postSize = shotSize(body && body.width, body && body.height);
+      screen.capture({ format: body && body.format, width: postSize.width,
+        height: postSize.height }, function (e2, info) {
         if (e2) return json(res, 502, { ok: false, error: String(e2.message || e2) });
         /* Keep the file: the interface fetches it right afterwards and it is gone from /tmp then. */
         json(res, 200, { ok: true, file: info.file, bytes: info.bytes, width: info.width,
@@ -707,11 +722,10 @@ function handle(req, res) {
     var wantsJpg = p.indexOf('.jpg') > 0;
     var q = url.parse(req.url, true).query || {};
     /* Small sizes for the live view in the interface: the capture service scales itself. */
-    var w = parseInt(q.width, 10) || 0;
-    var h = parseInt(q.height, 10) || 0;
+    var size = shotSize(q.width, q.height);
     return (function () {
-      screen.capture({ format: wantsJpg ? 'JPG' : 'PNG', width: w || undefined,
-        height: h || undefined }, function (e2, info) {
+      screen.capture({ format: wantsJpg ? 'JPG' : 'PNG', width: size.width,
+        height: size.height }, function (e2, info) {
         if (e2) return json(res, 502, { ok: false, error: String(e2.message || e2) });
         var stream;
         try {
