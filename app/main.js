@@ -82,9 +82,9 @@
   var MSG = {
     leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] },
     /* Die Einrichtung laeuft im Browser des Hubs, nicht auf dem Fernseher. */
-    setup: { title: T('Setup in the browser'),
-      line: T('The setup runs in the hub in your browser. It opens the next time you call up the hub.'),
-      note: T('This screen stays as it is.'), actions: [['stay', T('OK')]] }
+    setup: { title: T('Setup on your phone'), qr: true,
+      line: T('Scan the code with your phone. The setup runs in the browser and opens right away.'),
+      note: T('The television stays as it is.'), actions: [['stay', T('OK')]] }
   };
   var SVG = {
     art: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.8" r="1.5"/><path d="m4.5 17.5 4.5-4.5 3 3 2.5-2.5 5 5"/>',
@@ -754,8 +754,14 @@
     /* Gemessen, nicht angenommen: die Werteleiste sitzt mit ihrem unteren Rand
      * oberhalb des Docks (renderHaStrip: top = dockTop - h - 24), die Werkzeuge
      * darunter. Also geht "hinaus" nach oben in die Leiste und "hinein" nach unten
-     * zu den Werkzeugen. */
-    return { prev: v ? 'up' : 'left', next: v ? 'down' : 'right', out: v ? 'right' : 'up', inn: v ? 'left' : 'down' };
+     * zu den Werkzeugen.
+     *
+     * Fehlt die Leiste (keine Werte eingerichtet), gibt es oben nichts zu
+     * erreichen - dann fuehrt "oben" in die Werkzeuge. Vorher lief es ins Leere:
+     * runter kam man zu den Werkzeugen, hoch von dort aber nirgendwohin, und aus
+     * den Kacheln ging hoch gar nichts. */
+    if (v) return { prev: 'up', next: 'down', out: 'right', inn: haChips().length ? 'left' : 'up' };
+    return { prev: 'left', next: 'right', out: 'up', inn: 'down' };
   }
   function utilAction(u) {
     if (u === 'art') perform(T('Screensaver'), FrameDevice.art);
@@ -912,6 +918,10 @@
         f.h = haEntryChip(i, h.length, haChips().length);
       }
       else if (k === x.inn) { f.zone = 'util'; f.u = U.length - 1; S.lastUtil = f.u; }
+      /* Ohne Werteleiste ist "oben" an den Werkzeugen vorbei ins Leere gelaufen -
+       * von dort kam man mit "runter" zurueck in die Kacheln. Jetzt fuehrt oben
+       * in die Werkzeuge, so wie unten aus den Kacheln heraus. */
+      else if (k === x.out && !haChips().length) { f.zone = 'util'; f.u = U.length - 1; S.lastUtil = f.u; }
       else if (k === 'back') openRecent();
       else if (!h.length) { if (k === 'ok') addAppsRoute(); }
       else if (k === x.prev && i > 0) setSel(h[i - 1]);
@@ -1251,8 +1261,8 @@
   function openSetupAgain() {
     /* Die Browserseite des Hubs haengt am selben Dienst, die App kann sie nicht
      * oeffnen (kein Browser auf dem Geraet). Deshalb: Flag oeffnen, damit der
-     * Hub beim naechsten Aufruf den Assistenten zeigt, und eine Zeile sagen,
-     * was zu tun ist - statt still zu laden und nichts zu zeigen. */
+     * Hub beim naechsten Aufruf den Assistenten zeigt, und ein QR-Code zur
+     * Hub-Adresse - abtippen ist mit der Fernbedienung keine Option. */
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
     cfg.onboarding = { done: false, version: 1 };
     S.serverCfg = cfg;
@@ -1361,7 +1371,7 @@
    * aus der Sprache. Eigene Action-Praefixe, weil setLook nur Aussehen kennt und
    * die Wetterzeile in den Integrationen wohnt. */
   var WX_LABELS = {
-    wxStyle: { 'icon-temp': T('Symbol and temperature'), icon: T('Symbol only'), 'icon-temp-text': T('Symbol, temperature and word'), 'temp-text': T('Text only') },
+    wxStyle: { none: T('Off'), 'icon-temp': T('Symbol and temperature'), icon: T('Symbol only'), 'icon-temp-text': T('Symbol, temperature and word'), 'temp-text': T('Text only') },
     wxPos: { left: T('Before the clock'), right: T('Next to the clock'), below: T('Under the clock'), end: T('Right edge') },
     wxSize: { small: T('Small'), normal: T('Normal'), large: T('Large') },
     wxGap: { '20': T('Close'), '72': T('Normal'), '110': T('Wide'), '150': T('Very wide') }
@@ -1384,6 +1394,32 @@
     var scale = parseInt(ui.textScale, 10);
     if (!isFinite(scale)) scale = 100;
     return scale + ' %' + (ui.senior ? ' · ' + T('Senior mode') : '');
+  }
+  /* Ort der Wetterzeile: Text eintippen, OK loest die Suche im Hub aus
+   * (dieselbe Adresse /api/weather/place, die die Browserseite benutzt). */
+  function weatherPlace(text) {
+    var name = String(text || '').trim();
+    if (!name) { pop(); render(); return; }
+    S.note = T('Looking up the place ...');
+    render();
+    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
+    cfg.integrations = cfg.integrations || {};
+    cfg.integrations.weather = cfg.integrations.weather || {};
+    cfg.integrations.weather.place = name;
+    if (cfg.integrations.weather.style === 'none') cfg.integrations.weather.style = 'icon-temp';
+    applyConfig(function (c) {
+      c.integrations = c.integrations || {};
+      c.integrations.weather = c.integrations.weather || {};
+      c.integrations.weather.place = name;
+      if (c.integrations.weather.style === 'none') c.integrations.weather.style = 'icon-temp';
+    }, function (ok) {
+      S.note = ok ? T('Place saved: ') + name : T('The place could not be saved.');
+      pop(); render();
+    });
+  }
+  function wxPlaceName() {
+    var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+    return String(w.place || '');
   }
   function weatherSummary() {
     var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
@@ -1425,10 +1461,18 @@
        * direkt darunter auf. Vorher standen hier bis zu vier Knoepfe pro Frage
        * untereinander - die Seite war voll und der Titel lag auf der ersten
        * Ueberschrift. */
-      { id: 'wxStyle', title: T('Shown as'), picker: true, items: wxChoices('wxStyle', ['icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      /* Die erste Antwort schaltet die Zeile ab. Vorher gab es am Fernseher gar
+       * keinen Schalter: die Browserseite des Hubs hatte einen, die App nicht,
+       * also liess sich ein abgeschaltetes Wetter am Geraet nicht wieder
+       * einschalten. "Off" ist derselbe Stil-Wert, den die Browserseite schreibt. */
+      { id: 'wxStyle', title: T('Shown as'), picker: true, items: wxChoices('wxStyle', ['none', 'icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
       { id: 'wxSize', title: T('Size'), picker: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
       { id: 'wxPos', title: T('Where it sits'), picker: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
-      { id: 'wxGap', title: T('Distance from the clock'), picker: true, items: wxChoices('wxGap', [20, 72, 110, 150]) }
+      { id: 'wxGap', title: T('Distance from the clock'), picker: true, items: wxChoices('wxGap', [20, 72, 110, 150]) },
+      /* Der Ort fehlte am Geraet ganz: ohne ihn konnte man die Zeile weder
+       * nachtragen noch korrigieren, wenn der Hub noch keinen Ort kannte. */
+      { id: 'wxPlace', title: T('Place'), items: [
+        { action: 'weather.place', label: wxPlaceName() || T('Not set') || 'Not set', edit: true }] }
     ];
     if (t.group === 'focus') return [
       { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
@@ -1519,6 +1563,12 @@
     else if (item.axis === 'textScale') applyTextScale(parseInt(item.value, 10));
     else if (item.axis && item.axis.indexOf('wx') === 0) applyWeatherChoice(item.axis, item.value);
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
+    else if (item.action === 'weather.place') {
+      resetSheet();
+      push({ id: 'rename', text: wxPlaceName(), place: true, f: { i: wxPlaceName().length, zone: 'ok' } });
+      render(); renderSheet(top(), true);
+      return;
+    }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
     else if (item.action === 'clock.set.off') setClock(false);
@@ -1605,6 +1655,24 @@
     }
   };
   function messageContent(t) { return t.content || MSG[t.msg]; }
+  /* QR-Code als SVG: je Modul ein Quadrat in einem Pfad, damit es ein Element
+   * bleibt. Ohne die Datei (aeltere Installation) kommt eine leere Zeichenkette
+   * zurueck, der Dialog bleibt dann ohne Bild. */
+  function qrSvg() {
+    var q = window.CleanFrameQr && window.CleanFrameQr.setup;
+    if (!q || !q.rows || !q.rows.length) return '';
+    var n = q.size, quiet = 2, d = '', y, x;
+    for (y = 0; y < n; y++) {
+      for (x = 0; x < n; x++) {
+        if (q.rows[y].charAt(x) === '1') d += 'M' + (x + quiet) + ' ' + (y + quiet) + 'h1v1h-1z';
+      }
+    }
+    var side = n + quiet * 2;
+    return '<svg class="msg-qr" viewBox="0 0 ' + side + ' ' + side + '" role="img" aria-label="'
+      + esc(q.url) + '" shape-rendering="crispEdges"><rect width="' + side + '" height="' + side
+      + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>'
+      + '<p class="msg-qr-url">' + esc(q.url) + '</p>';
+  }
 
   /* ---------- webOS port: context menu via long OK ---------- */
   function ctxActions(t) {
@@ -1736,6 +1804,7 @@
     key: function (t, k) {
       if (k === 'back') { pop(); render(); return; }
       if (k === 'ok') {
+        if (t.place) { weatherPlace(t.text); return; }
         if (t.entity) { entityRename(t.entity, t.text); pop(); render(); return; }
         homeRename(t.app, t.text); pop(); render(); return;
       }
@@ -2540,6 +2609,16 @@
     }
     FILLS[t.id](t, slotEls);
   }
+  /* Passt die Karte unter die Zeile? Sie ist 560 px breit und je Antwort rund
+   * 72 px hoch; bleibt unten weniger als das, klappt sie nach oben auf. */
+  function pickerFitsBelow(section) {
+    var head = appearanceRows.querySelector('.setting-section.is-picker.is-open .pick-row');
+    if (!head) return true;
+    var rows = (section && section.items ? section.items.length : 0);
+    var need = rows * 72 + 24;
+    var r = head.getBoundingClientRect();
+    return (window.innerHeight || 1080) - r.bottom > need;
+  }
   function renderAppearance(t) {
     appearanceEl.hidden = !isSettingsDetail(t);
     if (appearanceEl.hidden) { appearanceEl.removeAttribute('aria-modal'); return; }
@@ -2593,6 +2672,14 @@
         var r = sec.getBoundingClientRect();
         if (r.bottom > cr.top + 2 && r.top < cr.bottom - 2) sec.className += ' is-covered';
       });
+      /* Steht unter der Zeile zu wenig Platz, klappt die Karte nach oben auf.
+       * Muss hier passieren: jetzt erst steht ihre Hoehe fest. */
+      /* Die Buehne ist im eigenen Koordinatensystem immer 1080 hoch und wird nur
+       * per transform verkleinert - gemessen wird deshalb dort, nicht im Fenster:
+       * im Pruefstand ist das Fenster 937 px hoch, auf dem Fernseher 1080. */
+      var stageH = (stage && stage.offsetHeight) || 1080;
+      var cardBottomInStage = cr.bottom;
+      if (cardBottomInStage > stageH - 12) openSec.className += ' is-upward';
     })();
     if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
     else if (error) {
@@ -2733,8 +2820,8 @@
     settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
     rename: function (t) {
       var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
-      return '<h2 class="s-title">' + T('Rename') + '</h2>'
-        + '<p class="s-sub">' + esc(t.entity || (a ? a.name : t.app)) + '</p>'
+      return '<h2 class="s-title">' + (t.place ? T('Place') : T('Rename')) + '</h2>'
+        + '<p class="s-sub">' + esc(t.place ? T('Town or region') : (t.entity || (a ? a.name : t.app))) + '</p>'
         + '<div class="rename-box" data-z="rename-text"><span>' + esc(cur) + '</span><i class="rename-caret"></i><span>' + esc(rest) + '</span></div>'
         + '<div class="settings-overview" data-slot="list">'
         + '<button type="button" tabindex="-1" class="settings-group' + (t.f.zone === 'ok' ? ' is-focus' : '') + '" data-z="rename-ok">'
@@ -2772,7 +2859,13 @@
     },
     message: function (t) {
       var m = messageContent(t);
-      return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p><p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
+      /* Der Einrichtungs-Hinweis zeigt einen QR-Code zur Hub-Seite: abtippen kann
+       * man eine Adresse mit der Fernbedienung nicht, und der Assistent laeuft
+       * nur im Browser. Die Matrix kommt als Script-Datei (assets/qr-setup.js),
+       * das Zeichnen ist ein paar Zeilen SVG. */
+      var qr = m.qr ? qrSvg() : '';
+      return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p>'
+        + qr + '<p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
     }
   };
   function gridTileHtml(id) {

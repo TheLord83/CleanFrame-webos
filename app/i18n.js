@@ -17,6 +17,12 @@
       'Text size': 'Schriftgröße',
       'Weather': 'Wetter',
       'Shown as': 'Anzeige',
+      'Place': 'Ort',
+      'Town or region': 'Ort oder Region',
+      'Not set': 'Nicht gesetzt',
+      'Looking up the place ...': 'Ort wird gesucht ...',
+      'Place saved: ': 'Ort gespeichert: ',
+      'The place could not be saved.': 'Der Ort konnte nicht gespeichert werden.',
       'Where it sits': 'Wo sie steht',
       'Size': 'Größe',
       'Distance from the clock': 'Abstand zur Uhr',
@@ -173,10 +179,10 @@
 
       /* Dialogs */
       'Leave Home?': 'Startseite verlassen?',
-      'Setup in the browser': 'Einrichtung im Browser',
-      'The setup runs in the hub in your browser. It opens the next time you call up the hub.':
-        'Die Einrichtung läuft im Hub im Browser. Sie öffnet sich, wenn du den Hub das nächste Mal aufrufst.',
-      'This screen stays as it is.': 'Dieser Bildschirm bleibt, wie er ist.',
+      'Setup on your phone': 'Einrichtung am Handy',
+      'Scan the code with your phone. The setup runs in the browser and opens right away.':
+        'Scanne den Code mit dem Handy. Die Einrichtung läuft im Browser und öffnet sich sofort.',
+      'The television stays as it is.': 'Der Fernseher bleibt, wie er ist.',
       'Open LG Home?': 'LG Startseite öffnen?',
       'Stay': 'Bleiben',
       'Back': 'Zurück',

@@ -1,23 +1,20 @@
-## 0.6.30
+## 0.6.31
 
-"Run setup again" pushed a screen that does not exist under that id (`msg` instead of
-`message`), so the entry still did nothing visible. It now opens the hub's setup notice.
-Removed a copy of the old picker label as well.
+Working through the list from testing on the TV.
 
-## 0.6.29
+Without the value strip the top of the home screen led nowhere: from the tiles
+"up" did nothing, and the tool row could only be reached with "down" from below.
+"Up" now enters the tools as well, and from the tiles it goes there directly.
 
-Three findings from testing on the TV.
+The weather page grew the answers of the first question as a list that pushed the
+rows below it: choosing the next answer moved to the next question instead of the
+next answer. Rows and answers are one page per picker now; the card opens upward
+when there is no room below, so the fifth row stays in the picture (36 px air).
 
-The collapsed rows of the weather page showed the current value where the
-question belongs - "Right edge" stood under the heading and then again as the
-answer, and with another position "Normal" appeared twice. The question now sits
-in the row, the value stays where it was.
+Two things were missing on the weather page at all: a switch to turn it on again
+("Off" as the first answer) and the place. The place opens a small text dialog and
+hands the name to the hub, the same call the browser page uses.
 
-"Run setup again" reloaded the launcher, which changed nothing on the TV: only
-the browser side of the hub reads `onboarding.done`. The row now opens the hub's
-setup on the next visit and says so in a dialog instead of reloading silently
-into the same screen.
-
-The picker rows carry the question in their label, so the arrow keys and the
-screen reader have a name for the row; test-picker checks that four questions
-appear once each and that no two rows show the same value.
+"Run setup again" now shows a QR code to the hub instead of describing a screen
+the television cannot show; the matrix comes from tools/make-qr.py (checked with a
+decoder). Choosing a language still reloads: the texts are built at startup.

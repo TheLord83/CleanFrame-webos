@@ -41,7 +41,23 @@ function wsConnect(url, onMessage, onOpen) {
 }
 var client, id = 0, waiting = {};
 function send(me, pa, cb) { var n = ++id; waiting[n] = cb || function () {}; client.send({ id: n, method: me, params: pa || {} }); }
-function js(e, cb) { send('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true }, function (msg) { var r = msg.result && msg.result.result; cb(r ? (typeof r.value !== 'undefined' ? r.value : r.description) : undefined); }); }
+var consoleErrors = [];
+function js(e, cb) {
+  send('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true }, function (msg) {
+    var r = msg.result && msg.result.result;
+    var v = r ? (typeof r.value !== 'undefined' ? r.value : r.description) : undefined;
+    /* Ein Fehler in der Seite kommt als Text zurueck und liess das Werkzeug
+     * vorher mit "Unexpected token" abbrechen, ohne zu sagen, was kaputt ist. */
+    if (finished) return;
+    if (typeof v === 'string' && /^(TypeError|ReferenceError|SyntaxError)/.test(v)) {
+      console.log('  FEHL  Seite meldet:');
+      console.log(v.split('\n').slice(0, 8).map(function (l) { return '        ' + l; }).join('\n'));
+      finish();
+      return;
+    }
+    cb(v);
+  });
+}
 function key(name, cb) {
   var M = { up: ['ArrowUp', 38], down: ['ArrowDown', 40], left: ['ArrowLeft', 37], right: ['ArrowRight', 39], ok: ['Enter', 13] }[name];
   send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: M[0], code: M[0], windowsVirtualKeyCode: M[1] }, function () {
@@ -55,7 +71,7 @@ function key(name, cb) {
  *
  *   node tools/test-picker.js --port 9333
  */
-var MIN_AIR = 30, results = [];
+var MIN_AIR = 30, results = [], finished = false;
 
 function ev(e, cb) { js(e, function (v) { cb(JSON.parse(v)); }); }
 function press(keys, cb) { ev('JSON.stringify(CleanFrameDebug.press(' + JSON.stringify(keys) + '))', cb); }
@@ -66,7 +82,9 @@ function check(ok, name, note) {
 function rows(cb) {
   ev('(function(){var out=[];var s=document.querySelectorAll(".setting-section");' +
      'for(var i=0;i<s.length;i++){var b=s[i].querySelector(".pick-row"),l=s[i].querySelector(".setting-label");' +
-     'if(!b&&!l)continue;out.push({q:l?l.textContent.trim():"",v:b?b.querySelector(".setting-name").textContent.trim():null,' +
+     'var v=b?b.querySelector(".setting-name").textContent.trim():null;' +
+     'if(!v){var n=s[i].querySelector(".setting-name");v=n?n.textContent.trim():null;}' +
+     'if(!b&&!l)continue;out.push({q:l?l.textContent.trim():"",v:v,' +
      'open:!!s[i].className.match(/is-open/),covered:!!s[i].className.match(/is-covered/),' +
      'opts:s[i].querySelectorAll(".picker-list .setting-choice").length});}' +
      'var card=document.querySelector(".picker-list");' +
@@ -74,11 +92,15 @@ function rows(cb) {
 }
 function goTo(action, cb, tries) {
   tries = tries || 0;
-  if (tries > 16) return cb(false);
+  if (tries > 22) return cb(false);
   ev('JSON.stringify(CleanFrameDebug.focus())', function (f) {
     if (f.action === action) return cb(true);
-    press(['down'], function (f2) {
-      if (f2.action === f.action) press(['right'], function (f3) { goTo(action, cb, tries + 1); });
+    /* Die Einstellungsliste ist zweispaltig: runter bis zum Ende, dann rechts
+     * in die zweite Spalte und dort nach oben - oder direkt hoch, wenn der
+     * Eintrag weiter oben steht. */
+    var useUp = (tries % 3) === 2;
+    press([useUp ? 'up' : 'down'], function (f2) {
+      if (f2.action === f.action) press(['right'], function () { goTo(action, cb, tries + 1); });
       else goTo(action, cb, tries + 1);
     });
   });
@@ -87,6 +109,9 @@ function toSettings(cb, tries) {
   tries = tries || 0;
   ev('JSON.stringify(CleanFrameDebug.focus())', function (f) {
     if (f.view === 'settings') return cb();
+    /* Ein offener Hinweis (z. B. der Einrichtungs-Dialog auf der letzten Zeile)
+     * wird mit OK geschlossen - "back" wuerde aus den Einstellungen herausfuehren. */
+    if (f.view === 'message') return press(['ok'], function () { toSettings(cb, tries + 1); });
     if (f.view !== 'home') return press(['back'], function () { toSettings(cb, tries + 1); });
     press(['down'], function () { press(['ok'], function () { toSettings(cb, function () { cb(); }, tries + 1); }); });
   });
@@ -105,27 +130,39 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
   var b = ''; res.on('data', function (c) { b += c; }); res.on('end', function () {
     var page = JSON.parse(b).filter(function (t) { return t.type === 'page'; })[0];
     client = wsConnect(page.webSocketDebuggerUrl, function (raw) {
-      var m = JSON.parse(raw); if (m.id && waiting[m.id]) { waiting[m.id](m); delete waiting[m.id]; }
+      var m = JSON.parse(raw);
+      if (m.id && waiting[m.id]) { waiting[m.id](m); delete waiting[m.id]; return; }
+      if (m.method && client.onEvent) client.onEvent(m);
     }, function () {
+      client.onEvent = function (m) {
+        if (m.method === 'Runtime.exceptionThrown') {
+          var d = m.params && m.params.exceptionDetails || {};
+          consoleErrors.push((d.exception && d.exception.description || d.text || 'Fehler').split('\n')[0]);
+        }
+      };
+      send('Runtime.enable', {}, function () {
       send('Page.enable', {}, function () { send('Page.navigate', { url: PAGE }, function () {
         setTimeout(function () {
           openWeather(function (ok) {
             if (!ok) { console.log('  FEHL  Wetterseite nicht erreichbar'); return finish(); }
             rows(function (rr) { var r = rr.sections;
-              check(r.length === 4 && r.every(function (x) { return x.v; }), 'vier Zeilen mit Wert', JSON.stringify(r.map(function (x) { return x.q + '=' + x.v; })));
+              check(r.length === 5 && r.every(function (x) { return x.v; }), 'fuenf Zeilen mit Wert', JSON.stringify(r.map(function (x) { return x.q + '=' + x.v; })));
               check(r.every(function (x) { return !x.open; }), 'alle zugeklappt');
               var first = r[0].v;
               press(['ok'], function () {
                 setTimeout(function () {
                   rows(function (rr2) { var r2 = rr2.sections;
                     check(r2[0].open, 'OK klappt die Zeile auf');
-                    check(r2[0].opts === 4, 'vier Antworten im Panel', 'opts=' + r2[0].opts);
+                    check(r2[0].opts === 5, 'fuenf Antworten im Panel', 'opts=' + r2[0].opts);
                     /* Stefan: "das dropdown ragt ins vorschaubild rein und ist bissl breit".
                      * Die x-Achse des Pruefstands ist verschoben, die Breite nicht. */
                     check(rr2.cardW > 0 && rr2.cardW <= 600, 'Karte ist schmal (max 600 px)', 'Breite=' + rr2.cardW + ' px');
                     check(r2[1] && r2[1].covered, 'Zeile unter der Karte ist verdeckt (keine Ueberlappung)', r2.map(function (x) { return x.q + (x.covered ? '=zu' : '=offen'); }).join(' '));
                     layout(function (l) {
-                      check(l.fits && l.air >= MIN_AIR, 'aufgeklappt passt es', 'lowest=' + l.lowest + ' air=' + l.air);
+                      check(l.fits && l.air >= MIN_AIR, 'aufgeklappt passt es', 'lowest=' + l.lowest + ' air=' + l.air
+                        + ' unten: ' + JSON.stringify((l.items || []).filter(function (x) { return x.bottom > 1050; }).map(function (x) { return x.action + '@' + x.bottom; })));
+                      check((l.items || []).every(function (x) { return x.bottom <= 1080; }), 'nichts laeuft unten raus',
+                        JSON.stringify((l.items || []).filter(function (x) { return x.bottom > 1080; }).map(function (x) { return x.action + '@' + x.bottom; })));
                       check(!(l.overlaps || []).length, 'aufgeklappt keine Ueberlappung', JSON.stringify((l.overlaps || []).slice(0, 2)));
                       /* Rechts beginnt bei x 872 die Flaeche, in der die Startseite
                        * durchscheint. Stefan: "das dropdown ragt ins vorschaubild rein". */
@@ -161,10 +198,16 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
                                                 var qs = r4.map(function (x) { return x.q; });
                                                 var qDup = null, qSeen = {};
                                                 qs.forEach(function (q) { if (qSeen[q]) qDup = q; qSeen[q] = 1; });
-                                                check(qs.length === 4 && !qDup, 'vier Fragen, jede nur einmal', JSON.stringify(qs) + (qDup ? ' doppelt: ' + qDup : ''));
-                                                check(vals.length === 4 && !dup, 'vier Zeilen, jede mit eigenem Wert',
+                                                check(qs.length === 5 && !qDup, 'fuenf Fragen, jede nur einmal', JSON.stringify(qs) + (qDup ? ' doppelt: ' + qDup : ''));
+                                                check(vals.length === 4 && !dup, 'vier Auswahl-Zeilen, jede mit eigenem Wert',
                                                   JSON.stringify(vals) + (dup ? ' doppelt: ' + dup : ''));
+                                                /* Die aufgeklappte Karte darf nicht aus dem Bild laufen;
+                                               * gemessen wird gegen die Buehne (1080), nicht gegen das
+                                               * Pruefstand-Fenster. */
+                                              layout(function (l2) {
+                                                check(l2.fits, 'aufgeklappte Seite passt in die Buehne', 'lowest=' + l2.lowest + ' air=' + l2.air);
                                                 back(function () { finish(); });
+                                              });
                                               });
                                             });
                                           }, 900);
@@ -186,12 +229,19 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
           });
         }, 4200);
       }); });
+      });
     });
   });
 });
 function back(cb) { press(['back'], function () { press(['back'], function () { setTimeout(cb, 400); }); }); }
 function finish() {
+  if (finished) return;
+  finished = true;
   var bad = results.filter(function (r) { return !r.ok; });
+  if (consoleErrors.length) {
+    console.log('  FEHL  Fehler beim Laden der Seite:');
+    consoleErrors.slice(0, 3).forEach(function (e) { console.log('        ' + e); });
+  }
   console.log('\nRESULT ' + (results.length - bad.length) + '/' + results.length);
   client.close(); process.exit(bad.length ? 1 : 0);
 }

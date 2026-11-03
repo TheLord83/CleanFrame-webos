@@ -451,8 +451,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 /* Messages */
 .msg-title{position:absolute;left:140px;top:300px;max-width:1500px;font-size:72px;line-height:84px;font-weight:500;letter-spacing:-2px}
 .msg-line{position:absolute;left:140px;top:420px;max-width:1200px;font-size:36px;line-height:52px;color:var(--ink)}
-.msg-note{position:absolute;left:140px;top:540px;max-width:1200px;font-size:30px;line-height:42px;color:var(--mute)}
+.msg-note{position:absolute;left:140px;top:800px;max-width:1200px;font-size:30px;line-height:42px;color:var(--mute)}
 .msg-acts{position:absolute;left:112px;top:660px;display:flex;gap:12px}
+.msg-qr{position:absolute;left:140px;top:500px;width:260px;height:260px;border-radius:12px;background:#fff;padding:10px;box-sizing:content-box}
+.msg-qr-url{position:absolute;left:440px;top:520px;max-width:700px;font-size:28px;line-height:38px;color:var(--mute);word-break:break-all}
 
 @media (prefers-reduced-motion:reduce){
   .stage,.stage *{transition:none!important;animation:none!important}
@@ -633,10 +635,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 .detail-weather .setting-options{gap:10px 12px}
 /* Vier Fragen, jede eine Zeile: die Zusatzdichte von vorher (28 px Schrift) ist
  * nicht mehr noetig, seitdem die Antworten erst beim Aufklappen erscheinen. */
-.detail-weather .setting-choice{min-height:72px;padding:12px 24px;font-size:36px;line-height:44px}
-.detail-weather .setting-section+.setting-section{margin-top:26px}
+/* Fuenf Zeilen statt vier: 64 px statt 72, damit die aufgeklappte Karte noch
+ * im Bild bleibt (gemessen: vorher lowest 1056, air 24, also zu knapp). */
+.detail-weather .setting-choice{min-height:56px;padding:6px 24px;font-size:32px;line-height:40px}
+/* Fuenf Zeilen: 18 px statt 26, sonst endet die letzte bei 1187 */
+.detail-weather .setting-section+.setting-section{margin-top:12px}
 .detail-weather .setting-label{margin-bottom:8px;font-size:28px;line-height:36px}
-.detail-weather .appearance-rows{top:236px}
+/* Fuenf Zeilen: 228 statt 236, sonst fehlen unten 3 px */
+/* Fuenf Zeilen: 222 statt 236, sonst fehlen unten 3 px */
+/* Fuenf Zeilen: 216 statt 236, damit unter der letzten 30 px Luft bleiben */
+.detail-weather .appearance-rows{top:216px}
 /* Der Titel "Wetter" lief in die Ueberschrift "Anzeige" (359x70 px Ueberlappung,
  * gemessen). Er wird auf dieser Seite kleiner, damit beide untereinander passen,
  * ohne dass die Antworten wieder unter den Rand rutschen. */
@@ -646,7 +654,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 /* Hintergrund: drei Zeilen plus Rotationszeile lagen 107 px zu tief. */
 .detail-background .setting-choice{min-height:64px;padding:8px 18px;font-size:32px;line-height:40px}
 .detail-background .setting-section+.setting-section{margin-top:22px}
-.detail-weather .setting-label,.detail-typography .setting-label{margin-bottom:8px;font-size:26px;line-height:34px}
+.detail-weather .setting-label{margin-bottom:4px;font-size:26px;line-height:32px}
+.detail-typography .setting-label{margin-bottom:8px;font-size:26px;line-height:34px}
 .setting-choice.has-description{min-height:120px}
 .setting-description{font-size:26px;line-height:36px;font-weight:400;letter-spacing:0;color:var(--mute);white-space:normal}
 .setting-choice.is-focus .setting-description{color:var(--solid-mute)}
@@ -896,3 +905,7 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .setting-options.is-horizontal{flex-direction:row;flex-wrap:wrap;row-gap:10px;gap:12px;--cf-scale:1}
 .setting-options.is-horizontal .setting-choice{flex:0 1 auto;min-width:0;width:auto}
 .setting-options.picker-list .setting-choice{width:auto;flex:0 1 auto}
+/* Reicht der Platz unter der Zeile nicht (letzte Zeile einer vollen Seite),
+ * klappt die Karte ueber der Zeile auf. Sonst lief sie unten aus dem Bild -
+ * gemessen: lowest 1187 bei 1080 px Hoehe. */
+.setting-section.is-picker.is-open.is-upward .picker-list{top:auto;bottom:100%;margin-top:0;margin-bottom:8px}
