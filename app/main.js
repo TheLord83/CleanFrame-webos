@@ -1338,7 +1338,30 @@
       document.documentElement.style.setProperty('--cf-scale', '1');
     }
   }
+  /* Ohne Ort kann der Hub kein Wetter holen - dann zeigt der Launcher auch
+   * nichts an. Deshalb ist "Aus" die einzige Antwort, solange kein Ort steht,
+   * und ein Versuch, das Wetter einzuschalten, fuehrt direkt in die Orts-Suche
+   * statt in eine Anzeige, die nichts anzeigt. */
+  function wxHasPlace() { return !!wxPlaceName(); }
+  /* Was der Ort-Dialog anbietet: die Orte, die in der Konfiguration bekannt
+   * sind (aktueller Ort und frueher benutzte), plus die Suche im Hub. Die
+   * Fernbedienung tippt keine Namen - sie waehlt aus einer Liste. */
+  function wxPlaceChoices() {
+    var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+    var seen = {}, out = [];
+    (w.known || []).concat([w.place]).forEach(function (p) {
+      var n = String(p || '').trim();
+      if (!n || seen[n.toLowerCase()]) return;
+      seen[n.toLowerCase()] = 1;
+      out.push({ action: 'place.pick.' + n, value: n, label: n, applied: n === wxPlaceName() });
+    });
+    return out;
+  }
   function applyWeatherChoice(axis, value) {
+    if (axis === 'wxStyle' && value !== 'none' && !wxHasPlace()) {
+      openPlaceInput(T('Set the place first, then the weather can show.'));
+      return;
+    }
     var field = axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : axis === 'wxSize' ? 'size' : 'gap';
     var v = field === 'gap' ? parseInt(value, 10) : value;
     applyConfig(function (cfg) {
@@ -1384,9 +1407,16 @@
     var cur = wxConf();
     return values.map(function (v) {
       var key = axis === 'wxGap' ? String(v) : v;
+      /* Ohne Ort ist "Aus" die einzige Antwort, egal was in der Konfiguration
+       * steht: sonst behauptet die Zeile eine Wetteranzeige, die nichts
+       * anzeigen kann. Die uebrigen Antworten bleiben sichtbar und erklaeren
+       * beim Waehlen, dass zuerst der Ort fehlt. */
+      var noPlace = axis === 'wxStyle' && key !== 'none' && !wxHasPlace();
+      var val = axis === 'wxGap' ? cur.gap : cur[axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : 'size'];
       return { action: 'wx.' + axis + '.' + key, axis: axis, value: key,
         label: (WX_LABELS[axis] || {})[key] || String(v),
-        applied: String(axis === 'wxGap' ? cur.gap : cur[axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : 'size']) === key };
+        applied: String(val) === (axis === 'wxStyle' && !wxHasPlace() ? 'none' : key),
+        off: noPlace };
     });
   }
   function textSizeLabel() {
@@ -1397,6 +1427,14 @@
   }
   /* Ort der Wetterzeile: Text eintippen, OK loest die Suche im Hub aus
    * (dieselbe Adresse /api/weather/place, die die Browserseite benutzt). */
+  function openPlaceInput(note) {
+    /* Eigene Blatt-ID 'place': vorher lief das ueber 'rename' - beim Zeichnen
+     * fehlte damit das Feld (FILLS['place'] gab es nicht) und die App warf einen
+     * TypeError. Als eigener Typ hat der Dialog seine eigene Vorlage. */
+    resetSheet();
+    push({ id: 'place', note: note || '', text: '', f: { i: 0 } });
+    render(); renderSheet(top(), true);
+  }
   function weatherPlace(text) {
     var name = String(text || '').trim();
     if (!name) { pop(); render(); return; }
@@ -1465,7 +1503,9 @@
        * keinen Schalter: die Browserseite des Hubs hatte einen, die App nicht,
        * also liess sich ein abgeschaltetes Wetter am Geraet nicht wieder
        * einschalten. "Off" ist derselbe Stil-Wert, den die Browserseite schreibt. */
-      { id: 'wxStyle', title: T('Shown as'), picker: true, items: wxChoices('wxStyle', ['none', 'icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
+      { id: 'wxStyle', title: T('Shown as'), picker: true,
+        reason: wxHasPlace() ? '' : T('Set the place first. Until then the weather stays off.'),
+        items: wxChoices('wxStyle', ['none', 'icon-temp', 'icon', 'icon-temp-text', 'temp-text']) },
       { id: 'wxSize', title: T('Size'), picker: true, items: wxChoices('wxSize', ['small', 'normal', 'large']) },
       { id: 'wxPos', title: T('Where it sits'), picker: true, items: wxChoices('wxPos', ['left', 'right', 'below', 'end']) },
       { id: 'wxGap', title: T('Distance from the clock'), picker: true, items: wxChoices('wxGap', [20, 72, 110, 150]) },
@@ -1561,14 +1601,15 @@
       else if (error) setLook(error.patch, { row: error.row });
     } else if (item.axis === 'mode') applyRotation(item.value);
     else if (item.axis === 'textScale') applyTextScale(parseInt(item.value, 10));
-    else if (item.axis && item.axis.indexOf('wx') === 0) applyWeatherChoice(item.axis, item.value);
-    else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
-    else if (item.action === 'weather.place') {
-      resetSheet();
-      push({ id: 'rename', text: wxPlaceName(), place: true, f: { i: wxPlaceName().length, zone: 'ok' } });
-      render(); renderSheet(top(), true);
-      return;
+    else if (item.axis && item.axis.indexOf('wx') === 0) {
+      /* In der offenen Liste ist OK auf der schon gueltigen Antwort ein Zuklappen -
+       * kein Schreibvorgang, und ohne Ort auch kein Orts-Dialog. "Aus" bleibt so
+       * eine reine Anzeige, solange es schon aus ist. */
+      if (isApplied(item) && S.picker) { closePicker(t, true); return; }
+      applyWeatherChoice(item.axis, item.value);
     }
+    else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
+    else if (item.action === 'weather.place') { openPlaceInput(); return; }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
     else if (item.action === 'clock.set.off') setClock(false);
@@ -1632,10 +1673,24 @@
       }
       if (k === 'ok') { detailOk(t, at.item); return; }
       if (k === 'up' || k === 'down') {
-        /* Steht der Fokus in den Antworten einer aufgeklappten Zeile, klappt
-         * hoch/runter sie zu und geht Eine Zeile weiter - nicht in die Antworten
-         * der Nachbarzeile, was frueher der Sprung ins Nichts war. */
-        if (at.rows[row].pickOf) { moveOutOfPicker(t, at.rows[row].pickOf, k); return; }
+        /* Steht der Fokus in den Antworten einer aufgeklappten Zeile, waehlt
+         * hoch/runter die naechste Antwort - das ist die Richtung, die die Liste
+         * auf dem Bildschirm hat. Frueher klappte runter zu und sprang zur
+         * naechsten Frage; das war der Sprung, ueber den sich jeder stolpert.
+         * Nur am Rand der Liste geht es weiter: oben auf die Frage, unten auf
+         * die naechste Zeile der Seite. */
+        var pick = at.rows[row].pickOf;
+        if (pick) {
+          var n = at.rows[row].length, nextCol = column + (k === 'up' ? -1 : 1);
+          if (nextCol >= 0 && nextCol < n) {
+            detailFocus(t, at.rows[row][nextCol], nextCol);
+            render();
+            return;
+          }
+          if (k === 'up') { closePicker(t, true); return; }
+          moveOutOfPicker(t, pick, k);
+          return;
+        }
         if (S.picker) { S.picker = null; at = detailLocation(t); row = at.row; }
         row = clamp(row + (k === 'up' ? -1 : 1), 0, at.rows.length - 1);
         column = Math.min(t.f.column || 0, at.rows[row].length - 1);
@@ -1803,8 +1858,8 @@
     sheet: true,
     key: function (t, k) {
       if (k === 'back') { pop(); render(); return; }
+      if (t.place) { placeKey(t, k); return; }
       if (k === 'ok') {
-        if (t.place) { weatherPlace(t.text); return; }
         if (t.entity) { entityRename(t.entity, t.text); pop(); render(); return; }
         homeRename(t.app, t.text); pop(); render(); return;
       }
@@ -1824,6 +1879,7 @@
       render();
     },
     point: function (t, z, i) {
+      if (t.place) { if (z === 'place') { t.f.i = i; placeKey(t, 'ok'); } return; }
       if (z === 'rename-ok') {
         if (t.entity) { entityRename(t.entity, t.text); pop(); render(); }
         else { homeRename(t.app, t.text); pop(); render(); }
@@ -1831,6 +1887,45 @@
       else if (z === 'rename-cancel') { pop(); render(); }
     }
   };
+  V.place = {
+    sheet: true,
+    key: function (t, k) {
+      var list = wxPlaceChoices(), n = list.length, i = clamp(t.f.i || 0, 0, Math.max(0, n - 1));
+      if (k === 'back') { pop(); render(); return; }
+      if (n) {
+        if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); return; }
+        if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); return; }
+        if (k === 'ok') { weatherPlace(list[i].value); return; }
+      }
+      if (k === 'ok') {
+        S.note = T('Choose a place from the list or type a name.');
+        render();
+      }
+    },
+    point: function (t, z, i) { if (z === 'place') { t.f.i = i; this.key(t, 'ok'); } }
+  };
+  /* Orts-Dialog. Der Fernseher hat keine Tastatur: die bekannten Orte stehen
+   * als Liste da (hoch/runter waehlt, OK uebernimmt), und der Name im Feld wird
+   * ueber den Hub gesucht - geschrieben wird mit den Buchstaben der
+   * Bildschirmtastatur, die die App fuer das Umbenennen schon hat. */
+  function placeKey(t, k) {
+    var list = wxPlaceChoices(), n = list.length, i = clamp(t.f.i || 0, 0, Math.max(0, n - 1));
+    if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); }
+    else if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); }
+    else if (k === 'left' || k === 'right') {
+      var ci = parseInt(t.f.ci, 10) || 0;
+      t.f.ci = clamp(ci + (k === 'left' ? -1 : 1), 0, t.text.length);
+      render();
+    }
+    else if (k === 'clear') { t.text = ''; t.f.ci = 0; render(); }
+    else if (k === 'ok') {
+      var pick = list[i];
+      if (pick) { weatherPlace(pick.value); return; }
+      if (String(t.text || '').trim()) { weatherPlace(t.text); return; }
+      S.note = T('Choose a place from the list or type a name.');
+      render();
+    }
+  }
 
   V.ctx = {
     sheet: true,
@@ -2677,9 +2772,12 @@
       /* Die Buehne ist im eigenen Koordinatensystem immer 1080 hoch und wird nur
        * per transform verkleinert - gemessen wird deshalb dort, nicht im Fenster:
        * im Pruefstand ist das Fenster 937 px hoch, auf dem Fernseher 1080. */
-      var stageH = (stage && stage.offsetHeight) || 1080;
-      var cardBottomInStage = cr.bottom;
-      if (cardBottomInStage > stageH - 12) openSec.className += ' is-upward';
+      var sceneR2 = sceneEl.getBoundingClientRect(), k2 = (sceneR2.width / 1920) || 1;
+      var cardBottom = (cr.bottom - sceneR2.top) / k2, cardTop = (cr.top - sceneR2.top) / k2;
+      /* Lieber nach oben als unten aus dem Bild: wenn unten weniger Platz ist als
+       * die Karte braucht, und oben mehr, klappt sie ueber der Zeile auf. */
+      var roomBelow = 1080 - cardBottom, roomAbove = cardTop;
+      if (roomBelow < 0 && roomAbove > roomBelow) openSec.className += ' is-upward';
     })();
     if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
     else if (error) {
@@ -2818,10 +2916,52 @@
         + '<div class="row-cue editor-before" data-slot="otherBefore" aria-hidden="true">' + icon('up') + '</div><div class="row-cue editor-after" data-slot="otherAfter" aria-hidden="true">' + icon('down') + '</div>';
     },
     settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
+    place: function (t) {
+      /* Kein Eingabefeld: der Fernseher hat keine Tastatur. Die Orte, die die
+       * Konfiguration kennt, stehen als Liste da - hoch/runter waehlt, OK
+       * uebernimmt. Ein neuer Ort kommt ueber die Browserseite des Hubs dazu
+       * (dort gibt es ein echtes Textfeld). */
+      var list = wxPlaceChoices();
+      return '<h2 class="s-title">' + T('Place') + '</h2>'
+        + '<p class="s-sub">' + esc(t.note || T('Choose a place for the weather line.')) + '</p>'
+        + '<div class="settings-overview">'
+        + (list.length ? list.map(function (p, i) {
+            return '<button type="button" tabindex="-1" class="settings-group' + (i === (t.f.i || 0) ? ' is-focus' : '') + '" data-z="place" data-i="' + i + '">'
+              + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(p.label) + '</span></span>'
+              + (p.applied ? '<span class="setting-tick" aria-hidden="true">' + icon('check') + '</span>' : '') + '</button>';
+          }).join('') : '<p class="s-sub">' + T('No place set yet.') + '</p>')
+        + '</div>'
+        + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>'
+        + T('A new place is added in the hub in the browser.') + '</span></p>';
+    },
+    /* Der Ort hat keine Felder, die nachtraeglich gefuellt werden muessen - die
+     * Liste wird mit dem Rahmen gezeichnet. Der Eintrag muss trotzdem existieren:
+     * renderSheet ruft FILLS[t.id] bedingungslos auf. */
+    place: function () {},
     rename: function (t) {
+      /* Der Ort wird NICHT getippt: der Fernseher hat keine Tastatur, und die
+       * Zahlenfelder der Fernbedienung reichen fuer einen Ortsnamen nicht. Der
+       * Dialog bietet die Orte aus der Konfiguration und die Suche im Hub an,
+       * ausgewaehlt wird mit hoch/runter und OK. */
+      if (t.place) {
+        return '<h2 class="s-title">' + T('Place') + '</h2>'
+          + '<p class="s-sub">' + esc(t.note || T('Choose a place for the weather line.')) + '</p>'
+          + '<p class="s-label">' + T('Known places') + '</p>'
+          + '<div class="settings-overview">'
+          + (wxPlaceChoices().length ? wxPlaceChoices().map(function (p, i) {
+              return '<button type="button" tabindex="-1" class="settings-group' + (i === (t.f.i || 0) ? ' is-focus' : '') + '" data-z="place" data-i="' + i + '">'
+                + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(p.label) + '</span></span>'
+                + (p.applied ? '<span class="setting-tick" aria-hidden="true">' + icon('check') + '</span>' : '') + '</button>';
+            }).join('') : '<p class="s-sub">' + T('No place set yet.') + '</p>')
+          + '</div>'
+          + '<p class="s-label">' + T('Search in the hub') + '</p>'
+          + '<div class="rename-box" data-z="rename-text"><span>' + esc(t.text) + '</span><i class="rename-caret"></i></div>'
+          + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>'
+          + T('Left and right move the cursor, OK looks the name up in the hub.') + '</span></p>';
+      }
       var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
-      return '<h2 class="s-title">' + (t.place ? T('Place') : T('Rename')) + '</h2>'
-        + '<p class="s-sub">' + esc(t.place ? T('Town or region') : (t.entity || (a ? a.name : t.app))) + '</p>'
+      return '<h2 class="s-title">' + T('Rename') + '</h2>'
+        + '<p class="s-sub">' + esc(t.entity || (a ? a.name : t.app)) + '</p>'
         + '<div class="rename-box" data-z="rename-text"><span>' + esc(cur) + '</span><i class="rename-caret"></i><span>' + esc(rest) + '</span></div>'
         + '<div class="settings-overview" data-slot="list">'
         + '<button type="button" tabindex="-1" class="settings-group' + (t.f.zone === 'ok' ? ' is-focus' : '') + '" data-z="rename-ok">'
@@ -2881,6 +3021,9 @@
      * move on. */
     /* The focus comes from t.f.i and is written into the DOM on every render —
      * regardless of whether the markup was recreated or taken from the buffer. */
+    /* Der Ort hat keine Felder zum Nachtragen - die Liste steht schon im Rahmen.
+     * Der Eintrag muss trotzdem existieren: renderSheet ruft FILLS[t.id] auf. */
+    place: function () {},
     ctx: function (t, el) {
       var acts = ctxActions(t);
       var i = Math.min(Math.max(0, parseInt(t.f.i, 10) || 0), acts.length - 1);
@@ -3493,7 +3636,11 @@
     return best;
   }
   function layoutReport() {
-    var sceneR = sceneEl.getBoundingClientRect();
+    /* Bezug ist die BUEHNE (#stage, 1920x1080), nicht #scene: das ist die kleine
+     * Vorschau-Box. Mit #scene als Bezug standen die Zeilen im Bericht weit
+     * verschoben - "Ort" bei 1150, waehrend sie im Bild bei 784 liegt. */
+    var stageBox = document.getElementById('stage');
+    var sceneR = (stageBox || sceneEl).getBoundingClientRect();
     var scale = (sceneR.width / 1920) || 1;
     /* Liegt eine Blattseite oben, zaehlen nur ihre Elemente: die Kacheln der
      * Startseite stehen darunter im DOM und saehen sonst wie Ueberlappungen aus. */
@@ -3503,6 +3650,10 @@
      * lieferten eine rechte Kante von 1798 und einen "tiefsten Punkt" von 1017,
      * der zu keiner Zeile gehoerte). */
     if (topStage && isSettingsDetail(topStage)) sheetRoot = appearanceEl;
+    /* Ueber der Aussehen-Seite kann ein Blatt liegen (Orts-Dialog). Dann ist
+     * nicht die Seite gemeint, sondern das Blatt - sonst misst der Bericht Zeilen
+     * einer Seite, die gar nicht mehr zu sehen ist (gemessen: "Ort" bei 1150,
+     * waehrend die Zeile im Bild bei 649..729 liegt). */
     else if (topStage && V[topStage.id] && V[topStage.id].sheet) sheetRoot = document.querySelector('.sheet');
     function inLayer(el) { return !sheetRoot || sheetRoot.contains(el); }
     function hiddenByPicker(el) {

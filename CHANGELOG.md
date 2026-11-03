@@ -1,20 +1,30 @@
-## 0.6.31
+## 0.6.32
 
-Working through the list from testing on the TV.
+The four points from testing on the TV, plus a measurement bug the checks had.
 
-Without the value strip the top of the home screen led nowhere: from the tiles
-"up" did nothing, and the tool row could only be reached with "down" from below.
-"Up" now enters the tools as well, and from the tiles it goes there directly.
+Up and down in an open list now pick the answers. Before, the answers pushed the
+rows below them apart, so "down" left the list at once and landed on the next
+question - that is what made selecting feel wrong.
 
-The weather page grew the answers of the first question as a list that pushed the
-rows below it: choosing the next answer moved to the next question instead of the
-next answer. Rows and answers are one page per picker now; the card opens upward
-when there is no room below, so the fifth row stays in the picture (36 px air).
+Without a place the weather cannot show anything, so "Off" is the only valid
+answer until a place is set; the page says why, and picking anything else leads
+into the place step instead of switching on a line that stays empty.
 
-Two things were missing on the weather page at all: a switch to turn it on again
-("Off" as the first answer) and the place. The place opens a small text dialog and
-hands the name to the hub, the same call the browser page uses.
+The place was unusable: it was a text field, and the television has no keyboard.
+It is a list of the places the hub knows now (up/down and OK), with the hint that
+a new place is added in the hub in the browser. While building it the bench found
+a real crash - the place page had no entry in FILLS, so opening it threw a
+TypeError.
 
-"Run setup again" now shows a QR code to the hub instead of describing a screen
-the television cannot show; the matrix comes from tools/make-qr.py (checked with a
-decoder). Choosing a language still reloads: the texts are built at startup.
+The QR code in the setup note stood over the text on the left; it sits on the
+right now, with the address underneath.
+
+The layout report measured against #scene, the small preview box on the home
+screen, instead of the stage. That made it report "Ort" at 1150 while the row sat
+at 784 in the picture - every "does not fit" of the last rounds was measured
+against the wrong box. It measures against the stage now.
+
+test-picker was rebuilt on a straight promise chain: the nested callbacks had
+lost a bracket and hung the whole run without a message. It waits for the page
+instead of a fixed 4.2 s, which was the intermittent "CleanFrameDebug is not
+defined". 20/20.

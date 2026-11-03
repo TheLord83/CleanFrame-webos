@@ -126,8 +126,29 @@ function openWeather(cb) {
 }
 function layout(cb) { ev('JSON.stringify(CleanFrameDebug.layout())', cb); }
 
+/* ---- Ablauf -------------------------------------------------------------
+ * Eine gerade Kette statt fuenf verschachtelter Rueckrufe. Bei den
+ * verschachtelten Ebenen hatte sich zuletzt eine Klammer verlaufen, und eine
+ * fehlende Klammer haengt den ganzen Lauf ohne Meldung.
+ */
+function P(fn) {
+  return function () {
+    var a = Array.prototype.slice.call(arguments);
+    return new Promise(function (res) {
+      a.push(function (v) { res(v); });
+      fn.apply(null, a);
+    });
+  };
+}
+var evP = P(ev), jsP = P(js), pressP = P(press), rowsP = P(rows), layoutP = P(layout),
+    backP = P(back), openWeatherP = P(openWeather);
+function sendP(me, pa) { return new Promise(function (res) { send(me, pa, res); }); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
 http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
-  var b = ''; res.on('data', function (c) { b += c; }); res.on('end', function () {
+  var b = '';
+  res.on('data', function (c) { b += c; });
+  res.on('end', function () {
     var page = JSON.parse(b).filter(function (t) { return t.type === 'page'; })[0];
     client = wsConnect(page.webSocketDebuggerUrl, function (raw) {
       var m = JSON.parse(raw);
@@ -135,104 +156,120 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
       if (m.method && client.onEvent) client.onEvent(m);
     }, function () {
       client.onEvent = function (m) {
-        if (m.method === 'Runtime.exceptionThrown') {
-          var d = m.params && m.params.exceptionDetails || {};
-          consoleErrors.push((d.exception && d.exception.description || d.text || 'Fehler').split('\n')[0]);
-        }
+        if (m.method !== 'Runtime.exceptionThrown') return;
+        var d = (m.params && m.params.exceptionDetails) || {};
+        consoleErrors.push((d.exception && d.exception.description) || d.text || 'Fehler');
       };
-      send('Runtime.enable', {}, function () {
-      send('Page.enable', {}, function () { send('Page.navigate', { url: PAGE }, function () {
-        setTimeout(function () {
-          openWeather(function (ok) {
-            if (!ok) { console.log('  FEHL  Wetterseite nicht erreichbar'); return finish(); }
-            rows(function (rr) { var r = rr.sections;
-              check(r.length === 5 && r.every(function (x) { return x.v; }), 'fuenf Zeilen mit Wert', JSON.stringify(r.map(function (x) { return x.q + '=' + x.v; })));
-              check(r.every(function (x) { return !x.open; }), 'alle zugeklappt');
-              var first = r[0].v;
-              press(['ok'], function () {
-                setTimeout(function () {
-                  rows(function (rr2) { var r2 = rr2.sections;
-                    check(r2[0].open, 'OK klappt die Zeile auf');
-                    check(r2[0].opts === 5, 'fuenf Antworten im Panel', 'opts=' + r2[0].opts);
-                    /* Stefan: "das dropdown ragt ins vorschaubild rein und ist bissl breit".
-                     * Die x-Achse des Pruefstands ist verschoben, die Breite nicht. */
-                    check(rr2.cardW > 0 && rr2.cardW <= 600, 'Karte ist schmal (max 600 px)', 'Breite=' + rr2.cardW + ' px');
-                    check(r2[1] && r2[1].covered, 'Zeile unter der Karte ist verdeckt (keine Ueberlappung)', r2.map(function (x) { return x.q + (x.covered ? '=zu' : '=offen'); }).join(' '));
-                    layout(function (l) {
-                      check(l.fits && l.air >= MIN_AIR, 'aufgeklappt passt es', 'lowest=' + l.lowest + ' air=' + l.air
-                        + ' unten: ' + JSON.stringify((l.items || []).filter(function (x) { return x.bottom > 1050; }).map(function (x) { return x.action + '@' + x.bottom; })));
-                      check((l.items || []).every(function (x) { return x.bottom <= 1080; }), 'nichts laeuft unten raus',
-                        JSON.stringify((l.items || []).filter(function (x) { return x.bottom > 1080; }).map(function (x) { return x.action + '@' + x.bottom; })));
-                      check(!(l.overlaps || []).length, 'aufgeklappt keine Ueberlappung', JSON.stringify((l.overlaps || []).slice(0, 2)));
-                      /* Rechts beginnt bei x 872 die Flaeche, in der die Startseite
-                       * durchscheint. Stefan: "das dropdown ragt ins vorschaubild rein". */
-
-                      ev('JSON.stringify(CleanFrameDebug.focus())', function (f) {
-                        check(f.action.indexOf('wx.wxStyle') === 0, 'Fokus steht in den Antworten', f.action);
-                        press(['down'], function () {
-                          setTimeout(function () {
-                            rows(function (rr3) { var r3 = rr3.sections;
-                              check(!r3[0].open && !r3[1].covered, 'runter klappt zu');
-                              ev('JSON.stringify(CleanFrameDebug.focus())', function (g) {
-                                check(g.action === 'pick.wxSize', 'runter landet auf der naechsten Frage', g.action);
-                                press(['ok'], function () {
-                                  setTimeout(function () {
-                                    press(['right'], function () {
-                                      ev('JSON.stringify(CleanFrameDebug.focus())', function (h) {
-                                        var picked = h.label;
-                                        press(['ok'], function () {
-                                          setTimeout(function () {
-                                            rows(function (rr4) { var r4 = rr4.sections;
-                                              check(!r4[1].open, 'OK uebernimmt und klappt zu');
-                                              check(r4[1].v === picked, 'neuer Wert steht in der Zeile', r4[1].v + ' (erwartet ' + picked + ')');
-                                              check(r4[0].v === first, 'erste Zeile unveraendert', r4[0].v);
-                                              /* Stefan: die Zeile "Where it sits" zeigte denselben Text
-                                               * wie der Wert darunter ("Right edge" als Frage und als
-                                               * Antwort, bei einer anderen Wahl "Normal" doppelt).
-                                               * Jede Zeile braucht ihren eigenen Text. */
-                                              ev('(function(){var out=[];var s=document.querySelectorAll(".setting-section .pick-row .setting-name");' +
-                                                 'for(var i=0;i<s.length;i++)out.push(s[i].textContent.trim());return JSON.stringify(out);})()',
-                                                function (vals) {
-                                                var seen = {}, dup = null;
-                                                vals.forEach(function (v) { if (seen[v]) dup = v; seen[v] = 1; });
-                                                var qs = r4.map(function (x) { return x.q; });
-                                                var qDup = null, qSeen = {};
-                                                qs.forEach(function (q) { if (qSeen[q]) qDup = q; qSeen[q] = 1; });
-                                                check(qs.length === 5 && !qDup, 'fuenf Fragen, jede nur einmal', JSON.stringify(qs) + (qDup ? ' doppelt: ' + qDup : ''));
-                                                check(vals.length === 4 && !dup, 'vier Auswahl-Zeilen, jede mit eigenem Wert',
-                                                  JSON.stringify(vals) + (dup ? ' doppelt: ' + dup : ''));
-                                                /* Die aufgeklappte Karte darf nicht aus dem Bild laufen;
-                                               * gemessen wird gegen die Buehne (1080), nicht gegen das
-                                               * Pruefstand-Fenster. */
-                                              layout(function (l2) {
-                                                check(l2.fits, 'aufgeklappte Seite passt in die Buehne', 'lowest=' + l2.lowest + ' air=' + l2.air);
-                                                back(function () { finish(); });
-                                              });
-                                              });
-                                            });
-                                          }, 900);
-                                        });
-                                      });
-                                    });
-                                  }, 700);
-                                });
-                              });
-                            });
-                          }, 800);
-                        });
-                      });
-                    });
-                  });
-                }, 800);
-              });
-            });
-          });
-        }, 4200);
-      }); });
-      });
+      run().catch(function (e) { console.log('  FEHL  Lauf abgebrochen: ' + e.message); finish(); });
     });
   });
 });
+
+async function run() {
+  await sendP('Runtime.enable');
+  await sendP('Page.enable');
+  await sendP('Page.navigate', { url: PAGE });
+  /* Warten, bis die Seite steht. Feste Wartezeiten waren die Ursache fuer
+   * "CleanFrameDebug is not defined": die Seite ist nach rund 260 ms bereit,
+   * der Rueckruf von Page.navigate kommt je nach Last deutlich spaeter. */
+  var ready = false;
+  for (var i = 0; i < 60 && !ready; i++) {
+    await sleep(250);
+    ready = (await jsP('typeof CleanFrameDebug')) === 'object';
+  }
+  if (!ready) { console.log('  FEHL  Seite wurde nicht fertig geladen'); return finish(); }
+  if (!(await openWeatherP())) { console.log('  FEHL  Wetterseite nicht erreichbar'); return finish(); }
+
+  var r = (await rowsP()).sections;
+  check(r.length === 5 && r.every(function (x) { return x.v; }), 'fuenf Zeilen mit Wert',
+    JSON.stringify(r.map(function (x) { return x.q + '=' + x.v; })));
+  check(r.every(function (x) { return !x.open; }), 'alle zugeklappt');
+  var first = r[0].v;
+
+  /* Aufklappen: die Antworten liegen als Karte ueber den folgenden Zeilen. */
+  await pressP(['ok']);
+  await sleep(500);
+  var r2 = await rowsP();
+  check(r2.sections[0].open, 'OK klappt die Zeile auf');
+  check(r2.sections[0].opts === 5, 'fuenf Antworten im Panel', 'opts=' + r2.sections[0].opts);
+  check(r2.cardW <= 600, 'Karte ist schmal (max 600 px)', 'Breite=' + r2.cardW + ' px');
+  var cover = await evP('(function(){var c=document.querySelector(".setting-section.is-open .picker-list").getBoundingClientRect();'
+    + 'var out=[];var secs=document.querySelectorAll(".setting-section");'
+    + 'for(var i=0;i<secs.length;i++){if(/is-open/.test(secs[i].className))continue;var r=secs[i].getBoundingClientRect();'
+    + 'var hits=r.bottom>c.top+2&&r.top<c.bottom-2;if(!hits)continue;'
+    + 'var l=secs[i].querySelector(".setting-label");out.push((l?l.textContent.trim():"?")+(/is-covered/.test(secs[i].className)?"=verdeckt":"=SICHTBAR"));}'
+    + 'return JSON.stringify(out);})()');
+  check(cover.every(function (x) { return /verdeckt$/.test(x); }),
+    'Zeilen unter der Karte sind verdeckt', cover.length ? cover.join(' ') : 'keine betroffen');
+
+  var l = await layoutP();
+  check(l.fits && l.air >= MIN_AIR, 'aufgeklappt passt es', 'lowest=' + l.lowest + ' air=' + l.air);
+  check(!(l.overlaps || []).length, 'aufgeklappt keine Ueberlappung', JSON.stringify((l.overlaps || []).slice(0, 2)));
+
+  var f = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  check(f.action.indexOf('wx.wxStyle') === 0, 'Fokus steht in den Antworten', f.action);
+
+  /* Runter waehlt die naechste Antwort - das ist die Richtung, die die Liste auf
+   * dem Bildschirm hat. Frueher klappte sie zu und sprang zur naechsten Frage. */
+  await pressP(['down']);
+  await sleep(350);
+  var g = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  check(g.action === 'wx.wxStyle.icon-temp', 'runter waehlt die naechste Antwort', g.action);
+  check((await rowsP()).sections[0].open, 'runter laesst die Liste offen');
+
+  await pressP(['up']);
+  await sleep(350);
+  var g2 = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  check(g2.action === 'wx.wxStyle.none', 'hoch waehlt die vorige Antwort', g2.action);
+
+  /* OK auf der schon gueltigen Antwort klappt nur zu. Wichtig: ohne Ort darf das
+   * Wetter nicht anspringen, und der Orts-Dialog darf hier nicht aufgehen. */
+  await pressP(['ok']);
+  await sleep(450);
+  var h = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  check(h.action === 'pick.wxStyle', 'OK auf der gueltigen Antwort klappt zu', h.action);
+
+  /* Uebernahme an der Zeile "Groesse": unabhaengig vom Ort pruefbar. */
+  await pressP(['down']);
+  await sleep(300);
+  var s1 = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  check(s1.action === 'pick.wxSize', 'runter landet auf der naechsten Frage', s1.action);
+  await pressP(['ok']);
+  await sleep(450);
+  await pressP(['down']);
+  await sleep(350);
+  var hh = await evP('JSON.stringify(CleanFrameDebug.focus())');
+  var picked = hh.label;
+  await pressP(['ok']);
+  /* Das Schreiben laeuft ueber den Hub, die Zeile zeigt den neuen Wert erst
+   * danach. Mit festen 600 ms war der Lauf sporadisch rot ("Normal erwartet"). */
+  var r4 = (await rowsP()).sections;
+  for (var w = 0; w < 25 && r4[1].v !== picked; w++) {
+    await sleep(200);
+    r4 = (await rowsP()).sections;
+  }
+  check(!r4[1].open, 'OK uebernimmt und klappt zu');
+  check(r4[1].v === picked, 'neuer Wert steht in der Zeile', r4[1].v + ' (erwartet ' + picked + ')');
+  check(r4[0].v === first, 'erste Zeile unveraendert', r4[0].v);
+
+  /* Stefan: die Zeile "Wo sie sitzt" zeigte denselben Text wie der Wert darunter
+   * ("Right edge" als Frage und als Antwort). Jede Zeile braucht ihren Text. */
+  var vals = await evP('(function(){var out=[];var s=document.querySelectorAll(".setting-section .pick-row .setting-name");'
+    + 'for(var i=0;i<s.length;i++)out.push(s[i].textContent.trim());return JSON.stringify(out);})()');
+  var seen = {}, dup = null;
+  vals.forEach(function (v) { if (seen[v]) dup = v; seen[v] = 1; });
+  var qs = r4.map(function (x) { return x.q; }), qDup = null, qSeen = {};
+  qs.forEach(function (q) { if (qSeen[q]) qDup = q; qSeen[q] = 1; });
+  check(qs.length === 5 && !qDup, 'fuenf Fragen, jede nur einmal', JSON.stringify(qs) + (qDup ? ' doppelt: ' + qDup : ''));
+  check(vals.length === 4 && !dup, 'vier Auswahl-Zeilen, jede mit eigenem Wert',
+    JSON.stringify(vals) + (dup ? ' doppelt: ' + dup : ''));
+
+  var l2 = await layoutP();
+  check(l2.fits, 'aufgeklappte Seite passt in die Buehne', 'lowest=' + l2.lowest + ' air=' + l2.air);
+
+  await backP();
+  finish();
+}
 function back(cb) { press(['back'], function () { press(['back'], function () { setTimeout(cb, 400); }); }); }
 function finish() {
   if (finished) return;
@@ -240,7 +277,9 @@ function finish() {
   var bad = results.filter(function (r) { return !r.ok; });
   if (consoleErrors.length) {
     console.log('  FEHL  Fehler beim Laden der Seite:');
-    consoleErrors.slice(0, 3).forEach(function (e) { console.log('        ' + e); });
+    consoleErrors.slice(0, 2).forEach(function (e) {
+      console.log(e.split('\n').slice(0, 7).map(function (l) { return '        ' + l; }).join('\n'));
+    });
   }
   console.log('\nRESULT ' + (results.length - bad.length) + '/' + results.length);
   client.close(); process.exit(bad.length ? 1 : 0);

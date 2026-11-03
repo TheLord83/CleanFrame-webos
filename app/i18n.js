@@ -18,6 +18,18 @@
       'Weather': 'Wetter',
       'Shown as': 'Anzeige',
       'Place': 'Ort',
+      'Choose a place for the weather line.': 'Wähle einen Ort für die Wetterzeile.',
+      'Known places': 'Bekannte Orte',
+      'A new place is added in the hub in the browser.': 'Ein neuer Ort kommt im Hub im Browser dazu.',
+      'No place set yet.': 'Noch kein Ort gesetzt.',
+      'Search in the hub': 'Im Hub suchen',
+      'Left and right move the cursor, OK looks the name up in the hub.':
+        'Links und rechts setzen den Cursor, OK sucht den Namen im Hub.',
+      'Choose a place from the list or type a name.': 'Wähle einen Ort aus der Liste oder tippe einen Namen.',
+      'Set the place first. Until then the weather stays off.':
+        'Setze zuerst den Ort. Bis dahin bleibt das Wetter aus.',
+      'Set the place first, then the weather can show.':
+        'Setze zuerst den Ort, dann kann das Wetter angezeigt werden.',
       'Town or region': 'Ort oder Region',
       'Not set': 'Nicht gesetzt',
       'Looking up the place ...': 'Ort wird gesucht ...',
