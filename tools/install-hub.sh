@@ -9,6 +9,10 @@
 #   ./tools/install-hub.sh --tv 192.168.1.50
 #   ./tools/install-hub.sh --tv 192.168.1.50 --lang de
 #   ./tools/install-hub.sh --tv 192.168.1.50 --dry-run
+#   ./tools/install-hub.sh --tv 192.168.0.49 --release-ok="2026-11-04 acceptance"
+#
+# The television is locked until it is released for a run: this script only talks
+# to loopback without --release-ok (tools/lib/tvguard.py, docs/ACCEPTANCE.md).
 #
 # This script does not root a TV and does not try to. If SSH answers as a normal
 # user, it stops and says so: rooting is the Homebrew Channel's job (docs/ROOTING.md
@@ -29,18 +33,22 @@ set -uo pipefail
 TV="${TV:-}"
 DRY=0
 YES=0
+RELEASE_OK="${RELEASE_OK:-}"
 CF_LANG="${CF_LANG:-en}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SRC="$ROOT/web"
 # shellcheck source=lib/msg.sh
 . "$HERE/lib/msg.sh"
+# shellcheck source=lib/tvguard.sh
+. "$HERE/lib/tvguard.sh"
 
 usage() { sed -n '2,20p' "$0"; exit 0; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --tv)       TV="${2:-}"; shift 2 ;;
+    --release-ok) RELEASE_OK="${2:-}"; shift 2 ;;
     --dry-run)  DRY=1; shift ;;
     --yes|-y)   YES=1; shift ;;
     --lang)     CF_LANG="${2:-en}"; shift 2 ;;
@@ -58,6 +66,7 @@ if [ -z "$TV" ]; then
   msg find >&2
   TV="$(find_tv)" || { msg find_none >&2; exit 1; }
 fi
+tvguard_require "$TV" "./tools/install-hub.sh --tv $TV" "$RELEASE_OK"
 msg found "$TV"
 
 SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o LogLevel=ERROR root@$TV"

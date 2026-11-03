@@ -17,7 +17,11 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import tvguard  # noqa: E402
 
 DEFAULT_STATE = "/var/tmp/cleanframe-watch-hub.json"
 
@@ -80,6 +84,8 @@ def main():
     ap.add_argument("--timeout", type=float, default=5.0)
     ap.add_argument("--always", action="store_true", help="print the result even when nothing changed")
     args = ap.parse_args()
+    # Reading only: no gate, just a note when the address is a real device.
+    tvguard.warn_read(urllib.parse.urlsplit(args.url).hostname or args.url, "watch-hub.py")
 
     kind, data, err = fetch(args.url, args.timeout)
     text = describe(kind, data, err)

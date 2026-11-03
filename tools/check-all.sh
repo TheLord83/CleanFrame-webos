@@ -19,6 +19,9 @@ KEEP=0
 PORT_SERVER=8484
 PORT_DEBUG=9333
 FAILED=0
+PASSED=0
+SKIPPED=0
+SKIPPED_NAMES=""
 PIDS=()
 TMPDIR_RUN="$(mktemp -d)"
 
@@ -44,6 +47,17 @@ run() {
   local out rc line pass total
   out="$("$@" 2>&1)"; rc=$?
   printf '%s\n' "$out"
+  # A check can say it did not run: "RESULT 0/0 skip" plus a "SKIP <reason>" line.
+  # That is its own state — a skip that the summary counts as passed is the same
+  # silent lie as a test that ends with 0 without testing anything.
+  if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qx 'RESULT 0/0 skip'; then
+    local reason
+    reason="$(printf '%s\n' "$out" | grep -E '^SKIP ' | head -1)"
+    echo "  --> $name: skipped (${reason#SKIP })"
+    SKIPPED=$((SKIPPED + 1))
+    SKIPPED_NAMES="$SKIPPED_NAMES $name"
+    return
+  fi
   # A check only counts as passed with exit code 0 AND a machine-readable
   # "RESULT <passed>/<total>" line where both numbers match. A human summary
   # alone is not enough: a run that printed "0/9 passed" used to count as green,
@@ -62,34 +76,38 @@ run() {
     return
   fi
   echo "  --> $name: passed ($pass/$total)"
+  PASSED=$((PASSED + 1))
 }
 
 # ---------------------------------------------------------------- Syntax
-step "1/14 source syntax"
+step "1/15 source syntax"
 for f in app/*.js web/*.js web/lib/*.js web/assets/lang/*.js tools/*.js; do
   node --check "$f" || { echo "  syntax error: $f"; FAILED=1; }
 done
 [ "$FAILED" = "0" ] && echo "  --> all JavaScript files parse"
 
 # ------------------------------------------------- Interface translations
-step "2/14 interface translations (de/en)"
+step "2/15 interface translations (de/en)"
 run "translation keys" node tools/check-lang.js
 
 # ------------------------------------------------- node 8 (Fernseher)
-step "3/14 compatibility with node 8.12 (TV)"
+step "3/15 compatibility with node 8.12 (TV)"
 run "node-8 check" python3 tools/check-node8.py
 
 # --------------------------------------------------------------- Icons
-step "4/14 icon library"
+step "4/15 icon library"
 run "icon check" python3 tools/check-icons.py
 run "version check" python3 tools/check-version.py
+# The lock that keeps the install tools away from an unreleased television is
+# code, so it is tested like code (tools/lib/tvguard.py, docs/ACCEPTANCE.md).
+run "tv lock" python3 tools/test-tvguard.py
 
 # ------------------------------------------------------------ API-Tests
-step "5/14 config server (API)"
+step "5/15 config server (API)"
 run "API checks" python3 tools/test-web-api.py
 
 # --------------------------------------- Server + Chrome fuer die UI-Tests
-step "6/14 interface (keys and live adoption)"
+step "6/15 interface (keys and live adoption)"
 if ! curl -sf -m 3 "http://127.0.0.1:$PORT_SERVER/api/health" >/dev/null 2>&1; then
   echo "  starting config server on port $PORT_SERVER"
   CF_PORT="$PORT_SERVER" \
@@ -148,7 +166,7 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
 fi
 
 # --------------------------------------- Home Assistant status strip
-step "7/14 status strip (chosen entities on the home screen)"
+step "7/15 status strip (chosen entities on the home screen)"
 if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "status strip" node tools/test-ha-strip.js --port "$PORT_DEBUG"
   run "list view keys" node tools/test-list-utils.js --port "$PORT_DEBUG"
@@ -158,30 +176,35 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)
-step "8/14 rooted-TV setup (fake Telnet shell)"
+step "8/15 rooted-TV setup (fake Telnet shell)"
 run "tv setup" python3 tools/test_tvsetup.py
 
-step "9/14 television search (what counts as a TV)"
+step "9/15 television search (what counts as a TV)"
 run "discovery" python3 tools/test_discover.py
 
-step "10/14 rooting: what the TV says without root"
+step "10/15 rooting: what the TV says without root"
 run "tv info" python3 tools/test_tvinfo.py
 
-step "11/14 rooting: does an exploit still match?"
+step "11/15 rooting: does an exploit still match?"
 run "root advice" python3 tools/test_rootaly.py
 
-step "12/14 rooting: patched firmware is refused"
+step "12/15 rooting: patched firmware is refused"
 run "root gate" python3 tools/test-install-gate.py
 
-step "13/14 bundled hub (app starts it, package carries it)"
+step "13/15 bundled hub (app starts it, package carries it)"
 run "hub boot decisions" node tools/test-hubboot.js
 run "hub inside the package" python3 tools/check-ipk-hub.py
 
-step "14/14 links in the documentation"
+step "14/15 links in the documentation"
 run "documentation links" python3 tools/check-links.py
+
+step "15/15 release files (repo.json and the pinned copy)"
+run "release files" python3 tools/check-repo-assets.py
 
 # ------------------------------------------------------------- Ergebnis
 printf '\n'
+printf 'passed %d, failed %d, skipped %d\n' "$PASSED" "$FAILED" "$SKIPPED"
+[ -n "$SKIPPED_NAMES" ] && echo "skipped:$SKIPPED_NAMES"
 if [ "$FAILED" = "0" ]; then
   echo "All checks passed."
 else

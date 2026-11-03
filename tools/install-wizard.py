@@ -22,8 +22,14 @@ change lands in a log next to the configuration so it can be undone.
     ./tools/install-wizard.py --lang de             # German prompts (the default too)
     ./tools/install-wizard.py --yes                 # for a machine nobody sits at:
                                                      # only the safe steps, nothing risky
+    ./tools/install-wizard.py --tv 192.168.0.49 --release-ok="2026-11-04 acceptance"
 
-Exit codes: 0 done, 1 a step failed, 2 misuse, 3 stopped at a question.
+The television is locked until it is released for a run: without --release-ok this
+wizard only accepts a loopback address (tools/lib/tvguard.py, docs/ACCEPTANCE.md).
+A --dry-run only looks, so it is not gated.
+
+Exit codes: 0 done, 1 a step failed, 2 misuse, 3 stopped at a question,
+78 refused on purpose (the device was not released).
 """
 import argparse
 import json
@@ -38,6 +44,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(HERE, "lib"))
 import glasshouse  # noqa: E402
 import rooting     # noqa: E402
+import tvguard     # noqa: E402
 
 LOG = None
 
@@ -295,6 +302,8 @@ def main():
     ap.add_argument("--ipk", default="", help="IPK to install instead of the newest build")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--yes", action="store_true", help="only the safe steps, nothing that roots or blocks")
+    ap.add_argument("--release-ok", default="", metavar="OCCASION",
+                    help='the device was released for this run, e.g. "2026-11-04 acceptance"')
     ap.add_argument("--lang", default="de")
     args = ap.parse_args()
 
@@ -330,6 +339,9 @@ def main():
         if not tv:
             say("Ohne Adresse kein Ablauf.")
             return 3
+
+    if not args.dry_run:
+        tvguard.require_release(tv, "./tools/install-wizard.py", sys.argv[1:], args.release_ok)
 
     step(2, total, "Ist er da, und was ist er?")
     state = inspect(tv)

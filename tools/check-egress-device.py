@@ -16,9 +16,13 @@ draussen geht, sonst 0.
 """
 import argparse
 import ipaddress
+import os
 import socket
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import tvguard  # noqa: E402
 
 APP_HINTS = ("node", "server.js", "cleanframe", "webapp", "wam", "luna")
 
@@ -108,6 +112,9 @@ def main():
                     help="Abfrage auf dieser Maschine ausfuehren, ohne SSH (Selbsttest des Parsers)")
     args = ap.parse_args()
     target = args.host or ("root@" + args.tv)
+    # Reading only: no gate, just a note that the address is a real device.
+    if not args.local:
+        tvguard.warn_read(args.host or args.tv, "check-egress-device.py")
 
     try:
         if args.local:

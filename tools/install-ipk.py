@@ -9,7 +9,11 @@ applicationManager/listApps returns nothing with exit code 0), so the installer 
 Glasshouse on port 8080 is the reliable path. It is the same path the Homebrew
 Channel uses.
 
-Exit codes: 0 installed and visible in the app list, 1 failed, 2 bad arguments.
+The television is locked until it is released for a run: this tool only talks to
+loopback without `--release-ok` (see tools/lib/tvguard.py and docs/ACCEPTANCE.md).
+
+Exit codes: 0 installed and visible in the app list, 1 failed, 2 bad arguments,
+78 refused on purpose (the device was not released).
 """
 import argparse
 import json
@@ -17,6 +21,9 @@ import os
 import sys
 import time
 import urllib.request
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import tvguard  # noqa: E402
 
 DEFAULT_APP_ID = "com.blackpearl.cleanframe"
 
@@ -143,8 +150,11 @@ def main():
     parser.add_argument("--tv", required=True, help="IP address of the TV")
     parser.add_argument("--ipk", required=True, help="path to the IPK")
     parser.add_argument("--app-id", default=None, help="app id if it cannot be read from the IPK")
+    parser.add_argument("--release-ok", default="", metavar="OCCASION",
+                        help='the device was released for this run, e.g. "2026-11-04 acceptance"')
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
+    tvguard.require_release(args.tv, "tools/install-ipk.py", sys.argv[1:], args.release_ok)
     app = install(args.tv, args.ipk, args.app_id, args.quiet)
     if not args.quiet:
         print(json.dumps({"installed": app}, ensure_ascii=False))

@@ -10,6 +10,10 @@
 #   ./tools/install-launcher.sh --ipk foo.ipk    # a release IPK instead of building one
 #   ./tools/install-launcher.sh --dry-run        # detect and print the plan only
 #   ./tools/install-launcher.sh --lang de        # German prompts
+#   ./tools/install-launcher.sh --tv 192.168.0.49 --release-ok="2026-11-04 acceptance"
+#
+# The television is locked until it is released for a run: this script only talks
+# to loopback without --release-ok (tools/lib/tvguard.py, docs/ACCEPTANCE.md).
 #
 # Before running: Glasshouse installed and opened once on the TV. Without it there
 # is nothing that accepts an IPK, and without Glasshouse the launcher has no app
@@ -29,12 +33,15 @@ TV="${TV:-}"
 IPK="${IPK:-}"
 DRY=0
 YES=0
+RELEASE_OK="${RELEASE_OK:-}"
 CF_LANG="${CF_LANG:-en}"
 APPID="com.blackpearl.cleanframe"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 # shellcheck source=lib/msg.sh
 . "$HERE/lib/msg.sh"
+# shellcheck source=lib/tvguard.sh
+. "$HERE/lib/tvguard.sh"
 
 usage() { sed -n '2,20p' "$0"; exit 0; }
 
@@ -42,6 +49,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --tv)       TV="${2:-}"; shift 2 ;;
     --ipk)      IPK="${2:-}"; shift 2 ;;
+    --release-ok) RELEASE_OK="${2:-}"; shift 2 ;;
     --dry-run)  DRY=1; shift ;;
     --yes|-y)   YES=1; shift ;;
     --lang)     CF_LANG="${2:-en}"; shift 2 ;;
@@ -59,6 +67,7 @@ if [ -z "$TV" ]; then
   msg find >&2
   TV="$(find_tv)" || { msg find_none >&2; exit 1; }
 fi
+tvguard_require "$TV" "./tools/install-launcher.sh --tv $TV" "$RELEASE_OK"
 answers "$TV" || { msg no_glass "$TV" >&2; exit 1; }
 msg glass_ok "$TV"
 
@@ -98,7 +107,7 @@ fi
 msg install "$APPID"
 # --quiet: the JSON line of install-ipk.py is for scripts that parse it, not for
 # a person watching an install run.
-python3 "$HERE/install-ipk.py" --tv "$TV" --ipk "$IPK" --quiet || exit 1
+python3 "$HERE/install-ipk.py" --tv "$TV" --ipk "$IPK" --quiet ${RELEASE_OK:+--release-ok "$RELEASE_OK"} || exit 1
 
 # ---- verify: the app list is the only thing that counts ----------------------
 APPS="$(curl -sS -m 10 "http://$TV:8080/api/apps" 2>/dev/null)"
