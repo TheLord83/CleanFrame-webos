@@ -11,7 +11,10 @@ cleans both up at the end. `--keep` leaves them running so you can look for your
 
 ## The layers
 
-**1. Syntax.** `node --check` over every source file in `app/`, `web/` and `tools/`.
+**1. Syntax.** `node --check` over every source file in `app/`, `web/`, `tools/` and
+`tools/ref/`. The three reference probes in `tools/ref/` have to parse too — they are the basis of
+the layout measurements, and a measuring tool that does not run any more is noticed by nobody until
+somebody needs it.
 
 **2. node 8.** `tools/check-node8.py`. The TV runs node 8.12, so anything that only exists in later
 versions (`new URL`, `mkdirSync({recursive})`, `readBigUInt64BE`, the newer `http.get()` signature)
@@ -19,6 +22,19 @@ is caught here instead of crashing on the device. 10 checks.
 
 **3. Icons.** `tools/check-icons.py` checks that every icon key in the configuration has a file and
 every file a key. 43 icons.
+
+**Gate.** `tools/test-tvguard.py` checks the lock that keeps the install tools away from an
+unreleased television (`tools/lib/tvguard.py`, `docs/ACCEPTANCE.md`): loopback goes through, a LAN
+address is refused with exit 78, `--release-ok` opens it and puts the occasion in the log, a name that
+does not resolve is refused instead of trusted, reading tools only warn, and every writing tool calls
+the guard. 26 checks, no network and no device — the addresses are refused before anything is sent.
+
+**Release files.** `tools/check-repo-assets.py` builds a package into a temporary directory (never
+into `dist/`), lets `tools/make-apps-json.py` write the repository file next to it and checks version,
+size, hash and URL against that package. Then it compares the pinned `repo/apps.json` with the newest
+tag — and with the package exactly once its version is the working one. Two files describing a
+release, and until this stage nobody compared them: the stale `dist/repo.json` with 0.5.1 in it would
+have gone through a real release unnoticed.
 
 **4. Configuration server.** `tools/test-web-api.py` starts the server with a stub catalogue and a
 temporary configuration, then checks every endpoint: `/api/health`, `/api/config` (GET, PUT, POST
@@ -61,6 +77,14 @@ drives the real keys into the strip: `down` focuses a chip, `OK` toggles it and 
 carries no frame because a sensor cannot be switched, a hidden value loses its chip but keeps its
 name in the settings page. 17 checks.
 
+**Settings rows.** `tools/test-settings-rows.js` walks every page of the settings and reads the rows
+out of the DOM: each row has to be a picker (a value in the row, the answers open underneath) or an
+explicit action, with the expected number of answers. The expectation in the file is the state of
+0.6.32; `want` is the goal — every selection row a picker, actions stay actions. `--report` prints
+what still has to be migrated. A row the page shows but the expectation does not know is a failure,
+and so is an expectation without a row: that is the case a fixed list never catches, and exactly how
+the two interaction patterns of 0.6.32 came about. 86 checks.
+
 **Bundled hub.** Two checks, because this is the piece a Channel install depends on.
 `tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three
 decisions: a hub that already answers on 8484 is not started a second time, a free port gets exactly
@@ -96,6 +120,16 @@ The device: installation, start, the real screen, the long-press threshold, the 
 the remote and the screensaver. That is `tools/install.sh` plus looking at the TV.
 
 Glasshouse is replaced by a stub in the tests, because the real app list only exists on the device.
+
+## What was removed
+
+`tools/sweep-flow.py` walked the settings pages on the device over the hub's `/api/ui/press` and
+looked for directions that lead nowhere. It is gone (code in the history at `8456e2e`) for two
+reasons: it was the only tool that needed the television, which is locked, and from its sixth line on
+it reported results that were not true — a measuring tool that lies silently is worse than none. What
+it was meant to prove is covered without the device by `tools/test-picker.js` (up/down inside an open
+answer list), `tools/test-home-keys.js` (the keys on the start page) and the rows walker above, which
+also catches a direction that appears to work but leaves the row.
 
 ## Continuous integration
 

@@ -81,7 +81,7 @@ run() {
 
 # ---------------------------------------------------------------- Syntax
 step "1/15 source syntax"
-for f in app/*.js web/*.js web/lib/*.js web/assets/lang/*.js tools/*.js; do
+for f in app/*.js web/*.js web/lib/*.js web/assets/lang/*.js tools/*.js tools/ref/*.js; do
   node --check "$f" || { echo "  syntax error: $f"; FAILED=1; }
 done
 [ "$FAILED" = "0" ] && echo "  --> all JavaScript files parse"
@@ -173,6 +173,9 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "home keys" node tools/test-home-keys.js --port "$PORT_DEBUG"
   run "layout fits" node tools/test-layout-fit.js --port "$PORT_DEBUG"
   run "picker rows" node tools/test-picker.js --port "$PORT_DEBUG"
+  # Jede Zeile der Einstellungsseiten: Picker oder ausdrueckliche Aktion. Das ist
+  # der Waechter gegen ein zweites Bedienmuster (die Liste war der Fehler von 0.6.32).
+  run "settings rows" node tools/test-settings-rows.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)
