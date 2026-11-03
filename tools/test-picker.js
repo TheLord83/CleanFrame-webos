@@ -149,7 +149,23 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
                                               check(!r4[1].open, 'OK uebernimmt und klappt zu');
                                               check(r4[1].v === picked, 'neuer Wert steht in der Zeile', r4[1].v + ' (erwartet ' + picked + ')');
                                               check(r4[0].v === first, 'erste Zeile unveraendert', r4[0].v);
-                                              back(function () { finish(); });
+                                              /* Stefan: die Zeile "Where it sits" zeigte denselben Text
+                                               * wie der Wert darunter ("Right edge" als Frage und als
+                                               * Antwort, bei einer anderen Wahl "Normal" doppelt).
+                                               * Jede Zeile braucht ihren eigenen Text. */
+                                              ev('(function(){var out=[];var s=document.querySelectorAll(".setting-section .pick-row .setting-name");' +
+                                                 'for(var i=0;i<s.length;i++)out.push(s[i].textContent.trim());return JSON.stringify(out);})()',
+                                                function (vals) {
+                                                var seen = {}, dup = null;
+                                                vals.forEach(function (v) { if (seen[v]) dup = v; seen[v] = 1; });
+                                                var qs = r4.map(function (x) { return x.q; });
+                                                var qDup = null, qSeen = {};
+                                                qs.forEach(function (q) { if (qSeen[q]) qDup = q; qSeen[q] = 1; });
+                                                check(qs.length === 4 && !qDup, 'vier Fragen, jede nur einmal', JSON.stringify(qs) + (qDup ? ' doppelt: ' + qDup : ''));
+                                                check(vals.length === 4 && !dup, 'vier Zeilen, jede mit eigenem Wert',
+                                                  JSON.stringify(vals) + (dup ? ' doppelt: ' + dup : ''));
+                                                back(function () { finish(); });
+                                              });
                                             });
                                           }, 900);
                                         });

@@ -80,7 +80,11 @@
   var VALUE_NAMES = { dark: T('Dark'), light: T('Light'), photo: T('Photo'), list: T('List'), dock: T('Dock'), type: 'Type', glass: T('Glass'), soft: T('Soft'), frost: T('Frost'), tint: T('Clear tint'), icons: T('Icons'), both: T('Icons and text'), text: T('Text'), '20': '', small: T('Small'), normal: T('Normal'), large: T('Large') };
   var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], settings: [T('Settings'), 'settings'] };
   var MSG = {
-    leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] }
+    leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] },
+    /* Die Einrichtung laeuft im Browser des Hubs, nicht auf dem Fernseher. */
+    setup: { title: T('Setup in the browser'),
+      line: T('The setup runs in the hub in your browser. It opens the next time you call up the hub.'),
+      note: T('This screen stays as it is.'), actions: [['stay', T('OK')]] }
   };
   var SVG = {
     art: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.8" r="1.5"/><path d="m4.5 17.5 4.5-4.5 3 3 2.5-2.5 5 5"/>',
@@ -1233,20 +1237,31 @@
     else if (id === 'text') openAppearance('typography');
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
-    else if (id === 'setup') runSetupAgain();
+    else if (id === 'setup') openSetupAgain();
     else openAppearance(id);
   }
 
-  /* Restart the first-start wizard: onboarding is set back to "open" and the
-   * interface is reloaded — the wizard then runs through as on the first start
-   * (language, home screen, appearance, finish). */
-  function runSetupAgain() {
+  /* Einrichtung erneut starten: das Flag gehoert der Browserseite des Hubs
+   * (`web/assets/index.html` wertet `onboarding.done` aus), die App am Fernseher
+   * kannte es nie. Der Eintrag setzte das Flag und lud die App neu - am Geraet
+   * passierte sichtbar nichts, und mit done=false zeigte der Hub beim naechsten
+   * Aufruf seinen Assistenten. Deshalb oeffnet der Eintrag jetzt den Assistenten
+   * im Browser, und das Flag bleibt unberuehrt; er laesst sich von dort aus
+   * jederzeit wieder aufrufen. */
+  function openSetupAgain() {
+    /* Die Browserseite des Hubs haengt am selben Dienst, die App kann sie nicht
+     * oeffnen (kein Browser auf dem Geraet). Deshalb: Flag oeffnen, damit der
+     * Hub beim naechsten Aufruf den Assistenten zeigt, und eine Zeile sagen,
+     * was zu tun ist - statt still zu laden und nichts zu zeigen. */
     var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
     cfg.onboarding = { done: false, version: 1 };
     S.serverCfg = cfg;
     S.appliedRev = parseInt(cfg.rev, 10) || 0;
-    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { setTimeout(function () { location.reload(); }, 200); });
-    else setTimeout(function () { location.reload(); }, 200);
+    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg);
+    /* id 'message' ist der vorhandene Hinweis-Dialog; 'msg' gibt es nicht, damit
+     * wurde der Datensatz stumm abgelegt und nichts angezeigt. */
+    openMessage('setup');
+    render(); renderSheet(top(), true);
   }
   /* Language: 'system' follows the TV, German and English can be chosen
    * explicitly. The choice lands in the server configuration; afterwards the
@@ -2604,7 +2619,14 @@
     section.items.forEach(function (item) { if (!found && isApplied(item)) found = item; });
     return found || section.items[0] || null;
   }
+  /* Die Frage steht als Ueberschrift ueber der Zeile, der Wert IN der Zeile.
+   * Vorher trug nur die Zeile den Wert - auf dem Fernseher las man dann eine
+   * Zeile "Right edge", unter der Ueberschrift "Wo sie sitzt" war der Wert
+   * bereits weg. Fuer die Sprachpruefung und die Vorlesehilfe bleibt der Wert im
+   * aria-label der Zeile erhalten. */
   function pickerHead(section) {
+    /* label = was in der Zeile steht (der Wert). Die Frage steht als
+     * Ueberschrift darueber; vorher stand der Wert zweimal untereinander. */
     return { action: 'pick.' + section.id, label: (pickerValue(section) || {}).label || '', picker: true, section: section };
   }
   /* Die zusammengeklappte Zeile: Frage links (steht als Ueberschrift darueber),
@@ -3530,7 +3552,7 @@
     clockText: function () { return clockText(); },
     clock24: function () { return S.c.clock24 !== false; },
     setClock24: function (on) { setClock24(on); return S.c.clock24 !== false; },
-    setupAgain: function () { runSetupAgain(); return true; },
+    setupAgain: function () { openSetupAgain(); return true; },
     /* Tile records with icon and brand flag (diagnosis: does an icon arrive?) */
     icons: function () {
       return (S.c.home || []).map(function (id) {

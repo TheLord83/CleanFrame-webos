@@ -173,6 +173,10 @@
 
       /* Dialogs */
       'Leave Home?': 'Startseite verlassen?',
+      'Setup in the browser': 'Einrichtung im Browser',
+      'The setup runs in the hub in your browser. It opens the next time you call up the hub.':
+        'Die Einrichtung läuft im Hub im Browser. Sie öffnet sich, wenn du den Hub das nächste Mal aufrufst.',
+      'This screen stays as it is.': 'Dieser Bildschirm bleibt, wie er ist.',
       'Open LG Home?': 'LG Startseite öffnen?',
       'Stay': 'Bleiben',
       'Back': 'Zurück',
