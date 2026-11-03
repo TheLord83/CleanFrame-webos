@@ -106,8 +106,12 @@ fi
 # ---- install -----------------------------------------------------------------
 msg install "$APPID"
 # --quiet: the JSON line of install-ipk.py is for scripts that parse it, not for
-# a person watching an install run.
-python3 "$HERE/install-ipk.py" --tv "$TV" --ipk "$IPK" --quiet ${RELEASE_OK:+--release-ok "$RELEASE_OK"} || exit 1
+# a person watching an install run. The release note goes in its own array entry:
+# "${RELEASE_OK:+--release-ok "$RELEASE_OK"}" splits at the space in an occasion
+# like "2026-11-04 acceptance", and the child would get two broken arguments.
+IPK_ARGS=(--tv "$TV" --ipk "$IPK" --quiet)
+[ -n "$RELEASE_OK" ] && IPK_ARGS+=(--release-ok "$RELEASE_OK")
+python3 "$HERE/install-ipk.py" "${IPK_ARGS[@]}" || exit 1
 
 # ---- verify: the app list is the only thing that counts ----------------------
 APPS="$(curl -sS -m 10 "http://$TV:8080/api/apps" 2>/dev/null)"
