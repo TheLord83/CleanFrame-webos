@@ -28,14 +28,41 @@ for a picture the package does not know.
 
 ## Next
 
-**Input key** (#8) — one button that lists the television's own inputs, which is the only thing a
-launcher can make faster than LG's home screen.
+**Input key** (#8) — done in 0.6.33. Settings → Inputs lists the HDMI ports with their state
+(Active / Connected / No device) and the connected device's name where the television knows it;
+OK switches over and stays. The list is read on every open, and a television that reports nothing
+gets the reason plus "Try again".
 
-**Quiet mode** (#10) — after an idle time only the clock stays. Must be settled against the
-screensaver before either is built, so the two do not fight.
+**The rest of the picker migration** (#13) — 0.6.33 moved one page (inputs); font, background kind,
+focus style, material, clock and language still use button rows. The rows test already knows every
+page, so the order is: turn a row's expectation to `picker`, watch the test go red, then change the
+page. Each row is one commit and one device check.
+
+**App picker rebuilding itself** (#14) — the sheet says "Apps" and hangs off the home plus anything
+else the hub copies over; when that list changes, the entries on the sheet do not necessarily
+follow. Every other page is generated from the configuration on each open, this one is not. Small,
+unglamorous, and the reason a removed app can still sit in a menu.
+
+**Quiet mode** (#10) — after an idle time only the clock stays. Still needs settling against the
+screensaver before either is built (the neighbour that does this dims in steps, shifts the picture
+a few pixels per minute for OLED, and can switch the television off after a time — that whole set
+belongs in one decision, not three switches).
+
+**Boot and Home through a webOS activity** (#15) — the cheaper half of #5: an activity with a
+`bootManager` trigger opens the launcher at power-on, a second one opens it when LG's home shows up.
+webOS runs them itself; no init.d hook, no mount, nothing to revert by hand. The lock is the point:
+Home stays LG's unless the person asks for the takeover.
 
 **Speed tab** (#12) — frame time, key delay and start-up measured on the television itself. Our own
 claims about speed are currently unmeasured, and "it feels fine" is not a report from a stranger.
+
+**Settings backup on a stick** (#16) — one named JSON file on a USB stick, readable back in. It is
+the difference between ten seconds after a factory reset and an evening. Seen at two neighbours.
+
+**Device names at the inputs** (#8, second step) — the input page already shows the name when the
+television reports it; making the television report it needs root (`eim` fills that field only for
+a privileged caller). Same page, later step, only after #8 proves itself on the device.
+
 
 ## Later, and why
 
