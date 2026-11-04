@@ -1,3 +1,15 @@
+## 0.6.41
+
+The setup note showed no code at all.
+
+The address arrives a moment after the dialog is drawn, so the dialog is drawn a
+second time — and the cache key did not include the address, so the second draw
+kept the old markup and only the text slots were written again. The result was a
+note with doubled, overlapping lines and no code. The key now carries the
+address, and `tools/test-setup-qr.js` looks at the dialog itself: no code without
+an address (plus a sentence saying so), exactly one code with one, and the
+heading exactly once in both cases.
+
 ## 0.6.40
 
 The hub could not say what its own address was.

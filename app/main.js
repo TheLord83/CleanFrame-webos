@@ -1809,6 +1809,10 @@
   function setupUrl() { return isLanIp(S.tvIp) ? 'http://' + S.tvIp + ':' + HUB_PORT + '/' : ''; }
   function resolveTvIp(done) {
     done = done || function () {};
+    /* Der Pruefstand braucht den Fall "keine Adresse" auch dann, wenn der Hub
+     * erreichbar waere - sonst haengt die Pruefung davon ab, ob zufaellig ein
+     * Hub laeuft. blockTvIp schaltet die Suche ab. */
+    if (S.tvIpBlocked) return done('');
     if (isLanIp(S.tvIp)) return done(S.tvIp);
     function viaHub() {
       try {
@@ -2827,6 +2831,11 @@
      * never reset sheetKey after closing — the first menu afterwards then stayed
      * empty because the markup was considered "already rendered"). */
     key = t.id + '|' + (t.mode || '') + '|' + (t.msg || '') + '|' + S.variant + '|' + S.c.bg
+      /* Der Einrichtungs-Dialog haengt an der Adresse des Geraets: kommt sie
+       * erst nach dem ersten Zeichnen an, muss das Bild neu gebaut werden. Ohne
+       * sie im Schluessel blieb das alte Markup stehen, FILLS schrieb darueber -
+       * und der Text stand doppelt uebereinander, ohne QR-Code. */
+      + (t.msg === 'setup' ? '|' + setupUrl() : '')
       + (t.id === 'ctx' ? '|' + t.app + '|' + ctxActions(t).map(function (a) { return a.label; }).join(',') : '');
     if (!sheet) {
       if (sheetKey !== '') { sheetView.innerHTML = ''; sheetKey = ''; slotEls = {}; }
@@ -3986,10 +3995,12 @@
     /* QR-Code der Einrichtung: Adresse setzen/lesen und Matrix herausgeben.
      * Der Pruefstand hat kein Luna, also wird die Adresse hier gestellt - die
      * Rechnung selbst ist die echte. */
+    openSetup: function () { openMessage('setup'); render(); renderSheet(top(), true); return top().id; },
     setupIp: function (ip) {
       if (typeof ip === 'string') S.tvIp = ip;
       return S.tvIp || '';
     },
+    blockTvIp: function (flag) { S.tvIpBlocked = !!flag; return !!S.tvIpBlocked; },
     setupQr: function (ip) {
       if (typeof ip === 'string') S.tvIp = ip;
       var m = qrMatrix(setupUrl());

@@ -138,6 +138,31 @@ async function main() {
   var loop = await evaluate('window.CleanFrameDebug.setupQr("127.0.0.1")');
   check(loop && loop.url === '', 'Loopback wird nicht als Adresse genommen', loop && loop.url);
 
+  /* 3b. Der Dialog selbst: ohne Adresse kein Bild, mit Adresse ein Bild - und
+   *     nichts doppelt. Der zweite Punkt war ein echter Fehler: der Adress-
+   *     Schluessel fehlte, das alte Markup blieb stehen und FILLS schrieb
+   *     darueber - der Text stand uebereinander, der Code fehlte ganz. */
+  /* Adresssuche abschalten: sonst holt der Dialog sie sich aus dem Hub, und der
+   * Fall "keine Adresse" waere auf dem Pruefstand gar nicht pruefbar. */
+  await evaluate('window.CleanFrameDebug.blockTvIp(true)');
+  await evaluate('window.CleanFrameDebug.setupQr("")');
+  await evaluate('window.CleanFrameDebug.openSetup()');
+  await new Promise(function (r) { setTimeout(r, 300); });
+  var empty = await evaluate('(() => { var s = document.querySelector("#sheetView"); return { qr: s.querySelectorAll(".msg-qr").length, titles: s.querySelectorAll(".msg-title").length, text: (s.textContent || "").slice(0, 400) }; })()');
+  check(empty.qr === 0, 'ohne Adresse steht kein Code im Dialog', JSON.stringify(empty.qr));
+  check(/keine Adresse im Netz/.test(empty.text), 'der Dialog sagt, dass die Adresse fehlt');
+  check(empty.titles === 1, 'die Ueberschrift steht genau einmal', 'titles=' + empty.titles);
+
+  await evaluate('window.CleanFrameDebug.blockTvIp(false)');
+  await evaluate('window.CleanFrameDebug.setupIp(' + JSON.stringify(TV_IP) + ')');
+  await evaluate('window.CleanFrameDebug.openSetup()');
+  await new Promise(function (r) { setTimeout(r, 300); });
+  var full = await evaluate('(() => { var s = document.querySelector("#sheetView"); var q = s.querySelector(".msg-qr"); return { qr: s.querySelectorAll(".msg-qr").length, titles: s.querySelectorAll(".msg-title").length, url: (s.querySelector(".msg-qr-url") || {}).textContent || "", box: q ? q.getBoundingClientRect().width : 0 }; })()');
+  check(full.qr === 1, 'mit Adresse steht der Code im Dialog', JSON.stringify(full.qr));
+  check(full.url === 'http://' + TV_IP + ':8484/', 'die Adresse steht unter dem Code', full.url);
+  check(full.titles === 1, 'die Ueberschrift steht auch dann genau einmal', 'titles=' + full.titles);
+  check(full.box > 100, 'der Code hat eine sichtbare Groesse', 'Breite=' + Math.round(full.box));
+
   /* 4. Unabhaengiger Decoder: enthaelt das Bild wirklich die Adresse? */
   /* Der Decoder braucht zxing-cpp und numpy. Fehlen sie im Standard-Python,
    * laesst sich mit CF_PYTHON ein Interpreter mitgeben, der sie hat. */
