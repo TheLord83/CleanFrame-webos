@@ -91,6 +91,17 @@ shorter list must not leave a removed app on the page, and the highlight follows
 position. The list itself comes from a stub (`CleanFrameDebug.appsStub`), because there is no Luna on
 the bench — the test is about the page rebuilding itself, not about what is installed. 8 checks.
 
+**Inputs page.** `tools/test-inputs-page.js` stands in a `PalmServiceBridge` for the bench, answering
+with the shape the reference TV really sends (measured on the device, LG Nano779PA / webOS 6.5): the
+running input carries `activate: true`, a connected one `connected: true`, and an empty HDMI socket
+carries neither field. That last detail is the whole point — the page used to read
+`connected: d.connected !== false`, so a missing field became "Verbunden" and the page claimed there
+was a device on two empty sockets. Non-HDMI entries (`SIMPLINK`, `URCU`) must not reach the list, and
+the reported UI state has to carry the inputs so the device run can be checked without reading a
+screenshot. 9 checks. The HTTP delivery of that state is not asserted here: the hub refuses writes
+from `file://` pages that do not come from the TV itself, so nothing arrives on the bench — correct
+behaviour, wrong place for the check.
+
 **Bundled hub.** Two checks, because this is the piece a Channel install depends on.
 `tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three
 decisions: a hub that already answers on 8484 is not started a second time, a free port gets exactly

@@ -62,7 +62,7 @@ function defaults() {
        * place name is a label for the settings page. */
       /* Immer Celsius. Eine Einheitenwahl war der eine Schalter zu viel: wer
        * Fahrenheit liest, will es meist nicht selbst eingeschaltet haben. */
-      weather: { enabled: false, place: '', lat: 0, lon: 0, line: 'temp',
+      weather: { enabled: false, place: '', known: [], lat: 0, lon: 0, line: 'temp',
                  style: 'icon-temp', size: 'normal', quiet: true, pos: 'right', gap: 72 }
     },
     createdAt: null,
@@ -174,6 +174,27 @@ function validate(input) {
   cfg.integrations.weather = {
     enabled: we.enabled === true,
     place: isStr(we.place, 80) ? we.place : '',
+    /* Orte, die der Hub schon einmal aufgeloest hat. Der Fernseher hat keine
+     * Tastatur: seine Ortsseite kann nur zeigen, was hier steht. Gespeichert wird
+     * der Name MIT den Koordinaten - die Wetterzeile rechnet ausschliesslich mit
+     * lat/lon, ein Name allein waere ein Etikett auf dem Wetter des alten Ortes. */
+    known: (function () {
+      var raw = [], seen = {}, out = [];
+      if (Array.isArray(we.known)) raw = we.known;
+      if (isStr(we.place, 80)) raw = raw.concat([{ place: we.place, lat: we.lat, lon: we.lon }]);
+      raw.forEach(function (p) {
+        if (!p || typeof p !== 'object') return;
+        if (!isStr(p.place, 80)) return;
+        var n = String(p.place).trim();
+        var la = Number(p.lat), lo = Number(p.lon);
+        if (!n || seen[n.toLowerCase()]) return;
+        if (!isFinite(la) || !isFinite(lo) || (la === 0 && lo === 0)) return;
+        if (la < -90 || la > 90 || lo < -180 || lo > 180) return;
+        seen[n.toLowerCase()] = 1;
+        out.push({ place: n, lat: Math.round(la * 10000) / 10000, lon: Math.round(lo * 10000) / 10000 });
+      });
+      return out.slice(-8);
+    })(),
     lat: isNum(we.lat, -90, 90),
     lon: isNum(we.lon, -180, 180),
     line: we.line === 'highlow' ? 'highlow' : 'temp',

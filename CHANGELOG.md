@@ -1,3 +1,29 @@
+## 0.6.38
+
+Three faults that only showed up on the TV, and the guards that would have caught them.
+
+**The place sheet was a blank page saying "undefined".** `place` appeared twice in the same object
+literal — the real frame and an empty copy from `FILLS` — and the later key wins, so `FRAMES.place()`
+returned `undefined` and that string went straight into `innerHTML`. The empty entry is gone, and the
+place list now has a source: the hub stores resolved places with their coordinates (`weather.known`,
+eight of them), because a name without latitude and longitude would just relabel the weather of the
+old place.
+
+**The input calls never reached the TV.** `com.webos.service.eim` and friends were called with the
+method inside the payload (`{method: 'getAllInputStatus', parameters: {...}}`); `PalmServiceBridge`
+only routes when the method sits in the URI. Every call sat in the timeout, and the page reported "the
+TV reported no inputs" while the service was running — measured on the device with `ps`. All four call
+sites now put the method in the URI, and `tools/check-luna-uris.py` fails the build if one ever does
+not: it is the only check that can catch this, since the bench has no Luna.
+
+**Two empty HDMI sockets were called "Verbunden".** The TV only sends `connected: true` when something
+is attached and marks the running input with `activate`; the page read `d.connected !== false` and
+`d.active`, so a missing field meant "connected" and the active marker was always false. Both now read
+the field the device sends, pinned by `tools/test-inputs-page.js` with the measured answer.
+
+The inputs page also tells you why it is empty now: the service's own answer is printed next to the
+message instead of being swallowed.
+
 ## 0.6.34
 
 Every selection row is a picker now, and the app sheet stops lying about what is installed.

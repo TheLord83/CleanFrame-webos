@@ -1392,11 +1392,16 @@
   function wxPlaceChoices() {
     var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
     var seen = {}, out = [];
-    (w.known || []).concat([w.place]).forEach(function (p) {
-      var n = String(p || '').trim();
+    var list = (w.known || []).concat([{ place: w.place, lat: w.lat, lon: w.lon }]);
+    list.forEach(function (p) {
+      var n = String((p && p.place) || '').trim();
+      var la = Number(p && p.lat), lo = Number(p && p.lon);
       if (!n || seen[n.toLowerCase()]) return;
+      /* Ein Ort ohne Koordinaten waere nur ein Etikett: die Wetterzeile rechnet
+       * mit lat/lon. Solche Eintraege kommen gar nicht erst in die Liste. */
+      if (!isFinite(la) || !isFinite(lo) || (la === 0 && lo === 0)) return;
       seen[n.toLowerCase()] = 1;
-      out.push({ action: 'place.pick.' + n, value: n, label: n, applied: n === wxPlaceName() });
+      out.push({ action: 'place.pick.' + n, value: n, label: n, lat: la, lon: lo, applied: n === wxPlaceName() });
     });
     return out;
   }
@@ -1478,20 +1483,20 @@
     push({ id: 'place', note: note || '', text: '', f: { i: 0 } });
     render(); renderSheet(top(), true);
   }
-  function weatherPlace(text) {
+  function weatherPlace(text, lat, lon) {
     var name = String(text || '').trim();
     if (!name) { pop(); render(); return; }
-    S.note = T('Looking up the place ...');
+    var la = Number(lat), lo = Number(lon);
+    /* Ein Ort ohne Koordinaten waere nur ein Etikett auf dem Wetter des alten
+     * Ortes - die Zeile rechnet mit lat/lon. Aus der Liste kommt beides mit. */
+    var has = isFinite(la) && isFinite(lo) && !(la === 0 && lo === 0);
+    S.note = T('Place saved: ') + name;
     render();
-    var cfg = JSON.parse(JSON.stringify(S.serverCfg || {}));
-    cfg.integrations = cfg.integrations || {};
-    cfg.integrations.weather = cfg.integrations.weather || {};
-    cfg.integrations.weather.place = name;
-    if (cfg.integrations.weather.style === 'none') cfg.integrations.weather.style = 'icon-temp';
     applyConfig(function (c) {
       c.integrations = c.integrations || {};
       c.integrations.weather = c.integrations.weather || {};
       c.integrations.weather.place = name;
+      if (has) { c.integrations.weather.lat = la; c.integrations.weather.lon = lo; }
       if (c.integrations.weather.style === 'none') c.integrations.weather.style = 'icon-temp';
     }, function (ok) {
       S.note = ok ? T('Place saved: ') + name : T('The place could not be saved.');
@@ -1586,8 +1591,12 @@
       var ins = t.inputs || [];
       if (t.loading) return [{ id: 'inputs', title: '', items: [{ action: 'inputs.retry', label: T('Looking for inputs ...'), disabled: true }] }];
       if (!ins.length || t.inputError) {
-        return [{ id: 'inputs', title: '', items: [{ action: 'inputs.retry', label: T('Try again') }],
-          reason: t.inputError && t.inputError.message ? t.inputError.message : T('No HDMI inputs were reported by this TV.') }];
+        /* Der Grund des Fernsehers gehoert auf die Seite, nicht nur ins Log:
+         * "keine Eingaenge gemeldet" ist die halbe Wahrheit, wenn der Dienst
+         * geantwortet hat und wir seine Antwort nicht gelesen haben. */
+        var why = t.inputError && t.inputError.message ? t.inputError.message : T('No HDMI inputs were reported by this TV.');
+        if (t.inputError && t.inputError.detail) why += ' (' + t.inputError.detail + ')';
+        return [{ id: 'inputs', title: '', items: [{ action: 'inputs.retry', label: T('Try again') }], reason: why }];
       }
       return [{ id: 'inputs', title: '', picker: true, reason: t.inputError ? t.inputError.message : '',
         items: ins.map(function (input) {
@@ -1962,7 +1971,7 @@
       if (n) {
         if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); return; }
         if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); return; }
-        if (k === 'ok') { weatherPlace(list[i].value); return; }
+        if (k === 'ok') { weatherPlace(list[i].value, list[i].lat, list[i].lon); return; }
       }
       if (k === 'ok') {
         S.note = T('Choose a place from the list or type a name.');
@@ -1987,7 +1996,7 @@
     else if (k === 'clear') { t.text = ''; t.f.ci = 0; render(); }
     else if (k === 'ok') {
       var pick = list[i];
-      if (pick) { weatherPlace(pick.value); return; }
+      if (pick) { weatherPlace(pick.value, pick.lat, pick.lon); return; }
       if (String(t.text || '').trim()) { weatherPlace(t.text); return; }
       S.note = T('Choose a place from the list or type a name.');
       render();
@@ -3005,10 +3014,6 @@
         + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>'
         + T('A new place is added in the hub in the browser.') + '</span></p>';
     },
-    /* Der Ort hat keine Felder, die nachtraeglich gefuellt werden muessen - die
-     * Liste wird mit dem Rahmen gezeichnet. Der Eintrag muss trotzdem existieren:
-     * renderSheet ruft FILLS[t.id] bedingungslos auf. */
-    place: function () {},
     rename: function (t) {
       /* Der Ort wird NICHT getippt: der Fernseher hat keine Tastatur, und die
        * Zahlenfelder der Fernbedienung reichen fuer einen Ortsnamen nicht. Der
@@ -3677,6 +3682,15 @@
       label: el ? String(el.textContent || '').trim().slice(0, 40) : null,
       index: t && t.f ? t.f.i : null
     };
+    /* Was der Fernseher zu den Eingängen gesagt hat, im Klartext. Die Seite
+     * zeigt "Verbunden"/"Aktiv" als Wort - daraus laesst sich nicht ablesen, ob
+     * das Geraet das Feld wirklich geliefert hat oder ob wir es nur annehmen.
+     * Genau daran hing der Fehler "zwei leere Buchsen sind verbunden". */
+    if (t && t.inputs && t.inputs.length) {
+      out.inputs = t.inputs.map(function (i) {
+        return { n: i.number, id: i.id, label: i.name, connected: i.connected, active: i.active };
+      });
+    }
     if (t && t.id === 'appearance') {
       var at = detailLocation(t);
       out.row = at.row; out.column = at.column;
@@ -3902,6 +3916,14 @@
     openIcons: openIcons,
     iconChoice: function (id) { return iconChoice(id); },
     openApps: openApps,
+    /* Ort-Seite ohne Umweg ueber die Wetterseite oeffnen (Pruefstand). */
+    openPlace: function (note) { openPlaceInput(note); return top().id; },
+    /* Eingaenge-Seite ohne Umweg ueber die Einstellungen oeffnen (Pruefstand
+     * und Abnahme lesen danach den Zustand statt zu klicken). */
+    openInputs: function () { openInputs(); return top().id; },
+    reportedState: function () { return uiState(); },
+    inputsState: function () { var t = top(); return (t.inputs || []).map(function (i) { return { n: i.number, id: i.id, label: i.name, connected: i.connected, active: i.active }; }); },
+    inputError: function () { var t = top(); return t.inputError ? { message: t.inputError.message, detail: t.inputError.detail } : null; },
     /* App list from outside: the bench has no Luna, so a test has to say what is
      * installed. Delivered through the same callback the device uses. */
     appsStub: function (entries) { FrameDevice.__apps = entries || []; return true; },
