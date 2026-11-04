@@ -37,6 +37,10 @@ var fs = require('fs');
 var path = require('path');
 var url = require('url');
 var os = require('os');
+/* Eigener Name: weiter unten deklariert eine Funktion `var os = info.os` -
+ * in JS hebt das die Modulvariable im ganzen umschliessenden Bereich auf, und
+ * /api/net bekam deshalb `undefined` statt des Moduls (am Geraet gesehen). */
+var osModule = require('os');
 
 var config = require('./lib/config');
 var appCatalog = require('./lib/apps');
@@ -51,7 +55,7 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.39';
+var VERSION = '0.6.40';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -148,6 +152,15 @@ function authed(q, req) {
 /* CSRF: a POST with a "simple" content type is delivered by the browser without
  * a preflight. Hence only application/json is allowed and foreign origins are
  * rejected — the same reasoning as Glasshouse's postGuard. */
+/* Eine Adresse, die ein Handy im selben Netz wirklich benutzen kann: keine
+ * Loopback-, keine selbst vergebene 169.254-Adresse. */
+function usableAddress(ip) {
+  var v = String(ip || '').trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return false;
+  if (/^127\./.test(v) || /^169\.254\./.test(v)) return false;
+  return true;
+}
+
 function postGuard(req, res) {
   var origin = req.headers.origin;
   var ctype = String(req.headers['content-type'] || '').toLowerCase();
@@ -293,19 +306,37 @@ function handle(req, res) {
   }
 
   /* Die Adresse des Geraets im Netz. Der QR-Code der Einrichtung zeigt darauf,
-   * also muss sie vom Geraet kommen - hier als Rueckfallebene, wenn Luna (die
-   * erste Quelle in der App) nicht antwortet. Loopback und 169.254 helfen einem
-   * Handy im selben Netz nicht weiter. */
+   * also muss sie vom Geraet kommen. Zwei Quellen, in dieser Reihenfolge:
+   *
+   * 1. os.networkInterfaces() - die vollstaendige Liste. Der Name `os` wird
+   *    weiter unten in einer anderen Funktion als `var os = info.os` benutzt und
+   *    verschattet dort das Modul; deshalb heisst das Modul hier osModule.
+   * 2. Die Adresse, unter der diese Anfrage hereinkam (socket.localAddress).
+   *    Das ist die ehrlichste Antwort auf "wie erreicht mich das Handy?" -
+   *    ausser der Anrufer kommt ueber Loopback, dann sagt sie 127.0.0.1 und
+   *    ist fuer ein Handy wertlos.
+   *
+   * Loopback und 169.254 helfen niemandem im selben Netz und werden nicht
+   * angeboten. Findet sich nichts, sagt die Antwort das. */
   if (req.method === 'GET' && p === '/api/net') {
-    var ifs = os.networkInterfaces(), cands = [];
-    Object.keys(ifs).forEach(function (name) {
-      (ifs[name] || []).forEach(function (a) {
-        if (!a || a.internal) return;
-        if (a.family !== 'IPv4' && a.family !== 4) return;
-        if (/^169\.254\./.test(a.address)) return;
-        cands.push({ name: name, address: a.address });
-      });
-    });
+    var cands = [];
+    try {
+      if (osModule && typeof osModule.networkInterfaces === 'function') {
+        var ifs = osModule.networkInterfaces();
+        Object.keys(ifs).forEach(function (name) {
+          (ifs[name] || []).forEach(function (a) {
+            if (!a || a.internal) return;
+            if (a.family !== 'IPv4' && a.family !== 4) return;
+            if (usableAddress(a.address)) cands.push({ name: name, address: a.address });
+          });
+        });
+      }
+    } catch (e) { /* eingeschraenktes Node: naechste Quelle */ }
+    var local = '';
+    try { local = (req.socket && req.socket.localAddress) || ''; } catch (e2) { local = ''; }
+    if (usableAddress(local) && !cands.some(function (c) { return c.address === local; })) {
+      cands.push({ name: 'request', address: local });
+    }
     return json(res, 200, {
       ok: true,
       port: PORT,

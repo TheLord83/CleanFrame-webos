@@ -196,6 +196,9 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   # Einrichtungs-QR: die Adresse ist die IP des Geraets, die Matrix entsteht im
   # Geraet, und ein fremder Decoder muss sie lesen koennen.
   run "setup qr" node tools/test-setup-qr.js --port "$PORT_DEBUG"
+  # Die Adresse, die /api/net anbietet: LAN-nutzbar, nie Loopback. Der Fehler
+  # dahinter war eine Verschattung (`var os = info.os`), sichtbar nur als 500er.
+  run "net endpoint" python3 tools/check-net-endpoint.py
   # Ort-Seite: Liste aus der Konfiguration, Auswahl mit Koordinaten, kein "undefined".
   run "place sheet" node tools/test-place-sheet.js --port "$PORT_DEBUG" --hub "http://127.0.0.1:$PORT_SERVER"
 fi

@@ -3738,6 +3738,11 @@
       label: el ? String(el.textContent || '').trim().slice(0, 40) : null,
       index: t && t.f ? t.f.i : null
     };
+    /* Die Adresse aus dem Einrichtungs-QR-Code gehoert in die Meldung: auf einem
+     * Screenshot laesst sie sich ablesen, aber bei der Abnahme will man wissen,
+     * welche Adresse das Geraet selbst genommen hat - nicht, was ein Bild
+     * hergibt. */
+    if (t && t.msg === 'setup') out.qrUrl = setupUrl();
     /* Was der Fernseher zu den Eingängen gesagt hat, im Klartext. Die Seite
      * zeigt "Verbunden"/"Aktiv" als Wort - daraus laesst sich nicht ablesen, ob
      * das Geraet das Feld wirklich geliefert hat oder ob wir es nur annehmen.

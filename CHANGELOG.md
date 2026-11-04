@@ -1,3 +1,21 @@
+## 0.6.40
+
+The hub could not say what its own address was.
+
+`/api/net` answered 500 with `Cannot read property 'networkInterfaces' of
+undefined`. Not a missing module: another function in the same file declares
+`var os = info.os`, and in JavaScript that hoists over the module variable for
+the whole enclosing scope — so the address endpoint was holding `undefined`
+instead of the module. The module now has its own name, and the endpoint has two
+sources: the interface list, and the address the request actually arrived on
+(which is the honest answer to "how does a phone reach me?" — except over
+loopback, where it says 127.0.0.1 and is worthless to a phone).
+
+`tools/check-net-endpoint.py` asks a running hub instead of the function: it
+starts one on a free port and checks that the address it offers is usable in the
+LAN, is the address of that machine, is not offered twice, and that neither
+127.x nor 169.254.x ever appears.
+
 ## 0.6.39
 
 The setup code now points at the television, and it is drawn on the television.

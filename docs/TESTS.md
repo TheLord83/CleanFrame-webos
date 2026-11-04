@@ -102,6 +102,13 @@ screenshot. 9 checks. The HTTP delivery of that state is not asserted here: the 
 from `file://` pages that do not come from the TV itself, so nothing arrives on the bench — correct
 behaviour, wrong place for the check.
 
+**Network address.** `tools/check-net-endpoint.py` starts a hub on a free port and asks it for
+`/api/net` — the address the setup code points at. It has to be a LAN address of that machine, it must
+not appear twice, and neither `127.x` nor `169.254.x` may ever come out. Asking the running server
+matters: the first version of the endpoint died on a shadowed `os` variable (another function declares
+`var os = info.os`), and that was only visible as a 500 from outside. 8 checks, and a skip on a machine
+with no LAN address.
+
 **Setup QR code.** `tools/test-setup-qr.js` holds the setup note to two promises: the code carries
 the address of the television (`http://<ip>:8484/`, nothing else — no DNS name that does not exist in
 every network, no `127.0.0.1` that means the phone itself), and the matrix is computed on the device
