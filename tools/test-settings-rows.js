@@ -29,7 +29,7 @@ var REPORT = process.argv.indexOf('--report') >= 0;
  */
 var EXPECT = {
   'settings.group.background': [
-    { q: 'Background type', kind: 'choice', opts: 3, want: 'picker' },
+    { q: 'Background type', kind: 'picker', opts: 3, want: 'picker' },
     { q: 'Wallpaper', kind: 'action', opts: 1, want: 'action' },
     { q: 'Rotation', kind: 'action', opts: 1, want: 'action' }
   ],
@@ -39,21 +39,21 @@ var EXPECT = {
     { q: 'Home controls', kind: 'picker', opts: 3, want: 'picker' }
   ],
   'settings.group.typography': [
-    { q: 'Font', kind: 'choice', opts: null, want: 'picker' },
+    { q: 'Font', kind: 'picker', opts: null, want: 'picker' },
     { q: 'Text size', kind: 'picker', opts: 8, want: 'picker' }
   ],
   /* "Text size" in der Uebersicht oeffnet dieselbe Seite wie "Typography". */
   'settings.group.text': [
-    { q: 'Font', kind: 'choice', opts: null, want: 'picker' },
+    { q: 'Font', kind: 'picker', opts: null, want: 'picker' },
     { q: 'Text size', kind: 'picker', opts: 8, want: 'picker' }
   ],
   'settings.group.focus': [
-    { q: 'Focus style', kind: 'choice', opts: 2, want: 'picker' },
-    { q: 'Material', kind: 'choice', opts: 3, want: 'picker' }
+    { q: 'Focus style', kind: 'picker', opts: 2, want: 'picker' },
+    { q: 'Material', kind: 'picker', opts: 3, want: 'picker' }
   ],
   'settings.group.clocklang': [
-    { q: 'Clock', kind: 'choice', opts: 3, want: 'picker' },
-    { q: 'Language', kind: 'choice', opts: 3, want: 'picker' }
+    { q: 'Clock', kind: 'picker', opts: 3, want: 'picker' },
+    { q: 'Language', kind: 'picker', opts: 3, want: 'picker' }
   ],
   'settings.group.weather': [
     { q: 'Shown as', kind: 'picker', opts: 5, want: 'picker' },
@@ -71,7 +71,7 @@ var EXPECT = {
    * television and the test bench has no EIM, so the row is checked by shape and
    * the answers by "at least one when the list arrived". */
   'settings.group.inputs': [
-    { q: '', kind: 'picker', opts: null, want: 'picker' }
+    { q: '', kind: 'one', opts: 1, want: 'picker' }
   ]
 };
 
@@ -323,7 +323,12 @@ async function checkPages(pages) {
     for (var i = 0; i < Math.min(got.length, expect.length); i++) {
       var g = got[i], e = expect[i], name = label + ' [' + (i + 1) + '] ' + (g.q || e.q);
       var kind = g.picker ? 'picker' : (g.opts === 1 ? 'action' : 'choice');
-      check(kind === e.kind, name + ': Aufbau', kind + ' statt ' + e.kind);
+      /* `one`: die Zeile sieht wie ein einzelner Knopf aus, weil ihr Inhalt von
+       * aussen kommt (die HDMI-Liste des Fernsehers; im Pruefstand antwortet
+       * niemand, deshalb steht dort "Nochmal versuchen"). Geprueft wird die
+       * Form, nicht der Inhalt; `want` bleibt der Waechter fuer die Migration. */
+      var shapeOk = e.kind === 'one' ? (kind === 'picker' || kind === 'action') : kind === e.kind;
+      check(shapeOk, name + ': Aufbau', kind + ' statt ' + e.kind);
       if (kind === 'picker') {
         var placed = await focusPicker(g.id);
         check(!!placed, name + ': Zeile ist erreichbar');
@@ -332,7 +337,7 @@ async function checkPages(pages) {
         check(!!opened, name + ': OK klappt die Antworten auf');
         if (e.opts === null) check(count >= 1, name + ': mindestens eine Antwort', 'opts=' + count);
         else check(count === e.opts, name + ': Anzahl Antworten', count + ' statt ' + e.opts);
-        check(count > 1, name + ': Picker hat mehr als eine Antwort', 'opts=' + count);
+        if (e.kind !== 'one') check(count > 1, name + ': Picker hat mehr als eine Antwort', 'opts=' + count);
       } else if (e.opts === null) {
         check(g.opts >= 1, name + ': mindestens eine Antwort', 'opts=' + g.opts);
       } else {

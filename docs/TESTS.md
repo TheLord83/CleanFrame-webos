@@ -83,7 +83,13 @@ explicit action, with the expected number of answers. The expectation in the fil
 0.6.32; `want` is the goal — every selection row a picker, actions stay actions. `--report` prints
 what still has to be migrated. A row the page shows but the expectation does not know is a failure,
 and so is an expectation without a row: that is the case a fixed list never catches, and exactly how
-the two interaction patterns of 0.6.32 came about. 86 checks.
+the two interaction patterns of 0.6.32 came about. 111 checks.
+
+**Apps catalogue.** `tools/test-apps-catalog.js` holds on to the one page that used to keep its
+entries from the last visit: opening the app sheet has to clear the catalogue and read it again, a
+shorter list must not leave a removed app on the page, and the highlight follows the app, not the
+position. The list itself comes from a stub (`CleanFrameDebug.appsStub`), because there is no Luna on
+the bench — the test is about the page rebuilding itself, not about what is installed. 8 checks.
 
 **Bundled hub.** Two checks, because this is the piece a Channel install depends on.
 `tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three

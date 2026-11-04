@@ -741,7 +741,11 @@
       ALPHA.sort(function (a, b) { return app(a).name.toLowerCase().localeCompare(app(b).name.toLowerCase()); });
       catalog.loaded = true; catalog.error = null; catalog.revision++;
       reportApps(entries);
-      if (top().id === 'apps' && oldFocus && ALPHA.indexOf(oldFocus) >= 0) top().f.i = ALPHA.indexOf(oldFocus);
+      /* After a reload the cursor follows the app, not the position: an app that
+       * appeared above the old focus must not shift the highlight onto its
+       * neighbour. */
+      var want = oldFocus || S.appsFocus;
+      if (top().id === 'apps' && want && ALPHA.indexOf(want) >= 0) top().f.i = ALPHA.indexOf(want);
       norm(); render();
     });
   }
@@ -779,6 +783,14 @@
   function openMessage(key) { push({ id: 'message', msg: key, f: { b: 0 } }); }
   function openApps() {
     var e = { id: 'apps', mode: 'browse', top: 0, f: { zone: 'grid', i: Math.max(0, ALPHA.indexOf(S.appsFocus)), h: 0 } };
+    /* The catalog is a picture of what was installed when the page was last
+     * opened. Clearing it here means the next draw cannot show an app that is
+     * gone — the honest "Loading ..." is better than a tile that launches
+     * nothing. The focus is remembered by app id, not by index, so a list that
+     * changed underneath does not move the cursor onto a different app. */
+    ALPHA = [];
+    catalog.loaded = false;
+    catalog.error = null;
     push(e); refreshCatalog(); return e;
   }
   /* ---------- Values on the start page (TV-side) ---------- */
@@ -1267,18 +1279,18 @@
     openAppearance('inputs');
     var t = top();
     t.inputs = []; t.loading = true; t.inputError = null;
-    renderSheet(t, true);
+    render();
     loadInputs(t);
   }
   function loadInputs(t) {
     t.loading = true; t.inputError = null;
-    if (top() === t) renderSheet(t, true);
+    if (top() === t) render();
     FrameDevice.sources(function (err, list) {
       if (top() !== t) return;
       t.loading = false;
       t.inputs = list || [];
       t.inputError = err || null;
-      renderSheet(t, true);
+      render();
     });
   }
   /* Switching is a one-shot action with a visible result; the error text comes
@@ -1298,7 +1310,7 @@
     cfg.onboarding = { done: false, version: 1 };
     S.serverCfg = cfg;
     S.appliedRev = parseInt(cfg.rev, 10) || 0;
-    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg);
+    if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () {});
     /* id 'message' ist der vorhandene Hinweis-Dialog; 'msg' gibt es nicht, damit
      * wurde der Datensatz stumm abgelegt und nichts angezeigt. */
     openMessage('setup');
@@ -1499,7 +1511,7 @@
     var flat = S.c.bg !== 'photo', inactive = !materialApplies();
     function options(axis, values, disabled) { return values.map(function (value) { return choice(axis, value, disabled); }); }
     if (t.group === 'background') return [
-      { id: 'bg', title: T('Background type'), items: options('bg', ['photo', 'light', 'dark']) },
+      { id: 'bg', title: T('Background type'), picker: true, items: options('bg', ['photo', 'light', 'dark']) },
       { id: 'wall', title: T('Wallpaper'), items: [{ action: 'background.wallpaper', label: wall(S.c.wall).name, thumbnail: true, disabled: flat }] },
       { id: 'rotation', title: T('Rotation'), items: [{ action: 'background.rotation', label: mode().name, disabled: flat }], reason: flat ? T('Choose Photo to use wallpaper and rotation.') : '' }
     ];
@@ -1512,7 +1524,7 @@
       { id: 'apps', title: T('App display'), picker: true, items: options('apps', ['text', 'icons', 'both']) },
       { id: 'controls', title: T('Home controls'), picker: true, items: options('controls', ['text', 'icons', 'both']) }
     ];
-    if (t.group === 'typography') return [{ id: 'font', title: T('Font'), items: options('font', LOOK_VALUES.font) },
+    if (t.group === 'typography') return [{ id: 'font', title: T('Font'), picker: true, items: options('font', LOOK_VALUES.font) },
       /* Eine Zeile statt acht Knoepfe: der Wert steht in der Zeile, OK klappt die
        * Auswahl darunter auf. */
       { id: 'text', title: T('Text size'), picker: true, items: [20, 50, 75, 100, 125, 150, 175, 200].map(function (v) {
@@ -1546,8 +1558,8 @@
         { action: 'weather.place', label: wxPlaceName() || T('Not set') || 'Not set', edit: true }] }
     ];
     if (t.group === 'focus') return [
-      { id: 'focus', title: T('Focus style'), horizontal: true, items: options('focus', ['type', 'glass']) },
-      { id: 'material', title: T('Material'), horizontal: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
+      { id: 'focus', title: T('Focus style'), picker: true, items: options('focus', ['type', 'glass']) },
+      { id: 'material', title: T('Material'), picker: true, items: options('material', ['soft', 'frost', 'tint'], inactive),
         reason: inactive ? flat ? 'Materials are available with a Photo background.' : T('Choose Glass focus or the Dock layout to use materials.') : '' }
     ];
     /* Clock and language used to sit in ONE horizontal row (two columns), so down
@@ -1557,11 +1569,11 @@
     if (t.group === 'clocklang') return [
       /* Aus gehoert hierher, nicht in eine eigene Zeile "Uhr an/aus": wer die Uhr
        * abschaltet, sucht sie bei der Uhr - nicht zwei Eintraege weiter oben. */
-      { id: 'clock', title: T('Clock'), horizontal: true, items: [
+      { id: 'clock', title: T('Clock'), picker: true, items: [
         { action: 'clock.set.24', value: '24', label: '24 h' },
         { action: 'clock.set.12', value: '12', label: '12 h' },
         { action: 'clock.set.off', value: 'off', label: T('Off') }] },
-      { id: 'lang', title: T('Language'), items: LANGS.map(function (l) {
+      { id: 'lang', title: T('Language'), picker: true, items: LANGS.map(function (l) {
         return { action: 'language.set.' + l.id, value: l.id, label: l.name };
       }) }];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
@@ -2740,6 +2752,10 @@
     var v = V[t.id], key;
     sheetEl.hidden = !(sheet || isSettingsDetail(t));
     sheetView.hidden = !sheet;
+    /* Settings pages are drawn by renderAppearance, not by a sheet frame. Asking
+     * FRAMES for one anyway was a TypeError waiting for the first page that tried —
+     * openInputs() did. Same reason the place page carries an empty FILLS entry. */
+    if (!sheet && sheetKey !== '') { sheetView.innerHTML = ''; sheetKey = ''; slotEls = {}; }
     if (sheet) sheetView.setAttribute('aria-modal', 'true');
     else sheetView.removeAttribute('aria-modal');
     sceneEl.setAttribute('aria-hidden', sheet || isSettingsDetail(t) ? 'true' : 'false');
@@ -3885,6 +3901,17 @@
     },
     openIcons: openIcons,
     iconChoice: function (id) { return iconChoice(id); },
+    openApps: openApps,
+    /* App list from outside: the bench has no Luna, so a test has to say what is
+     * installed. Delivered through the same callback the device uses. */
+    appsStub: function (entries) { FrameDevice.__apps = entries || []; return true; },
+    catalogState: function () {
+      return {
+        reading: !!catalog.loading, loaded: !!catalog.loaded, error: catalog.error || null,
+        ids: ALPHA.slice(), focus: S.appsFocus || null, top: top().id
+      };
+    },
+    closeSheet: function () { pop(); render(); return top().id; },
     bootWall: function () { return !!document.getElementById('bootWall'); },
     rev: function () { return { angewendet: S.appliedRev, server: S.serverCfg ? parseInt(S.serverCfg.rev, 10) || 0 : null, wartend: !!S.pendingCfg }; },
     poll: function () {

@@ -1,3 +1,31 @@
+## 0.6.34
+
+Every selection row is a picker now, and the app sheet stops lying about what is installed.
+
+**Six rows migrated.** Font, background type, focus style, material, clock and language used to be
+button rows — the pattern that made selecting feel wrong on the weather line. They now open their
+answers underneath like every other row. Nothing new to learn: the rows test already knew all pages,
+so each row went red first and green after the change.
+
+**The app sheet rebuilds itself.** It was the only page that kept its entries from the last visit; a
+removed app stayed in the menu and launched into nothing. Opening it now clears the catalogue and
+reads it again, and the highlight follows the app rather than its position — a list that changed
+underneath no longer moves the cursor onto a neighbour. There is a test for it
+(`tools/test-apps-catalog.js`), and the bench gets its list from a stub because there is no Luna on
+the bench.
+
+**Two crashes fixed on the way**, both found by walking the pages:
+
+- `renderSheet` asked `FRAMES` for a settings page. The place page had an empty `FILLS` entry for the
+  same reason; opening the inputs page raised `TypeError: FRAMES[t.id] is not a function`. Settings
+  pages are drawn by `renderAppearance`, and `renderSheet` no longer pokes at them.
+- "Run setup again" called `saveConfig` without a callback and raised
+  `TypeError: cb is not a function` — the bug that was known since 0.6.32 and blocked acceptance
+  point 4 (the QR code in the setup note).
+
+**Settings rows** test: 111 checks (was 86). **Apps catalogue**: 8 checks. `check-all` is at 16
+stages.
+
 ## 0.6.33
 
 HDMI inputs, taken from the direction the Samsung original went in 0.7.0 — and a

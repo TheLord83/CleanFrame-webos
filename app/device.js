@@ -183,6 +183,13 @@
   }
 
   function apps(done) {
+    /* A bench that sets FrameDevice.__apps answers from that list instead of
+     * asking the device — same callback shape, so nothing else has to know. */
+    if (window.FrameDevice && window.FrameDevice.__apps) {
+      var stub = window.FrameDevice.__apps.slice();
+      setTimeout(function () { done(null, stub); }, 0);
+      return;
+    }
     var finished = false;
     function once(err, list) {
       if (finished) return;
