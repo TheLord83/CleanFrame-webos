@@ -192,6 +192,116 @@
     appsFromGlasshouse(once);
   }
 
+  /* ---------- HDMI inputs (External Input Manager) ----------
+   * webOS has no single call that lists and switches inputs on every firmware
+   * (the same reason Launch Home, MIT, keeps a fallback chain). The order here
+   * is that chain, cheapest first:
+   *
+   *   list:  eim/getAllInputStatus -> devices[]
+   *   open:  apiadapter/tv switchInput {inputId}
+   *          eim/getInputStatus {id} -> applicationManager/launch with its appId
+   *          utp/extinputs open {inputSourceType, options:{mediaId}}
+   *
+   * Everything answers with (err, value) and never throws. A device that reports
+   * nothing gets an honest error, not an empty page that looks like "no inputs". */
+
+  var HDMI = /^HDMI[_-]?(\d+)$/i;
+
+  function hdmiNumberOf(id) {
+    var m = HDMI.exec(String(id || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function readInputs(done) {
+    luna('luna://com.webos.service.eim', { method: 'getAllInputStatus', parameters: { subscribe: false } },
+      function (res) {
+        var devices = (res && res.devices) || [];
+        if (!res || res.returnValue === false || !devices.length) {
+          done({
+            message: 'Der Fernseher hat keine Eingaenge gemeldet.',
+            detail: (res && (res.errorText || res.errorCode)) ? String(res.errorText || res.errorCode) : 'keine Liste'
+          });
+          return;
+        }
+        var out = [], seen = {};
+        devices.forEach(function (d) {
+          if (!d) return;
+          var id = String(d.id || d.inputId || '');
+          var number = hdmiNumberOf(id);
+          /* The chooser is about HDMI; other sources (tuner, apps) are not inputs. */
+          if (number === null || seen[number]) return;
+          seen[number] = true;
+          out.push({
+            number: number,
+            id: id,
+            name: String(d.label || d.name || ('HDMI ' + number)).slice(0, 120),
+            device: String(d.connectedDeviceName || d.deviceName || '').slice(0, 120),
+            connected: d.connected !== false,
+            active: d.connected === true && d.active === true
+          });
+        });
+        out.sort(function (a, b) { return a.number - b.number; });
+        if (!out.length) {
+          done({ message: 'Dieser Fernseher meldet keine HDMI-Eingaenge.', detail: 'devices ohne HDMI' });
+          return;
+        }
+        done(null, out);
+      });
+  }
+
+  function switchViaAdapter(input, done) {
+    luna('luna://com.webos.service.apiadapter/tv', { method: 'switchInput', parameters: { inputId: input.id } },
+      function (res) {
+        if (res && res.returnValue === true) return done(null);
+        done({ message: 'Der Eingang liess sich nicht umschalten.', detail: errText(res) }, true);
+      });
+  }
+
+  function switchViaEim(input, done) {
+    luna('luna://com.webos.service.eim', { method: 'getInputStatus', parameters: { id: input.id } }, function (res) {
+      var appId = res && res.appId;
+      if (!appId) return done({ message: 'Der Eingang hat keine App.', detail: errText(res) }, true);
+      launchId(appId, function (err) {
+        if (!err) return done(null);
+        done({ message: err.message, detail: err.detail }, true);
+      });
+    });
+  }
+
+  function switchViaExtinputs(input, done) {
+    var first = { inputSourceType: 'HDMI', options: { mediaId: String(input.number) } };
+    luna('luna://com.webos.service.utp.extinputs', { method: 'open', parameters: first }, function (res) {
+      if (res && res.returnValue === true) return done(null);
+      luna('luna://com.webos.service.utp.extinputs',
+        { method: 'open', parameters: { inputSourceType: 'HDMI', inputSource: input.id } }, function (res2) {
+          if (res2 && res2.returnValue === true) return done(null);
+          done({ message: 'Der Eingang liess sich nicht umschalten.', detail: errText(res2 || res) });
+        });
+    });
+  }
+
+  function errText(res) {
+    if (!res) return 'keine Antwort';
+    return String(res.errorText || res.errorCode || res.error || 'unbekannt');
+  }
+
+  /* Each step hands over to the next one only when it could not do the job
+   * (`retry`), so the last error is the one the person sees. */
+  function setSource(inputOrNumber, done) {
+    var input = inputOrNumber;
+    if (typeof inputOrNumber === 'number') {
+      input = { id: 'HDMI_' + inputOrNumber, number: inputOrNumber };
+    }
+    if (!input || !input.id) { done({ message: 'Diesen Eingang gibt es nicht.' }); return; }
+    switchViaAdapter(input, function (err, retry) {
+      if (!retry && !err) return done(null);
+      switchViaEim(input, function (err2, retry2) {
+        if (!retry2 && !err2) return done(null);
+        switchViaExtinputs(input, function (err3) { done(err3 || err2 || err); });
+      });
+    });
+  }
+
   /* ---------- Configuration from the CleanFrame web server (port 8484) ----------
    * The server is the shared source for TV and web interface.
    * If it is not installed, everything stays as before (localStorage). */
@@ -263,6 +373,8 @@
     home: home,
     settings: settings,
     apps: apps,
+    sources: readInputs,
+    setSource: setSource,
     resolve: resolve
   };
 }());

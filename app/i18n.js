@@ -14,6 +14,15 @@
   var DICT = {
     de: {
       /* Einstellungen auf dem Fernseher: Textgroesse und Wetterzeile */
+      /* HDMI-Eingänge (External Input Manager): Liste, Zustände, Umschalten */
+      'Inputs': 'Eingänge',
+      'HDMI sources': 'HDMI-Quellen',
+      'Looking for inputs ...': 'Suche Eingänge ...',
+      'Try again': 'Nochmal versuchen',
+      'No HDMI inputs were reported by this TV.': 'Dieser Fernseher hat keine HDMI-Eingänge gemeldet.',
+      'Active': 'Aktiv',
+      'Connected': 'Verbunden',
+      'No device': 'Kein Gerät',
       'Text size': 'Schriftgröße',
       'Weather': 'Wetter',
       'Shown as': 'Anzeige',

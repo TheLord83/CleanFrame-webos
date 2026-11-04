@@ -1,3 +1,28 @@
+## 0.6.33
+
+HDMI inputs, taken from the direction the Samsung original went in 0.7.0 — and a
+test that misses nothing any more.
+
+**Inputs** (Settings → Inputs) lists the television's HDMI ports with their state:
+`Active`, `Connected`, or `No device`. Pressing OK switches to the input and stays
+on the page. The list is read every time the page opens, so a console plugged in
+later appears without a restart.
+
+The device layer is ours, not the original's: webOS has no single call that works
+on every firmware, so `app/device.js` uses the same falling chain the neighbours
+use — `apiadapter/tv switchInput`, then `eim/getInputStatus` and a launch with the
+input's app id, then `utp/extinputs open`. The list comes from
+`eim/getAllInputStatus`. What the television does not report is an error with a
+reason and a "Try again", never an empty page that looks like "you have no inputs".
+
+**Rows.** The inputs page is a picker like every other selection row. The rows test
+now knows the page, so a settings page that changes shape without the test saying
+so turns the run red.
+
+**First version with inputs.** Nothing here needs root or Glasshouse: the input
+list and the switch run over the television's own services. The Home takeover is
+still open (issue #5) — this release does not touch it.
+
 ## 0.6.32
 
 The four points from testing on the TV, plus a measurement bug the checks had.

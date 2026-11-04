@@ -1213,6 +1213,7 @@
       { id: 'weather', label: T('Weather'), value: weatherSummary() },
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
+      { id: 'inputs', label: T('Inputs'), value: T('HDMI sources') },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
@@ -1248,6 +1249,7 @@
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') openSetupAgain();
+    else if (id === 'inputs') openInputs();
     else openAppearance(id);
   }
 
@@ -1258,6 +1260,35 @@
    * Aufruf seinen Assistenten. Deshalb oeffnet der Eintrag jetzt den Assistenten
    * im Browser, und das Flag bleibt unberuehrt; er laesst sich von dort aus
    * jederzeit wieder aufrufen. */
+  /* HDMI inputs: read on every open, so a device plugged in later shows up. The
+   * error path is deliberate: a TV that reports nothing says so instead of
+   * showing an empty list that looks like "you have no inputs". */
+  function openInputs() {
+    openAppearance('inputs');
+    var t = top();
+    t.inputs = []; t.loading = true; t.inputError = null;
+    renderSheet(t, true);
+    loadInputs(t);
+  }
+  function loadInputs(t) {
+    t.loading = true; t.inputError = null;
+    if (top() === t) renderSheet(t, true);
+    FrameDevice.sources(function (err, list) {
+      if (top() !== t) return;
+      t.loading = false;
+      t.inputs = list || [];
+      t.inputError = err || null;
+      renderSheet(t, true);
+    });
+  }
+  /* Switching is a one-shot action with a visible result; the error text comes
+   * from the device layer and is shown as it is, not replaced by "failed". */
+  function switchInput(number) {
+    perform(T('Inputs'), function (done) {
+      FrameDevice.setSource(Number(number), function (err) { done(err || null); });
+    });
+  }
+
   function openSetupAgain() {
     /* Die Browserseite des Hubs haengt am selben Dienst, die App kann sie nicht
      * oeffnen (kein Browser auf dem Geraet). Deshalb: Flag oeffnen, damit der
@@ -1385,7 +1416,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -1535,13 +1566,33 @@
       }) }];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
+    /* HDMI inputs: the list is read from the television each time the page opens
+     * (a device plugged in later must appear without a restart). The row is a
+     * picker like every other selection row; what it shows is the input's own
+     * name and, when the TV knows it, the connected device. */
+    if (t.group === 'inputs') {
+      var ins = t.inputs || [];
+      if (t.loading) return [{ id: 'inputs', title: '', items: [{ action: 'inputs.retry', label: T('Looking for inputs ...'), disabled: true }] }];
+      if (!ins.length || t.inputError) {
+        return [{ id: 'inputs', title: '', items: [{ action: 'inputs.retry', label: T('Try again') }],
+          reason: t.inputError && t.inputError.message ? t.inputError.message : T('No HDMI inputs were reported by this TV.') }];
+      }
+      return [{ id: 'inputs', title: '', picker: true, reason: t.inputError ? t.inputError.message : '',
+        items: ins.map(function (input) {
+          return {
+            action: 'input.' + input.number, value: String(input.number),
+            label: input.name + (input.device ? ' · ' + input.device : ''),
+            description: input.active ? T('Active') : (input.connected ? T('Connected') : T('No device'))
+          };
+        }) }];
+    }
     return [{ id: 'samsung', title: '', items: [
       { action: 'samsung.home', label: T('LG Home'), description: T('Open the LG Home screen') },
       { action: 'samsung.settings', label: T('TV settings'), description: T('Picture, sound and network settings') }
     ] }];
   }
   function detailRows(t) {
-    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : T('Settings') }]];
+    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? T('Background') : (t.group === 'inputs' ? T('Inputs') : T('Settings')) }]];
     detailSections(t).forEach(function (section) {
       var enabled = section.items.filter(function (item) { return !item.disabled; });
       if (section.picker) {
@@ -1618,6 +1669,10 @@
     else if (item.action.indexOf('language.set.') === 0) setLanguage(item.action.slice('language.set.'.length));
     else if (item.action === 'samsung.home') perform(T('LG Home'), FrameDevice.home);
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
+    /* HDMI inputs: OK takes the input under the focus and leaves the page open,
+     * so the list still shows what is connected. "Try again" reads it once more. */
+    else if (item.action === 'inputs.retry') { loadInputs(t); return; }
+    else if (item.action.indexOf('input.') === 0) { switchInput(item.action.slice('input.'.length)); }
     /* Nach dem Setzen wieder zuklappen: der neue Wert steht dann in der Zeile,
      * und die Frage darueber bleibt sichtbar. */
     if (headAction && S.picker) {
