@@ -1,3 +1,12 @@
+## 0.6.42
+
+The baked setup matrix is gone, together with the script that produced it.
+
+`app/assets/qr-setup.js` and `tools/make-qr.py` had no reader left after 0.6.39 —
+the app computes the matrix from the address it reads off the device. Keeping a
+second, wrong answer in the package would only invite someone to trust it later.
+The test keeps its guard: `index.html` must not load a `qr-setup.js` again.
+
 ## 0.6.41
 
 The setup note showed no code at all.
