@@ -780,7 +780,12 @@
     var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : group === 'rotation' ? 'rotation.' + S.c.mode : 'samsung.home');
     push({ id: 'appearance', group: group, f: { action: action } });
   }
-  function openMessage(key) { push({ id: 'message', msg: key, f: { b: 0 } }); }
+  function openMessage(key) {
+    push({ id: 'message', msg: key, f: { b: 0 } });
+    /* Der QR-Code braucht die Adresse des Geraets: beim Oeffnen holen und die
+     * Seite neu zeichnen, sobald sie da ist. */
+    if (key === 'setup') resolveTvIp(function () { if (top().msg === 'setup') { render(); renderSheet(top(), true); } });
+  }
   function openApps() {
     var e = { id: 'apps', mode: 'browse', top: 0, f: { zone: 'grid', i: Math.max(0, ALPHA.indexOf(S.appsFocus)), h: 0 } };
     /* The catalog is a picture of what was installed when the page was last
@@ -1786,12 +1791,62 @@
     }
   };
   function messageContent(t) { return t.content || MSG[t.msg]; }
-  /* QR-Code als SVG: je Modul ein Quadrat in einem Pfad, damit es ein Element
-   * bleibt. Ohne die Datei (aeltere Installation) kommt eine leere Zeichenkette
-   * zurueck, der Dialog bleibt dann ohne Bild. */
+  /* ---------- QR-Code der Einrichtung ----------
+   * Der Code zeigt auf die Hub-Seite im Netz, also auf die Adresse des
+   * Fernsehers - und die kennt nur das Geraet. Frueher lag eine fertige Matrix
+   * aus tools/make-qr.py im Paket, gerechnet beim Bauen auf einen DNS-Namen.
+   * Das war zweimal falsch: der Name existiert nicht in jedem Netz, und die
+   * Adresse kann sich aendern, ohne dass das Paket neu gebaut wird.
+   * Also: Adresse beim Oeffnen holen (Luna, sonst Hub), Matrix im Geraet
+   * rechnen. Ohne Adresse gibt es keinen Code - ein Code auf 127.0.0.1 waere
+   * ein Versprechen, das das Handy nicht einloest. */
+  var HUB_PORT = (/:([0-9]+)/.exec(HUB) || [])[1] || '8484';
+  function isLanIp(ip) {
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(String(ip || ''))) return false;
+    if (/^127\./.test(ip) || /^169\.254\./.test(ip)) return false;
+    return true;
+  }
+  function setupUrl() { return isLanIp(S.tvIp) ? 'http://' + S.tvIp + ':' + HUB_PORT + '/' : ''; }
+  function resolveTvIp(done) {
+    done = done || function () {};
+    if (isLanIp(S.tvIp)) return done(S.tvIp);
+    function viaHub() {
+      try {
+        fetch(HUB + '/api/net').then(function (r) { return r.json(); }).then(function (d) {
+          if (isLanIp(d && d.address)) S.tvIp = d.address;
+          done(S.tvIp || '');
+        }).catch(function () { done(S.tvIp || ''); });
+      } catch (e) { done(S.tvIp || ''); }
+    }
+    if (window.FrameDevice && FrameDevice.connectionInfo) {
+      FrameDevice.connectionInfo(function (err, info) {
+        if (!err && info && isLanIp(info.ip)) { S.tvIp = info.ip; return done(S.tvIp); }
+        viaHub();
+      });
+      return;
+    }
+    viaHub();
+  }
+  /* Matrix rechnen lassen (qrcode-generator, MIT). Fehlerkorrektur M: der Code
+   * wird vom Handy aus etwas Entfernung gelesen, nicht abfotografiert. */
+  function qrMatrix(text) {
+    if (!text || typeof window.qrcode !== 'function') return null;
+    try {
+      var q = window.qrcode(0, 'M');
+      q.addData(text);
+      q.make();
+      var n = q.getModuleCount(), rows = [], y, x;
+      for (y = 0; y < n; y++) {
+        var row = '';
+        for (x = 0; x < n; x++) row += q.isDark(y, x) ? '1' : '0';
+        rows.push(row);
+      }
+      return { size: n, rows: rows, url: text };
+    } catch (e) { return null; }
+  }
   function qrSvg() {
-    var q = window.CleanFrameQr && window.CleanFrameQr.setup;
-    if (!q || !q.rows || !q.rows.length) return '';
+    var q = qrMatrix(setupUrl());
+    if (!q) return '';
     var n = q.size, quiet = 2, d = '', y, x;
     for (y = 0; y < n; y++) {
       for (x = 0; x < n; x++) {
@@ -3077,11 +3132,12 @@
       var m = messageContent(t);
       /* Der Einrichtungs-Hinweis zeigt einen QR-Code zur Hub-Seite: abtippen kann
        * man eine Adresse mit der Fernbedienung nicht, und der Assistent laeuft
-       * nur im Browser. Die Matrix kommt als Script-Datei (assets/qr-setup.js),
-       * das Zeichnen ist ein paar Zeilen SVG. */
+       * nur im Browser. Fehlt die Adresse des Fernsehers, steht statt des Codes
+       * ein Satz da, der das sagt. */
       var qr = m.qr ? qrSvg() : '';
+      var noIp = (m.qr && !qr) ? '<p class="msg-line">' + esc(T('The television has no address in the network yet.')) + '</p>' : '';
       return '<h2 class="msg-title">' + esc(m.title) + '</h2><p class="msg-line">' + esc(m.line) + '</p>'
-        + qr + '<p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
+        + qr + noIp + '<p class="msg-note">' + esc(m.note) + '</p><div class="msg-acts" data-slot="acts"></div>';
     }
   };
   function gridTileHtml(id) {
@@ -3922,6 +3978,19 @@
      * und Abnahme lesen danach den Zustand statt zu klicken). */
     openInputs: function () { openInputs(); return top().id; },
     reportedState: function () { return uiState(); },
+    /* QR-Code der Einrichtung: Adresse setzen/lesen und Matrix herausgeben.
+     * Der Pruefstand hat kein Luna, also wird die Adresse hier gestellt - die
+     * Rechnung selbst ist die echte. */
+    setupIp: function (ip) {
+      if (typeof ip === 'string') S.tvIp = ip;
+      return S.tvIp || '';
+    },
+    setupQr: function (ip) {
+      if (typeof ip === 'string') S.tvIp = ip;
+      var m = qrMatrix(setupUrl());
+      return { url: setupUrl(), fidelity: m ? 'matrix' : 'none',
+               size: m ? m.size : 0, rows: m ? m.rows : [], svg: qrSvg() };
+    },
     inputsState: function () { var t = top(); return (t.inputs || []).map(function (i) { return { n: i.number, id: i.id, label: i.name, connected: i.connected, active: i.active }; }); },
     inputError: function () { var t = top(); return t.inputError ? { message: t.inputError.message, detail: t.inputError.detail } : null; },
     /* App list from outside: the bench has no Luna, so a test has to say what is

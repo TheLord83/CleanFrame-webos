@@ -102,6 +102,16 @@ screenshot. 9 checks. The HTTP delivery of that state is not asserted here: the 
 from `file://` pages that do not come from the TV itself, so nothing arrives on the bench — correct
 behaviour, wrong place for the check.
 
+**Setup QR code.** `tools/test-setup-qr.js` holds the setup note to two promises: the code carries
+the address of the television (`http://<ip>:8484/`, nothing else — no DNS name that does not exist in
+every network, no `127.0.0.1` that means the phone itself), and the matrix is computed on the device
+from that address. The old note carried a matrix that `tools/make-qr.py` had baked at build time for a
+fixed name, so it could only ever point somewhere else. The structure is checked without a scanner
+(version maths, three finder patterns, timing row, quiet zone in the drawing), and then an independent
+decoder has to read the address out of the picture: `tools/qr-decode.py` renders the matrix and asks
+zxing-cpp. That last check reports SKIP when `zxing-cpp` and `numpy` are missing from `python3` — set
+`CF_PYTHON` to an interpreter that has them to get the real decode. 15 checks.
+
 **Bundled hub.** Two checks, because this is the piece a Channel install depends on.
 `tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three
 decisions: a hub that already answers on 8484 is not started a second time, a free port gets exactly

@@ -63,13 +63,16 @@ Weather → place field: type a town, pick the hit, save).
 no text field on the device), down/OK sets one, the row shows it afterwards, and
 the weather line then shows a real value.
 
-### 4. QR code — right of the text, readable
+### 4. QR code — right of the text, carries the TV's own address, drawn on the TV
 
-*Before:* the setup note is reachable (Settings → "Run setup again", or the hub
-page on the phone).
+*Before:* the setup note is reachable (Settings → "Run setup again").
 *Do:* look at the note, read the QR code with a phone.
-*Passed when:* the code sits to the **right** of the text, not on top of it, and
-a phone opens the address that is printed underneath it.
+*Passed when:* the code sits to the **right** of the text, not on top of it; the
+address printed underneath is `http://<ip>:8484/` with the address the
+television actually has in the network (no DNS name — there is none in every
+network — and never `127.0.0.1`); a phone opens that address; and the matrix is
+computed by the app itself, so a television with a new address needs no new
+package. Without a known address the note says so and draws no code.
 
 ### 5. Inputs — the list the TV reports, honest states, and a real switch
 
@@ -92,7 +95,7 @@ found three faults. That is the reason this sheet exists.
 | 1. List | passed | Weather row opens its answers underneath; down/up move inside the list |
 | 2. Without a place | passed | Row stands on "Off" with the reason; OK on another answer opens the place list |
 | 3. Place | passed after a fix | Place list showed `undefined` on a blank page (see finding 1); after 0.6.38: three places, the applied one marked, OK on "Hamburg, DE" stored place **and** coordinates (53.5511 / 9.9937) |
-| 4. QR code | passed | Code sits right of the text, address readable underneath |
+| 4. QR code | failed, then fixed | The note carried a matrix baked at build time for the DNS name `lg-home.piratopedia.de`; the owner's networks do not all have that name. Since 0.6.39 the app asks the television for its LAN address and computes the matrix itself |
 | 5. Inputs | passed after a fix | See findings 2 and 3; after 0.6.38: Google OTT (Aktiv), HDMI 2 (Verbunden), HDMI 3 (Kein Gerät), and OK on HDMI 2 switched the set |
 
 Three findings, all three only visible on the device:

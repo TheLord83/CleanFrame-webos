@@ -1,3 +1,21 @@
+## 0.6.39
+
+The setup code now points at the television, and it is drawn on the television.
+
+**The address is the device's own.** The code carried a DNS name that only exists in one particular
+network. It now asks the television for its LAN address (Luna `connectionmanager`, with the hub's
+`/api/net` as a fallback) and shows `http://<ip>:8484/`. Loopback and self-assigned `169.254.`
+addresses are refused: a phone in the same network cannot do anything with them. Without an address
+the note says so instead of drawing a code that leads nowhere.
+
+**The matrix is built on the device, not at build time.** `tools/make-qr.py` baked a finished matrix
+into the package for a fixed name; the encoder (`qrcode-generator`, MIT, vendored) now runs in the app,
+from the address it just looked up. A package no longer has to be rebuilt when a television gets a new
+address.
+
+`tools/test-setup-qr.js` checks both, and has an independent decoder (zxing-cpp) read the address back
+out of the picture — a matrix that only agrees with itself proves nothing.
+
 ## 0.6.38
 
 Three faults that only showed up on the TV, and the guards that would have caught them.

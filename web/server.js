@@ -36,6 +36,7 @@ var http = require('http');
 var fs = require('fs');
 var path = require('path');
 var url = require('url');
+var os = require('os');
 
 var config = require('./lib/config');
 var appCatalog = require('./lib/apps');
@@ -50,7 +51,7 @@ var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 
-var VERSION = '0.6.38';
+var VERSION = '0.6.39';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -288,6 +289,28 @@ function handle(req, res) {
       configPath: path.basename(CONFIG_PATH),
       glasshouse: TV_BASE,
       tokenRequired: !!token && !fromTV(req)
+    });
+  }
+
+  /* Die Adresse des Geraets im Netz. Der QR-Code der Einrichtung zeigt darauf,
+   * also muss sie vom Geraet kommen - hier als Rueckfallebene, wenn Luna (die
+   * erste Quelle in der App) nicht antwortet. Loopback und 169.254 helfen einem
+   * Handy im selben Netz nicht weiter. */
+  if (req.method === 'GET' && p === '/api/net') {
+    var ifs = os.networkInterfaces(), cands = [];
+    Object.keys(ifs).forEach(function (name) {
+      (ifs[name] || []).forEach(function (a) {
+        if (!a || a.internal) return;
+        if (a.family !== 'IPv4' && a.family !== 4) return;
+        if (/^169\.254\./.test(a.address)) return;
+        cands.push({ name: name, address: a.address });
+      });
+    });
+    return json(res, 200, {
+      ok: true,
+      port: PORT,
+      address: cands.length ? cands[0].address : '',
+      addresses: cands
     });
   }
 

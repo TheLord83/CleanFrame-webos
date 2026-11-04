@@ -204,6 +204,7 @@
       'Scan the code with your phone. The setup runs in the browser and opens right away.':
         'Scanne den Code mit dem Handy. Die Einrichtung läuft im Browser und öffnet sich sofort.',
       'The television stays as it is.': 'Der Fernseher bleibt, wie er ist.',
+      'The television has no address in the network yet.': 'Der Fernseher hat noch keine Adresse im Netz.',
       'Open LG Home?': 'LG Startseite öffnen?',
       'Stay': 'Bleiben',
       'Back': 'Zurück',

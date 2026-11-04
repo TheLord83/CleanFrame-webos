@@ -16,6 +16,14 @@ cd "$ROOT"
 KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1
 
+# Decoder fuer den QR-Test (zxing-cpp + numpy). Fehlt er, meldet der Test SKIP
+# statt rot zu werden - der Encoder selbst wird immer geprueft.
+# Decoder fuer den QR-Test: zxing-cpp + numpy. Erst der normale Interpreter,
+# dann weitere, die hier in Frage kommen; fehlt ueberall einer, meldet die Stufe
+# "skipped" - sichtbar in der Zusammenfassung, nicht als gruen getarnt.
+for cand in python3 $(ls -d "$HOME"/.hermes/tools/python-*/bin/python3 2>/dev/null); do
+  if "$cand" -c 'import zxingcpp, numpy' >/dev/null 2>&1; then export CF_PYTHON="$cand"; break; fi
+done
 PORT_SERVER=8484
 PORT_DEBUG=9333
 FAILED=0
@@ -185,6 +193,9 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "apps catalog" node tools/test-apps-catalog.js --port "$PORT_DEBUG"
   # Eingaenge: Feldnamen des Fernsehers (connected/activate), gestellter Luna-Bus.
   run "inputs page" node tools/test-inputs-page.js --port "$PORT_DEBUG" --hub "http://127.0.0.1:$PORT_SERVER"
+  # Einrichtungs-QR: die Adresse ist die IP des Geraets, die Matrix entsteht im
+  # Geraet, und ein fremder Decoder muss sie lesen koennen.
+  run "setup qr" node tools/test-setup-qr.js --port "$PORT_DEBUG"
   # Ort-Seite: Liste aus der Konfiguration, Auswahl mit Koordinaten, kein "undefined".
   run "place sheet" node tools/test-place-sheet.js --port "$PORT_DEBUG" --hub "http://127.0.0.1:$PORT_SERVER"
 fi

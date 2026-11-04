@@ -271,6 +271,36 @@
       });
   }
 
+  /* Die eigene Adresse im Netz - fuer den QR-Code der Einrichtung. Der
+   * Fernseher kennt sie selbst (connectionmanager), also wird sie dort geholt
+   * und nicht aus dem Paket gebacken: Adressen aendern sich, Pakete nicht.
+   * Der Hub hilft aus, wenn Luna schweigt; ohne Adresse gibt es keinen Code
+   * statt eines Codes, der ins Nichts zeigt. */
+  function connectionInfo(done) {
+    function fromLuna() {
+      luna('luna://com.webos.service.connectionmanager/getinfo', {}, function (res) {
+        var wired = (res && res.wired && res.wired.ipAddress) || '';
+        var wifi = (res && res.wifi && res.wifi.ipAddress) || '';
+        var ip = pickIp([wired, wifi]);
+        if (ip) return done(null, { ip: ip, source: 'luna' });
+        done({ message: 'Keine Adresse vom Fernseher.' });
+      });
+    }
+    fromLuna();
+  }
+
+  /* Nur echte LAN-Adressen: Loopback und selbst vergebene 169.254-Adressen sind
+   * fuer ein Handy im selben Netz wertlos. */
+  function pickIp(list) {
+    for (var i = 0; i < (list || []).length; i++) {
+      var ip = String(list[i] || '').trim();
+      if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) continue;
+      if (/^127\./.test(ip) || /^169\.254\./.test(ip)) continue;
+      return ip;
+    }
+    return '';
+  }
+
   function switchViaAdapter(input, done) {
     luna('luna://com.webos.service.apiadapter/tv/switchInput', { inputId: input.id },
       function (res) {
@@ -396,6 +426,7 @@
     settings: settings,
     apps: apps,
     sources: readInputs,
+    connectionInfo: connectionInfo,
     setSource: setSource,
     resolve: resolve
   };
