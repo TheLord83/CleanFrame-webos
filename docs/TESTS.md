@@ -119,6 +119,14 @@ decoder has to read the address out of the picture: `tools/qr-decode.py` renders
 zxing-cpp. That last check reports SKIP when `zxing-cpp` and `numpy` are missing from `python3` — set
 `CF_PYTHON` to an interpreter that has them to get the real decode. 15 checks.
 
+**Speed page.** `tools/test-speed-page.js` holds the measurement page (Roadmap #12) to what it
+promises: three rows that measure frame time, key delay and time since start on the device; a real
+median with a plausible frame rate and enough samples; the honest "not measured yet" before the first
+run; a key press that actually lands in the measurement; and OK on the key row starting a fresh run.
+Two silent faults came out of writing it — a page whose focus sat on its last row (no first row was
+defined for groups without an axis) and rows that carried their value in a field the row builder never
+reads, which made them invisible but still operable. 16 checks.
+
 **Bundled hub.** Two checks, because this is the piece a Channel install depends on.
 `tools/test-hubboot.js` loads `app/hubboot.js` with stubbed browser pieces and proves the three
 decisions: a hub that already answers on 8484 is not started a second time, a free port gets exactly

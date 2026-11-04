@@ -1,3 +1,19 @@
+## 0.6.43
+
+A Speed page that measures instead of claiming.
+
+Roadmap #12: the project said "it feels smooth", which is not a measurement. Settings → Speed now
+measures three things on the television itself — frame time (median and 95th percentile over a hundred
+frames), the delay from a key press to the next frame, and the time from start to the first picture.
+Each row measures again when you press OK on it. Before the first measurement a row says
+"not measured yet" rather than showing a number nobody took. The row also says what the number is:
+measured up to the paint, so a lower bound.
+
+Two faults found while building it, both the silent kind: the page had no first row, so the focus sat
+on the last one and the arrows did nothing; and its rows carried the value in a field the row builder
+never reads, so they were invisible *and* operable. `tools/test-speed-page.js` now checks the three
+rows, a real measurement, the honest empty state, and that the page reports what it shows.
+
 ## 0.6.42
 
 The baked setup matrix is gone, together with the script that produced it.

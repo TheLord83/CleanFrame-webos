@@ -777,7 +777,11 @@
   function openAppearance(group) {
     S.picker = null; /* aufgeklappte Zeile gilt nur fuer die Seite, auf der sie geoeffnet wurde */
     var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus' }[group];
-    var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : group === 'rotation' ? 'rotation.' + S.c.mode : 'samsung.home');
+    /* Seiten ohne Achse brauchen eine erste Zeile, sonst landet der Fokus auf
+     * dem Rueckweg oder auf einer Aktion, die es hier nicht gibt - die Tempo-
+     * Seite stand dadurch auf ihrer letzten Zeile fest. */
+    var firstRow = { rotation: 'rotation.' + S.c.mode, speed: 'speed.frames' }[group];
+    var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : (firstRow || 'samsung.home'));
     push({ id: 'appearance', group: group, f: { action: action } });
   }
   function openMessage(key) {
@@ -1218,6 +1222,78 @@
 
   /* ---------- Settings, Layout and messages ---------- */
   function mode() { for (var i = 0; i < MODES.length; i++) if (MODES[i].id === S.c.mode) return MODES[i]; return MODES[0]; }
+  /* ---------- Tempo messen (Roadmap #12) ----------
+   * Bisher stand im Projekt nur "fuehlt sich fluessig an" - das ist keine
+   * Messung. Hier wird auf dem Geraet selbst gemessen, und zwar das, was der
+   * Besucher merkt: wie lange ein Bild steht, wie lange eine Taste bis zum
+   * naechsten Bild braucht, und wie lange der Start gedauert hat.
+   *
+   * Ehrlich dazu: requestAnimationFrame liefert den Zeitpunkt vor dem Malen,
+   * der Bildschirmaufbau des Fernsehers kommt danach. Die Zahl ist also eine
+   * Untergrenze, und das steht auf der Seite. */
+  var SPEED = { frames: null, key: [], first: 0, lastMeasure: 0 };
+  function ms(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
+  function median(list) {
+    if (!list || !list.length) return 0;
+    var a = list.slice().sort(function (x, y) { return x - y; });
+    var mid = Math.floor(a.length / 2);
+    return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+  }
+  function percentile(list, p) {
+    if (!list || !list.length) return 0;
+    var a = list.slice().sort(function (x, y) { return x - y; });
+    return a[Math.min(a.length - 1, Math.floor(a.length * p))];
+  }
+  /* Bildzeit: 120 Bilder abwarten und die Abstaende messen. Der erste Abstand
+   * faellt weg, weil dafuer der Startzeitpunkt fehlt. */
+  function measureFrames(done, want) {
+    want = want || 120;
+    var deltas = [], last = 0, n = 0;
+    if (typeof requestAnimationFrame !== 'function') { done(null); return; }
+    function step(ts) {
+      if (last) deltas.push(ts - last);
+      last = ts;
+      n++;
+      if (n <= want) { requestAnimationFrame(step); return; }
+      SPEED.frames = {
+        median: median(deltas),
+        p95: percentile(deltas, 0.95),
+        fps: deltas.length ? 1000 / median(deltas) : 0,
+        samples: deltas.length
+      };
+      done(SPEED.frames);
+    }
+    requestAnimationFrame(step);
+  }
+  /* Tastenverzoegerung: vom Tastendruck bis zum naechsten Bild. Der Wert ist
+   * eine Untergrenze - gemalt wird danach. */
+  function measureKeyDelay(t0) {
+    /* Der Druck, der das Leeren ausgeloest hat, zaehlt nicht mit - sonst stuende
+     * sofort wieder eine Zahl da statt "noch nicht gemessen". Zeitfenster statt
+     * Merker: der ausloesende Druck kommt nicht immer durch denselben Weg. */
+    if (SPEED.armedAt && (performance.now() - SPEED.armedAt) < 150) { SPEED.armedAt = 0; return; }
+    SPEED.armedAt = 0;
+    if (!t0 || typeof performance === 'undefined' || !performance.now) return;
+    requestAnimationFrame(function () {
+      var d = performance.now() - t0;
+      if (!(d >= 0 && d < 5000)) return;
+      SPEED.key.push(d);
+      if (SPEED.key.length > 9) SPEED.key.shift();
+    });
+  }
+  function speedRowValues() {
+    var f = SPEED.frames;
+    return {
+      frames: f ? ms(f.median) + ' ms · ' + Math.round(f.fps) + '/s' : T('not measured yet'),
+      keys: SPEED.key.length ? ms(median(SPEED.key)) + ' ms' : T('not measured yet'),
+      since: SPEED.first ? ms(SPEED.first / 1000) + ' s' : T('not measured yet')
+    };
+  }
+  function speedSummary() {
+    var v = speedRowValues();
+    return v.frames;
+  }
+
   function settingsRows() {
     var n = S.c.home.length;
     return [{ id: 'background', label: T('Background'), value: S.c.bg === 'photo' ? wall(S.c.wall).name : VALUE_NAMES[S.c.bg] },
@@ -1231,6 +1307,7 @@
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'inputs', label: T('Inputs'), value: T('HDMI sources') },
+      { id: 'speed', label: T('Speed'), value: speedSummary() },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
@@ -1612,6 +1689,24 @@
           };
         }) }];
     }
+    if (t.group === 'speed') {
+      var v = speedRowValues();
+      /* Drei Zeilen, jede misst ihre eigene Sache beim Druecken von OK. Keine
+       * tote Zeile: was draufsteht, entsteht beim Druecken neu (ausser "seit dem
+       * Start" - das kann nur wachsen). */
+      /* Der Wert gehoert in den Namen: eine Zeile zeigt auf dieser Seite `label`,
+       * ein eigenes Feld fuer den Wert gibt es im Zeilenbau nicht. Mit leerem
+       * Namen war die Zeile unsichtbar und trotzdem bedienbar - genau die Sorte
+       * Seite, auf der man nichts findet. */
+      return [{ id: 'speed', title: '', items: [
+        { action: 'speed.frames', label: T('Frame time') + ' · ' + v.frames,
+          description: T('A hundred frames, median and 95th percentile. Until paint, so a lower bound.') },
+        { action: 'speed.keys', label: T('Key delay') + ' · ' + v.keys,
+          description: T('From the key press to the next frame. Press OK, then use the remote.') },
+        { action: 'speed.since', label: T('Since start') + ' · ' + v.since,
+          description: T('Time since the app started, measured once at the first picture.') }
+      ] }];
+    }
     return [{ id: 'samsung', title: '', items: [
       { action: 'samsung.home', label: T('LG Home'), description: T('Open the LG Home screen') },
       { action: 'samsung.settings', label: T('TV settings'), description: T('Picture, sound and network settings') }
@@ -1697,6 +1792,19 @@
     else if (item.action === 'samsung.settings') perform(T('TV settings'), FrameDevice.settings);
     /* HDMI inputs: OK takes the input under the focus and leaves the page open,
      * so the list still shows what is connected. "Try again" reads it once more. */
+    /* Tempo: jede Zeile misst ihre eigene Sache neu. Gemessen wird sichtbar -
+     * die Seite bleibt offen und zeigt danach den neuen Wert. */
+    else if (item.action === 'speed.frames') {
+      SPEED.frames = null; render();
+      measureFrames(function () { SPEED.lastMeasure = Date.now(); if (top() === t) render(); });
+      return;
+    }
+    else if (item.action === 'speed.keys') {
+      /* Der Druck auf OK, der das hier ausloest, ist selbst keine Messung:
+       * sonst stuende sofort wieder eine Zahl da statt "noch nicht gemessen". */
+      SPEED.key = []; SPEED.armedAt = (window.performance && performance.now) ? performance.now() : 0; render(); return;
+    }
+    else if (item.action === 'speed.since') { render(); return; }
     else if (item.action === 'inputs.retry') { loadInputs(t); return; }
     else if (item.action.indexOf('input.') === 0) { switchInput(item.action.slice('input.'.length)); }
     /* Nach dem Setzen wieder zuklappen: der neue Wert steht dann in der Zeile,
@@ -3577,6 +3685,17 @@
   }
   function focusStage() { try { stage.focus({ preventScroll: true }); } catch (e) { stage.focus(); } }
   function after() { norm(); render(); syncRotation(); }
+  /* Beim ersten gezeichneten Bild die Uhr anhalten: das ist die Startzeit, die
+   * der Besucher erlebt (ab Navigationsbeginn, wie performance.now es liefert). */
+  function markFirstPicture() {
+    if (SPEED.first) return;
+    if (typeof performance === 'undefined' || !performance.now) return;
+    /* Zwei Bilder abwarten: nach dem ersten ist das Markup gebaut, nach dem
+     * zweiten ist es gemalt. Das ist der Moment, den der Besucher sieht. */
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { SPEED.first = performance.now(); });
+    });
+  }
   function goScene(name) {
     if (top().id === 'wallpaper') cancelWallpaperTimer(top());
     S.stack = [S.stack[0]]; S.stack[0].f.zone = 'apps'; clearSession(); restoreLook();
@@ -3676,7 +3795,9 @@
         return;
       }
     }
+    var keyT0 = (window.performance && performance.now) ? performance.now() : 0;
     press(k);
+    measureKeyDelay(keyT0);
     scheduleUiReport();
   });
   document.addEventListener('keyup', function (ev) {
@@ -3752,6 +3873,10 @@
      * welche Adresse das Geraet selbst genommen hat - nicht, was ein Bild
      * hergibt. */
     if (t && t.msg === 'setup') out.qrUrl = setupUrl();
+    /* Tempo-Werte in die Meldung: was die Seite zeigt, ist damit von aussen
+     * nachpruefbar - und bei der Abnahme steht die Zahl im Protokoll, nicht nur
+     * auf einem Foto. */
+    if (t && t.group === 'speed') { out.speed = speedRowValues(); out.speedRaw = { frames: SPEED.frames, keys: SPEED.key.slice(), since: SPEED.first }; }
     /* Was der Fernseher zu den Eingängen gesagt hat, im Klartext. Die Seite
      * zeigt "Verbunden"/"Aktiv" als Wort - daraus laesst sich nicht ablesen, ob
      * das Geraet das Feld wirklich geliefert hat oder ob wir es nur annehmen.
@@ -3995,6 +4120,27 @@
     /* QR-Code der Einrichtung: Adresse setzen/lesen und Matrix herausgeben.
      * Der Pruefstand hat kein Luna, also wird die Adresse hier gestellt - die
      * Rechnung selbst ist die echte. */
+    /* Denselben Weg wie ein Besucher: Startseite, Einstellungen, Seite. Ohne das
+     * Zuruecksetzen stapelten sich Seiten, und das DOM blieb leer. */
+    model: function () {
+      var t = top();
+      return { id: t.id, group: t.group || null, action: (t.f && t.f.action) || null,
+               index: t.f && t.f.i, column: t.f && t.f.column };
+    },
+    openSpeed: function () {
+      S.stack = [S.stack[0]]; S.stack[0].f.zone = 'util';
+      openSettings(); openAppearance('speed'); render(); return top().id;
+    },
+    speedState: function () {
+      var v = speedRowValues();
+      return { frames: SPEED.frames, keys: SPEED.key.slice(), since: SPEED.first,
+               values: v, rows: detailRows(top()).length };
+    },
+    measureFramesNow: function (want) {
+      return new Promise(function (resolve) {
+        measureFrames(function (f) { resolve(f); }, want || 20);
+      });
+    },
     openSetup: function () { openMessage('setup'); render(); renderSheet(top(), true); return top().id; },
     setupIp: function (ip) {
       if (typeof ip === 'string') S.tvIp = ip;
@@ -4273,6 +4419,7 @@
     clearTimeout(startTimer);
     setLook({}, { transient: true, startup: true });
     norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
+    markFirstPicture();
     dropBootWall();
     startIdleWatch();
     /* Only from here on may the app write: before that the defaults would

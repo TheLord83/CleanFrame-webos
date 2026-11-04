@@ -205,6 +205,19 @@
         'Scanne den Code mit dem Handy. Die Einrichtung läuft im Browser und öffnet sich sofort.',
       'The television stays as it is.': 'Der Fernseher bleibt, wie er ist.',
       'The television has no address in the network yet.': 'Der Fernseher hat noch keine Adresse im Netz.',
+      /* Tempo-Seite (Roadmap #12) */
+      'Speed': 'Tempo',
+      'Frame time': 'Bildzeit',
+      'Key delay': 'Tastenverzögerung',
+      'Since start': 'Seit dem Start',
+      'not measured yet': 'noch nicht gemessen',
+      'A hundred frames, median and 95th percentile. Until paint, so a lower bound.':
+        'Hundert Bilder, Median und 95-Prozent-Wert. Bis zum Malen gemessen, also eine Untergrenze.',
+      'From the key press to the next frame. Press OK, then use the remote.':
+        'Vom Tastendruck bis zum nächsten Bild. OK drücken, dann die Fernbedienung benutzen.',
+      'Time since the app started, measured once at the first picture.':
+        'Zeit seit dem Start der App, einmal beim ersten Bild gemessen.',
+      'Press a few keys now.': 'Jetzt ein paar Tasten drücken.',
       'Open LG Home?': 'LG Startseite öffnen?',
       'Stay': 'Bleiben',
       'Back': 'Zurück',
