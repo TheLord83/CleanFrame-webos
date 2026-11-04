@@ -1,3 +1,14 @@
+## 0.6.44
+
+The frame measurement now ends on a clock, not on a frame count.
+
+On the television a frame stood about 28 ms, so a hundred and twenty frames meant
+well over four seconds of a page saying "not measured yet" — long enough to look
+like a page that does nothing. Two seconds of frames is the budget now, and the
+number of samples is part of the result, so a slow device reports a thin median
+instead of nothing. Found by pressing OK on the reference TV, not on the bench:
+there the frame rate is 60/s and the old version finished in seconds.
+
 ## 0.6.43
 
 A Speed page that measures instead of claiming.

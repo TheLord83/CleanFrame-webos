@@ -92,10 +92,10 @@ async function main() {
     'ohne Messung steht "noch nicht gemessen"', before && before.values.frames);
 
   /* 3. Bildzeit wirklich messen. */
-  var f = await evaluate('window.CleanFrameDebug.measureFramesNow(20)');
+  var f = await evaluate('window.CleanFrameDebug.measureFramesNow(400)');
   check(f && f.median > 0, 'der Median ist gemessen, nicht erfunden', f && ('median=' + Math.round(f.median * 10) / 10 + ' ms'));
   check(f && f.fps > 0 && f.fps < 1000, 'die Bilder pro Sekunde sind plausibel', f && Math.round(f.fps) + '/s');
-  check(f && f.samples >= 15, 'genug Proben fuer einen Median', f && ('samples=' + f.samples));
+  check(f && f.samples >= 5, 'genug Proben fuer einen Median', f && ('samples=' + f.samples));
   var after = await evaluate('window.CleanFrameDebug.speedState()');
   check(after && /ms/.test(after.values.frames), 'die Zeile zeigt danach eine Zeit', after && after.values.frames);
 
@@ -127,7 +127,7 @@ async function main() {
   check(after && /s$/.test(after.values.since), 'die Zeile zeigt Sekunden', after && after.values.since);
 
   /* 6. Was auf der Seite steht, steht auch in der Meldung. */
-  await evaluate('window.CleanFrameDebug.measureFramesNow(20)');
+  await evaluate('window.CleanFrameDebug.measureFramesNow(400)');
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {keyCode: 37, bubbles: true}))');
   await new Promise(function (r) { setTimeout(r, 200); });
   await evaluate('window.CleanFrameDebug.closeSheet()');

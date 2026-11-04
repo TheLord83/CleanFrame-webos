@@ -211,8 +211,8 @@
       'Key delay': 'Tastenverzögerung',
       'Since start': 'Seit dem Start',
       'not measured yet': 'noch nicht gemessen',
-      'A hundred frames, median and 95th percentile. Until paint, so a lower bound.':
-        'Hundert Bilder, Median und 95-Prozent-Wert. Bis zum Malen gemessen, also eine Untergrenze.',
+      'Two seconds of frames, median and 95th percentile. Until paint, so a lower bound.':
+        'Zwei Sekunden Bilder, Median und 95-Prozent-Wert. Bis zum Malen gemessen, also eine Untergrenze.',
       'From the key press to the next frame. Press OK, then use the remote.':
         'Vom Tastendruck bis zum nächsten Bild. OK drücken, dann die Fernbedienung benutzen.',
       'Time since the app started, measured once at the first picture.':

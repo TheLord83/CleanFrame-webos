@@ -1244,21 +1244,25 @@
     var a = list.slice().sort(function (x, y) { return x - y; });
     return a[Math.min(a.length - 1, Math.floor(a.length * p))];
   }
-  /* Bildzeit: 120 Bilder abwarten und die Abstaende messen. Der erste Abstand
-   * faellt weg, weil dafuer der Startzeitpunkt fehlt. */
-  function measureFrames(done, want) {
-    want = want || 120;
-    var deltas = [], last = 0, n = 0;
+  /* Bildzeit: zwei Sekunden lang die Abstaende zwischen den Bildern messen.
+   * Nach einer festen Bildzahl zu gehen war falsch gedacht: auf dem Fernseher
+   * stand ein Bild rund 28 ms, da haengt man vier Sekunden vor einer Seite, auf
+   * der "noch nicht gemessen" steht. Ein Zeitfenster endet, egal wie schnell das
+   * Geraet ist - und die Zahl der Proben steht in der Meldung dabei. */
+  function measureFrames(done, budgetMs) {
+    budgetMs = budgetMs || 2000;
+    var deltas = [], last = 0, start = 0;
     if (typeof requestAnimationFrame !== 'function') { done(null); return; }
     function step(ts) {
+      if (!start) start = ts;
       if (last) deltas.push(ts - last);
       last = ts;
-      n++;
-      if (n <= want) { requestAnimationFrame(step); return; }
+      if (ts - start < budgetMs && deltas.length < 300) { requestAnimationFrame(step); return; }
+      if (!deltas.length) { done(null); return; }
       SPEED.frames = {
         median: median(deltas),
         p95: percentile(deltas, 0.95),
-        fps: deltas.length ? 1000 / median(deltas) : 0,
+        fps: 1000 / median(deltas),
         samples: deltas.length
       };
       done(SPEED.frames);
@@ -1700,7 +1704,7 @@
        * Seite, auf der man nichts findet. */
       return [{ id: 'speed', title: '', items: [
         { action: 'speed.frames', label: T('Frame time') + ' · ' + v.frames,
-          description: T('A hundred frames, median and 95th percentile. Until paint, so a lower bound.') },
+          description: T('Two seconds of frames, median and 95th percentile. Until paint, so a lower bound.') },
         { action: 'speed.keys', label: T('Key delay') + ' · ' + v.keys,
           description: T('From the key press to the next frame. Press OK, then use the remote.') },
         { action: 'speed.since', label: T('Since start') + ' · ' + v.since,
@@ -4136,9 +4140,10 @@
       return { frames: SPEED.frames, keys: SPEED.key.slice(), since: SPEED.first,
                values: v, rows: detailRows(top()).length };
     },
-    measureFramesNow: function (want) {
+    /* budgetMs statt Bildzahl: die Messung laeuft ueber ein Zeitfenster. */
+    measureFramesNow: function (budgetMs) {
       return new Promise(function (resolve) {
-        measureFrames(function (f) { resolve(f); }, want || 20);
+        measureFrames(function (f) { resolve(f); }, budgetMs || 400);
       });
     },
     openSetup: function () { openMessage('setup'); render(); renderSheet(top(), true); return top().id; },
