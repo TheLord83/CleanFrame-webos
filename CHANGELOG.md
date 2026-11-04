@@ -1,3 +1,11 @@
+## 0.6.45
+
+The Speed page has a heading.
+
+`DETAIL_NAMES` did not know the new group, so the page carried its three rows under
+an empty title — visible on the first look at the TV, invisible on the bench because
+nobody looked at the top of the page. The test asks for the heading now.
+
 ## 0.6.44
 
 The frame measurement now ends on a clock, not on a frame count.

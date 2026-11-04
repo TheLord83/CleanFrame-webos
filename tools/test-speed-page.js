@@ -86,6 +86,10 @@ async function main() {
   var before = await evaluate('window.CleanFrameDebug.speedState()');
   var text = await evaluate('(document.body.innerText || document.body.textContent || "")');
   check(before && before.rows === 4, 'die Seite hat drei Zeilen und den Rueckweg', 'rows=' + (before && before.rows));
+  /* Eine Seite ohne Ueberschrift sieht aus wie ein Fehler - die Gruppe muss in
+   * DETAIL_NAMES stehen, sonst bleibt der Titel leer. */
+  var title = await evaluate('(document.querySelector(".appearance-title, #appearanceTitle, .detail-title") || {}).textContent || ""');
+  check(/Tempo/.test(title || ''), 'die Seite hat eine Ueberschrift', JSON.stringify(title));
   check(/Bildzeit/.test(text) && /Tastenverzögerung/.test(text) && /Seit dem Start/.test(text),
     'die drei Messungen stehen drauf', text.slice(0, 80).replace(/\s+/g, ' '));
   check(before && before.frames === null && before.values.frames === 'noch nicht gemessen',

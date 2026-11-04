@@ -1519,7 +1519,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), speed: T('Speed'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
