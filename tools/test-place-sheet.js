@@ -182,6 +182,18 @@ async function main() {
    * Zustand benennt statt leer zu bleiben ("undefined" war genau der Fehler). */
   check(d3 && d3.rows.length === 0 && /Ort gesetzt|No place set/.test(d3.text || ''),
     'ohne Ort steht der Hinweis da', JSON.stringify(d3 && d3.text));
+  /* Der Satz, der eine Tastatur verspricht, ist weg - und die Seite sagt, wo
+   * ein Ort wirklich entsteht. */
+  check(d3 && !/tippe|type a name|Textfeld/i.test(d3.text || ''),
+    'und verspricht kein Tippen', JSON.stringify(d3 && d3.text));
+  check(d3 && /Hub/.test(d3.text || ''), 'sondern nennt den Hub als Weg', JSON.stringify(d3 && d3.text));
+  /* OK auf der leeren Liste tut nichts und schreibt keinen neuen Hinweis. */
+  await jsP('CleanFrameDebug.press(["ok"])');
+  await sleep(400);
+  var d3b = JSON.parse(await jsP(SHEET_DUMP));
+  check(d3b && !/tippe|type a name/i.test(d3b.text || ''), 'auch nach OK kein Satz ueber Tippen',
+    JSON.stringify(d3b && d3b.text));
+  check(d3b && d3b.hidden === false, 'und das Blatt bleibt offen', 'hidden=' + (d3b && d3b.hidden));
 
   /* Konfiguration zurueckstellen. */
   await postConfig(cfg);

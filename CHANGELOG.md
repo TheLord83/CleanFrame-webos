@@ -1,3 +1,15 @@
+## 0.6.53
+
+The place sheet no longer contains a corpse. The free-text path was dead — nothing had set `place:
+true` since the rebuild — but it was still in the file twice: `placeKey()` with its cursor and clear
+branches, and a second branch in the rename template that drew a text field plus "Search in the hub".
+Both are gone, and the sentence that promised typing went with them: an empty place list used to
+answer OK with "Choose a place from the list or type a name" on a television that has no keyboard.
+What the sheet says now is where a place actually comes from, and `tools/test-place-sheet.js` checks
+that the words for typing never appear — before and after pressing OK on an empty list.
+
+Four translation keys had no user left and were removed with the code.
+
 ## 0.6.52
 
 An NTFS stick was invisible. The television mounts one with its own driver and writes `tntfs` into

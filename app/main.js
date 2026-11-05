@@ -1515,7 +1515,7 @@
   }
   function applyWeatherChoice(axis, value) {
     if (axis === 'wxStyle' && value !== 'none' && !wxHasPlace()) {
-      openPlaceInput(T('Set the place first, then the weather can show.'));
+      openPlace(T('Set the place first, then the weather can show.'));
       return;
     }
     var field = axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : axis === 'wxSize' ? 'size' : 'gap';
@@ -1597,9 +1597,10 @@
     if (!isFinite(scale)) scale = 100;
     return scale + ' %' + (ui.senior ? ' · ' + T('Senior mode') : '');
   }
-  /* Ort der Wetterzeile: Text eintippen, OK loest die Suche im Hub aus
-   * (dieselbe Adresse /api/weather/place, die die Browserseite benutzt). */
-  function openPlaceInput(note) {
+  /* Ort der Wetterzeile: die Orte, die die Konfiguration kennt, als Liste.
+   * Kein Textfeld - der Fernseher hat keine Tastatur; ein neuer Ort entsteht im
+   * Hub im Browser (dort gegen Open-Meteo). */
+  function openPlace(note) {
     /* Eigene Blatt-ID 'place': vorher lief das ueber 'rename' - beim Zeichnen
      * fehlte damit das Feld (FILLS['place'] gab es nicht) und die App warf einen
      * TypeError. Als eigener Typ hat der Dialog seine eigene Vorlage. */
@@ -2107,7 +2108,7 @@
     }
     else if (item.action === 'startup.home') { startupToggle('home'); return; }
     else if (item.action === 'startup.none') return;
-    else if (item.action === 'weather.place') { openPlaceInput(); return; }
+    else if (item.action === 'weather.place') { openPlace(); return; }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
     else if (item.action === 'clock.set.off') setClock(false);
@@ -2431,7 +2432,6 @@
     sheet: true,
     key: function (t, k) {
       if (k === 'back') { pop(); render(); return; }
-      if (t.place) { placeKey(t, k); return; }
       if (k === 'ok') {
         if (t.entity) { entityRename(t.entity, t.text); pop(); render(); return; }
         homeRename(t.app, t.text); pop(); render(); return;
@@ -2452,7 +2452,6 @@
       render();
     },
     point: function (t, z, i) {
-      if (t.place) { if (z === 'place') { t.f.i = i; placeKey(t, 'ok'); } return; }
       if (z === 'rename-ok') {
         if (t.entity) { entityRename(t.entity, t.text); pop(); render(); }
         else { homeRename(t.app, t.text); pop(); render(); }
@@ -2470,36 +2469,13 @@
         if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); return; }
         if (k === 'ok') { weatherPlace(list[i].value, list[i].lat, list[i].lon); return; }
       }
-      if (k === 'ok') {
-        S.note = T('Choose a place from the list or type a name.');
-        render();
-      }
+      /* Leere Liste: OK tut nichts. Vorher stand hier "Waehle einen Ort aus der
+       * Liste oder tippe einen Namen" - ein Satz, der eine Tastatur verspricht,
+       * die es am Fernseher nicht gibt. Was zu tun ist, steht im Blatt selbst
+       * ("A new place is added in the hub in the browser."). */
     },
     point: function (t, z, i) { if (z === 'place') { t.f.i = i; this.key(t, 'ok'); } }
   };
-  /* Orts-Dialog. Der Fernseher hat keine Tastatur: die bekannten Orte stehen
-   * als Liste da (hoch/runter waehlt, OK uebernimmt), und der Name im Feld wird
-   * ueber den Hub gesucht - geschrieben wird mit den Buchstaben der
-   * Bildschirmtastatur, die die App fuer das Umbenennen schon hat. */
-  function placeKey(t, k) {
-    var list = wxPlaceChoices(), n = list.length, i = clamp(t.f.i || 0, 0, Math.max(0, n - 1));
-    if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); }
-    else if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); }
-    else if (k === 'left' || k === 'right') {
-      var ci = parseInt(t.f.ci, 10) || 0;
-      t.f.ci = clamp(ci + (k === 'left' ? -1 : 1), 0, t.text.length);
-      render();
-    }
-    else if (k === 'clear') { t.text = ''; t.f.ci = 0; render(); }
-    else if (k === 'ok') {
-      var pick = list[i];
-      if (pick) { weatherPlace(pick.value, pick.lat, pick.lon); return; }
-      if (String(t.text || '').trim()) { weatherPlace(t.text); return; }
-      S.note = T('Choose a place from the list or type a name.');
-      render();
-    }
-  }
-
   V.ctx = {
     sheet: true,
     key: function (t, k) {
@@ -3518,26 +3494,10 @@
         + T('A new place is added in the hub in the browser.') + '</span></p>';
     },
     rename: function (t) {
-      /* Der Ort wird NICHT getippt: der Fernseher hat keine Tastatur, und die
-       * Zahlenfelder der Fernbedienung reichen fuer einen Ortsnamen nicht. Der
-       * Dialog bietet die Orte aus der Konfiguration und die Suche im Hub an,
-       * ausgewaehlt wird mit hoch/runter und OK. */
-      if (t.place) {
-        return '<h2 class="s-title">' + T('Place') + '</h2>'
-          + '<p class="s-sub">' + esc(t.note || T('Choose a place for the weather line.')) + '</p>'
-          + '<p class="s-label">' + T('Known places') + '</p>'
-          + '<div class="settings-overview">'
-          + (wxPlaceChoices().length ? wxPlaceChoices().map(function (p, i) {
-              return '<button type="button" tabindex="-1" class="settings-group' + (i === (t.f.i || 0) ? ' is-focus' : '') + '" data-z="place" data-i="' + i + '">'
-                + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(p.label) + '</span></span>'
-                + (p.applied ? '<span class="setting-tick" aria-hidden="true">' + icon('check') + '</span>' : '') + '</button>';
-            }).join('') : '<p class="s-sub">' + T('No place set yet.') + '</p>')
-          + '</div>'
-          + '<p class="s-label">' + T('Search in the hub') + '</p>'
-          + '<div class="rename-box" data-z="rename-text"><span>' + esc(t.text) + '</span><i class="rename-caret"></i></div>'
-          + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>'
-          + T('Left and right move the cursor, OK looks the name up in the hub.') + '</span></p>';
-      }
+      /* Nur noch der Name der Kachel oder des Geraets. Der Ort hatte frueher
+       * einen zweiten Zweig mit Textfeld und Suche im Hub - der ist weg: die
+       * Orte stehen als Liste in `place`, und ein Textfeld ohne Tastatur war
+       * genau der Fehler. */
       var a = app(t.app), cur = t.text.slice(0, parseInt(t.f.i, 10) || 0), rest = t.text.slice(parseInt(t.f.i, 10) || 0);
       return '<h2 class="s-title">' + T('Rename') + '</h2>'
         + '<p class="s-sub">' + esc(t.entity || (a ? a.name : t.app)) + '</p>'
@@ -4493,7 +4453,7 @@
     iconChoice: function (id) { return iconChoice(id); },
     openApps: openApps,
     /* Ort-Seite ohne Umweg ueber die Wetterseite oeffnen (Pruefstand). */
-    openPlace: function (note) { openPlaceInput(note); return top().id; },
+    openPlace: function (note) { openPlace(note); return top().id; },
     /* Eingaenge-Seite ohne Umweg ueber die Einstellungen oeffnen (Pruefstand
      * und Abnahme lesen danach den Zustand statt zu klicken). */
     openInputs: function () { openInputs(); return top().id; },
