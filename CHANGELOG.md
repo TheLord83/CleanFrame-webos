@@ -1,3 +1,17 @@
+## 0.6.54
+
+Two things the owner saw on the television, both fixed where they come from.
+
+The restore row wrote over the picture: its label was "Restore from stick · 05.11.2026", 768 pixels of
+text in a 640 pixel card. The row is a flex child with `min-width: auto`, so the text was allowed to
+make it wider than the card instead of being cut. Now every row truncates itself with an ellipsis, and
+the date moved out of the button into the reason line under it — a button says what it does, and when
+the backup was written belongs beside it. `tools/test-stick-page.js` checks both: no element on the
+page may report a scroll width larger than its client width, and the date may not sit in the button.
+
+"Typography" and "Text size" were two rows that opened the same page. One row now: font and size in
+one value, one way in.
+
 ## 0.6.53
 
 The place sheet no longer contains a corpse. The free-text path was dead — nothing had set `place:

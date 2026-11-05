@@ -217,6 +217,25 @@ function main() {
         check(got.st.summary === '05.11.2026', 'die Zeile in den Einstellungen nennt das Datum', got.st.summary);
       })
 
+      /* ---- 4b. Kein Text schreibt ueber den Rand. Am Fernseher stand
+       * "Von diesem Stick zurueckspielen - 05.11.2026" quer ueber das Bild. */
+      .then(function () {
+        return evaluate("JSON.stringify([].slice.call(document.querySelectorAll('#appearanceRows *'))"
+          + ".filter(function(e){return e.clientWidth>0 && e.scrollWidth-e.clientWidth>1;})"
+          + ".map(function(e){return (e.className||'')+' '+(e.innerText||'').replace(/\\s+/g,' ').slice(0,40);}))");
+      })
+      .then(function (raw) {
+        var over = JSON.parse(raw);
+        check(over.length === 0, 'kein Text laeuft aus seiner Zeile heraus', JSON.stringify(over));
+      })
+      .then(function () { return evaluate("document.getElementById('appearanceRows').innerText.replace(/\\s+/g,' ')"); })
+      .then(function (text) {
+        var t = String(text);
+        check(/Zur\u00fcckspielen/.test(t), 'die Zeile heisst kurz "Zurueckspielen"', t.slice(0, 120));
+        check(!/Zur\u00fcckspielen ·/.test(t), 'und traegt das Datum nicht im Knopf', t.slice(0, 120));
+        check(/Sicherung vom/.test(t), 'das Datum steht als Grund darunter', t.slice(0, 160));
+      })
+
       /* ---- 5. Zurueckspielen */
       .then(function () { return evaluate("window.__stick.calls = []; window.CleanFrameDebug.stickRestore(); true"); })
       .then(function () { return wait(1000); })

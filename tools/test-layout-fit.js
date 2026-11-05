@@ -65,7 +65,6 @@ var TARGETS = [
   ['settings.group.focus', 'Fokus'],
   ['settings.editor', 'Apps auf der Startseite'],
   ['settings.group.clocklang', 'Uhr und Sprache'],
-  ['settings.group.text', 'Textgroesse'],
   ['settings.group.weather', 'Wetter'],
   ['settings.group.ent', 'Werte auf der Startseite'],
   ['settings.group.setup', 'Einrichtung'],

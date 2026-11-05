@@ -42,11 +42,6 @@ var EXPECT = {
     { q: 'Font', kind: 'picker', opts: null, want: 'picker' },
     { q: 'Text size', kind: 'picker', opts: 8, want: 'picker' }
   ],
-  /* "Text size" in der Uebersicht oeffnet dieselbe Seite wie "Typography". */
-  'settings.group.text': [
-    { q: 'Font', kind: 'picker', opts: null, want: 'picker' },
-    { q: 'Text size', kind: 'picker', opts: 8, want: 'picker' }
-  ],
   'settings.group.focus': [
     { q: 'Focus style', kind: 'picker', opts: 2, want: 'picker' },
     { q: 'Material', kind: 'picker', opts: 3, want: 'picker' }

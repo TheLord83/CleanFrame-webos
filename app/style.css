@@ -886,6 +886,13 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .setting-choice.pick-row{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;text-align:left}
 .setting-choice.pick-row .setting-copy{flex:1 1 auto;min-width:0}
 .setting-choice.pick-row .setting-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Kein Text schreibt ueber den Rand. Am Fernseher stand auf der Stick-Seite
+ * "Von diesem Stick zurueckspielen - 05.11.2026" quer ueber das Bild: die Zeile
+ * ist ein Flex-Kind mit min-width:auto, also durfte der Text sie breiter machen
+ * als die Karte. Der Text kuerzt sich jetzt selbst, statt auszubrechen. */
+.setting-choice{min-width:0}
+.setting-choice .setting-copy{flex:1 1 auto;min-width:0}
+.setting-choice .setting-name,.setting-choice .setting-description{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .setting-choice.pick-row .pick-chevron{flex:0 0 auto;display:flex;align-items:center;color:var(--mute);transition:transform .18s ease}
 .setting-choice.pick-row .pick-chevron .ico{width:28px;height:28px}
 .setting-choice.pick-row.is-open{background:rgba(255,255,255,.16)}

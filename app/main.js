@@ -1315,11 +1315,12 @@
     var n = S.c.home.length;
     return [{ id: 'background', label: T('Background'), value: S.c.bg === 'photo' ? wall(S.c.wall).name : VALUE_NAMES[S.c.bg] },
       { id: 'layout', label: T('Layout'), value: VALUE_NAMES[S.c.layout] },
-      { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name },
+      /* Eine Zeile, nicht zwei: "Schrift" und "Schriftgroesse" oeffneten beide
+       * dieselbe Seite - Stefan hat das zu Recht als doppelt gelesen. */
+      { id: 'typography', label: T('Typography'), value: FONTS[S.c.font].name + ' · ' + textSizeLabel() },
       { id: 'focus', label: T('Focus'), value: VALUE_NAMES[S.c.focus] + (materialApplies() ? ', ' + VALUE_NAMES[S.c.material] : '') },
       { id: 'editor', label: T('Apps on Home'), value: n + (n === 1 ? T(' app') : T(' apps')) },
       { id: 'clocklang', label: T('Clock and language'), value: clockLabel() + ' · ' + langLabel(S.serverCfg ? S.serverCfg.lang : '') },
-      { id: 'text', label: T('Text size'), value: textSizeLabel() },
       { id: 'weather', label: T('Weather'), value: weatherSummary() },
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
@@ -1362,7 +1363,6 @@
   };
   function settingsOk(id) {
     if (id === 'ent') openEntities();
-    else if (id === 'text') openAppearance('typography');
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') openSetupAgain();
@@ -1942,8 +1942,12 @@
       if (f) {
         var when = String(f.savedAt || '').slice(0, 10).split('-');
         var label = when.length === 3 ? when[2] + '.' + when[1] + '.' + when[0] : String(f.savedAt || '');
-        rows.push({ id: 'restore', title: '', items: [{ action: 'stick.restore', label: T('Restore from stick') + ' · ' + label }],
-          reason: f.problem ? stickNote(f.problem) : '' });
+        /* Das Datum gehoert in die Zeile darunter, nicht in den Knopf: Label und
+         * Datum zusammen waren breiter als die Karte und schrieben ueber das
+         * Bild. Der Knopf sagt, was er tut; wann die Sicherung entstand, steht
+         * als Grund darunter. */
+        rows.push({ id: 'restore', title: '', items: [{ action: 'stick.restore', label: T('Restore from stick') }],
+          reason: f.problem ? stickNote(f.problem) : (label ? T('Backup from') + ' ' + label : '') });
       } else {
         rows.push({ id: 'restore', title: '', items: [{ action: 'stick.none', label: T('Nothing to restore') }] });
       }
