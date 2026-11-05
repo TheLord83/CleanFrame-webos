@@ -60,8 +60,11 @@ belongs in one decision, not three switches).
 webOS runs them itself; no init.d hook, no mount, nothing to revert by hand. The lock is the point:
 Home stays LG's unless the person asks for the takeover.
 
-**Settings backup on a stick** (#16) — one named JSON file on a USB stick, readable back in. It is
-the difference between ten seconds after a factory reset and an evening. Seen at two neighbours.
+**Settings backup on a stick** (#16) — done in 0.6.49. One named JSON file on a USB stick, readable
+back in: `cleanframe-settings-YYYY-MM-DD.json`, written by the hub, atomic, 0600, and deliberately
+not redacted (a backup without the Home Assistant token restores a launcher that cannot reach its
+house). Three states on the page, all honest: no stick, a stick without a backup, a stick with one.
+The remaining step is the one that needs a human: a stick in the television.
 
 **Device names at the inputs** (#8, second step) — the input page already shows the name when the
 television reports it; making the television report it needs root (`eim` fills that field only for
