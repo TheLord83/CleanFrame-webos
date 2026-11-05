@@ -1934,7 +1934,7 @@
       if (STICK.error) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Not available') }],
         reason: STICK.error === 'hub' ? T('The hub did not answer.') : stickNote(STICK.reason || 'kein-stick') }];
       if (!STICK.chosen) return [{ id: 'stick', title: T('Stick'), items: [{ action: 'stick.info', label: T('No stick found') }],
-        reason: STICK.reason === 'mehrere-sticks' ? T('More than one stick is plugged in.') : T('Plug in a stick formatted as FAT32 or exFAT.') }];
+        reason: STICK.reason === 'mehrere-sticks' ? T('More than one stick is plugged in.') : T('Plug in a stick formatted as FAT32, exFAT or NTFS.') }];
       rows.push({ id: 'stick', title: T('Stick'), items: [{ action: 'stick.info', label: STICK.chosen.label + (STICK.chosen.fstype ? ' · ' + STICK.chosen.fstype : '') }],
         reason: STICK.note || T('The backup holds the Home Assistant token and the MQTT password.') });
       rows.push({ id: 'save', title: '', items: [{ action: 'stick.save', label: STICK.busy === 'save' ? T('Reading ...') : T('Save to stick') }] });

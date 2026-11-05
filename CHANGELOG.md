@@ -1,3 +1,16 @@
+## 0.6.52
+
+An NTFS stick was invisible. The television mounts one with its own driver and writes `tntfs` into
+`/proc/mounts`; the list of filesystems a stick arrives with had `ntfs` but not `tntfs`, so the page
+said "No stick found" while a 244 GB stick sat mounted read-write at `/tmp/usb/sda/sda1` — measured on
+the device, not suspected.
+
+`tntfs` is in the list now, and the sentence on the page names NTFS as well. `sticks()` takes a mount
+table as an argument, so the bench can test the cases a developer's machine does not have:
+`tools/test-stick-fs.js`, 21 checks — a webOS NTFS mount counts, the television's own ext4 partition
+does not, a read-only mount is no target, pseudo filesystems stay out, two sticks without a backup are
+a question and not a choice.
+
 ## 0.6.51
 
 The footer said "Open on the TV" for every row that it had no sentence for - on the stick page for a

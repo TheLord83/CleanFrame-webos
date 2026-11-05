@@ -155,6 +155,7 @@ function main() {
           'action=' + got.action);
         check(/Kein Stick/.test(got.text), 'und nennt den Grund', got.text.slice(0, 80));
         check(/FAT32/.test(got.text), 'mit dem, was man tun kann', got.text.slice(0, 120));
+        check(/NTFS/.test(got.text), 'und nennt auch das Format, das der Fernseher selbst einhaengt', got.text.slice(0, 120));
         check(/Sichern|Save/.test(got.text) === false, 'und ohne Knopf, der nichts schreiben koennte',
           got.text.slice(0, 120));
       })

@@ -207,6 +207,7 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   # Sicherung auf Stick: der Hub schreibt/liest eine Datei, die Seite zeigt die
   # drei Lagen (kein Stick / Stick ohne Sicherung / mit Sicherung) und schickt
   # nur, was sie soll.
+  run "stick fs" node tools/test-stick-fs.js
   run "stick api" python3 tools/test-stick-api.py
   run "stick page" node tools/test-stick-page.js --port "$PORT_DEBUG"
   # Die Adresse, die /api/net anbietet: LAN-nutzbar, nie Loopback. Der Fehler

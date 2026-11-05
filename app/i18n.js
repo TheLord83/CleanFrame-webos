@@ -256,7 +256,7 @@
       'Ready': 'Bereit',
       'Stick': 'Stick',
       'No stick found': 'Kein Stick gefunden',
-      'Plug in a stick formatted as FAT32 or exFAT.': 'Steck einen Stick an, der als FAT32 oder exFAT formatiert ist.',
+      'Plug in a stick formatted as FAT32, exFAT or NTFS.': 'Steck einen Stick an, der als FAT32, exFAT oder NTFS formatiert ist.',
       'Save': 'Sichern',
       'Save to stick': 'Jetzt sichern',
       'Saved': 'Gesichert',

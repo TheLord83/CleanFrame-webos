@@ -24,8 +24,12 @@ var crypto = require('crypto');
 var KIND = 'cleanframe-backup';
 var NAME_RE = /^cleanframe-settings-[0-9]{4}-[0-9]{2}-[0-9]{2}\.json$/;
 /* Filesystems a stick actually arrives with. ext4 is in the list because a
- * stick formatted by the neighbour is one too. */
-var FSTYPES = ['vfat', 'fat', 'msdos', 'exfat', 'ntfs', 'ntfs3', 'fuseblk', 'ext2', 'ext3', 'ext4'];
+ * stick formatted by the neighbour is one too. tntfs is webOS: the television
+ * mounts an NTFS stick with its own driver and reports that name in
+ * /proc/mounts, so listing only ntfs means the stick the user just plugged in is
+ * invisible (measured on the reference set: a 244 GB NTFS stick, mounted
+ * read-write at /tmp/usb/sda/sda1, reported as kein-stick). */
+var FSTYPES = ['vfat', 'fat', 'msdos', 'exfat', 'ntfs', 'tntfs', 'ntfs3', 'fuseblk', 'ext2', 'ext3', 'ext4'];
 /* Pseudo filesystems that hang under /media on webOS and are not sticks. */
 var NOT_STICKS = ['squashfs', 'overlay', 'tmpfs', 'devtmpfs', 'cgroup', 'proc', 'sysfs', 'ubi', 'ubifs'];
 
@@ -60,8 +64,11 @@ function readable(m) {
 }
 
 /* A stick is: a real block device (not a partition of the system disk, not a
- * pseudo filesystem) with a filesystem a stick has, mounted read-write. */
-function sticks() {
+ * pseudo filesystem) with a filesystem a stick has, mounted read-write.
+ * `list` is the mount table to read; without one the real /proc/mounts is used.
+ * The parameter exists so the bench can hand in a table instead of requiring the
+ * one filesystem a developer's machine happens to have. */
+function sticks(list) {
   var forced = process.env.CF_STICK;
   if (forced) {
     /* The bench has no USB port. A directory stands in; it is called a stick in
@@ -73,7 +80,8 @@ function sticks() {
   }
   var out = [];
   var seen = {};
-  mounts().forEach(function (m) {
+  var table = Array.isArray(list) ? list : mounts();
+  table.forEach(function (m) {
     if (!m.path || seen[m.path]) return;
     if (NOT_STICKS.indexOf(m.fstype) >= 0) return;
     if (FSTYPES.indexOf(m.fstype) < 0) return;
