@@ -1541,6 +1541,22 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
+  /* Was die Fusszeile zum angewaehlten Eintrag sagt. Ohne Eintrag hier stand
+   * fuer jede Zeile "Am Fernseher oeffnen" - auch fuer Schalter und fuer Zeilen,
+   * die gar nichts tun. Ein Hinweis, der etwas verspricht, das nicht passiert,
+   * ist derselbe Fehler wie eine Zeile, die luegt. */
+  function hintTable() {
+    return {
+      'stick.info': '',
+      'stick.none': '',
+      'stick.save': T('Save'),
+      'stick.restore': T('Restore'),
+      'startup.boot': T('Switch on or off'),
+      'startup.home': T('Switch on or off'),
+      'startup.none': ''
+    };
+  }
+  var HINTS = hintTable();
   var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), startup: T('Start with the TV'), stick: T('Backup to a stick'), speed: T('Speed'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
@@ -3351,7 +3367,8 @@
         + command({ action: 'settings.retry', label: T('Try again') }, '<span>' + T('Try again') + '</span>', 'setting-retry');
     }
     setHTML(appearanceStatus, status);
-    hint = selected.disabled ? '' : selected.action === 'settings.back' ? T('Return to ') + (t.group === 'rotation' ? T('Background') : T('Settings')) : selected.action === 'settings.retry' ? T('Retry this change') : selected.axis ? T('Apply selected setting') : selected.action === 'background.wallpaper' ? T('Choose a wallpaper') : selected.action === 'background.rotation' ? T('Choose a rotation interval') : T('Open on the TV');
+    hint = selected.disabled ? '' : selected.action === 'settings.back' ? T('Return to ') + (t.group === 'rotation' ? T('Background') : T('Settings')) : selected.action === 'settings.retry' ? T('Retry this change') : selected.axis ? T('Apply selected setting') : HINTS[selected.action] !== undefined ? HINTS[selected.action]
+      : selected.action === 'background.wallpaper' ? T('Choose a wallpaper') : selected.action === 'background.rotation' ? T('Choose a rotation interval') : T('Open on the TV');
     setHTML(appearanceDesc, hint ? '<span class="remote-key">OK</span><span>' + esc(hint) + '</span>' : '');
   }
   /* Ist diese Antwort die gerade gueltige? Wird an zwei Stellen gebraucht: fuer

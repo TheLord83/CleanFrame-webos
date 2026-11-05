@@ -1,3 +1,11 @@
+## 0.6.51
+
+The footer said "Open on the TV" for every row that it had no sentence for - on the stick page for a
+row that does nothing, and on the start-up page for a switch. A hint that promises something that
+does not happen is the same lie as a row that promises it. Both pages say what they do now: nothing
+on an information row, "Save" and "Restore" on the buttons, "Switch on or off" on the switches.
+Checked in `tools/test-stick-page.js` (28 checks) and `tools/test-startup-page.js` (25).
+
 ## 0.6.50
 
 The stick page reports what it sees in `/api/ui/state` while it is open: which stick was found, which

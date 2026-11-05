@@ -186,6 +186,21 @@ function main() {
           String(text).slice(0, 160));
       })
 
+      /* ---- 3b. Was die Fusszeile verspricht
+       * Dort stand fuer jede Zeile "Am Fernseher oeffnen" - auch fuer Zeilen,
+       * die nichts tun und fuer Knoepfe, die schreiben. */
+      .then(function () { return evaluate("document.getElementById('appearanceDesc').innerText.replace(/\\s+/g,' ').trim()"); })
+      .then(function (text) {
+        check(!/ffnen|Open on/.test(String(text)), 'die Fusszeile verspricht kein Oeffnen auf der Stick-Zeile',
+          String(text));
+      })
+      .then(function () { return evaluate("window.CleanFrameDebug.press('down'); true"); })
+      .then(function () { return wait(300); })
+      .then(function () { return evaluate("document.getElementById('appearanceDesc').innerText.replace(/\\s+/g,' ').trim()"); })
+      .then(function (text) {
+        check(/Sichern/.test(String(text)), 'auf "Jetzt sichern" sagt sie "Sichern"', String(text));
+      })
+
       /* ---- 4. Sichern */
       .then(function () { return evaluate("window.__stick.calls = []; window.CleanFrameDebug.stickSave(); true"); })
       .then(function () { return wait(900); })

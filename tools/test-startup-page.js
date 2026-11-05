@@ -113,6 +113,12 @@ async function main() {
   /* Die echte Funktion nimmt keine Nutzlast an den Stub weiter - deshalb hier
    * der Aufruf am Geraeteobjekt vorbei pruefen: was die Seite schickt, muss im
    * Aufruf stehen. Der Stub merkt sich nur, DASS etwas kam. */
+  /* Die Fusszeile darf fuer einen Schalter nicht "Am Fernseher oeffnen" sagen -
+   * dort oeffnet sich nichts. */
+  var hint = await evaluate("document.getElementById('appearanceDesc').innerText.replace(/\\s+/g,' ').trim()");
+  check(!/ffnen|Open on/.test(String(hint)), 'die Fusszeile verspricht kein Oeffnen', String(hint));
+  check(/schalten|Switch on/.test(String(hint)), 'sie nennt das Umschalten', String(hint));
+
   await evaluate('window.CleanFrameDebug.startupToggle("boot")');
   await wait(600);
   var rep1 = await evaluate('window.CleanFrameDebug.startupState()');
