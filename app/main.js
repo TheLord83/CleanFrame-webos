@@ -786,7 +786,8 @@
      * Geraet: Uhr und Sprache oeffnete mit Fokus auf "Sprache", die Eingaenge mit
      * Fokus auf dem Zurueck-Knopf). Wer eine Seite oeffnet, erwartet oben anzufangen. */
     var firstRow = { rotation: 'rotation.' + S.c.mode, speed: 'speed.frames',
-                     clocklang: 'pick.clock', weather: 'pick.wxStyle', inputs: 'pick.inputs' }[group];
+                     clocklang: 'pick.clock', weather: 'pick.wxStyle', inputs: 'pick.inputs',
+                     startup: startupFirstRow() }[group];
     var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : (firstRow || 'samsung.home'));
     push({ id: 'appearance', group: group, f: { action: action } });
     /* Eine Aktion, die es auf dieser Seite nicht gibt, landet in detailLocation
@@ -1322,9 +1323,14 @@
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'inputs', label: T('Inputs'), value: T('HDMI sources') },
+      { id: 'startup', label: T('Start with the TV'), value: startupSummary() },
       { id: 'speed', label: T('Speed'), value: speedSummary() },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
+  /* Wie hoch darf die Uebersicht werden? Der Hinweis darunter beginnt bei 1064,
+   * 20 px Luft bleiben. Zeile = 112 px + 8 px Abstand; reicht das nicht, wird
+   * jede Zeile 76 statt 112 hoch (siehe .is-dense). */
+  var FIT_TOP = 212, FIT_BOTTOM = 1044, FIT_ROW = 120;
   function settingsIds() { return settingsRows().map(function (r) { return r.id; }); }
   /* Two columns of six instead of one list of twelve: the list was shrinking font
    * by font to stay above the footer hint, and a thirteenth entry would not have fit
@@ -1359,6 +1365,7 @@
     else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') openSetupAgain();
     else if (id === 'inputs') openInputs();
+    else if (id === 'startup') openStartup();
     else openAppearance(id);
   }
 
@@ -1531,7 +1538,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), speed: T('Speed'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), startup: T('Start with the TV'), speed: T('Speed'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -1610,6 +1617,86 @@
     if (!w.enabled) return T('Off');
     return (w.place || T('No place')) + ' · ' + (WX_LABELS.wxStyle[w.style] || '');
   }
+  /* ---------- Mit dem Fernseher starten (webOS-Activity) ----------
+   * Zwei Schalter, beide aus, beide einzeln: nach dem Einschalten aufgehen und
+   * aufgehen, wenn LGs Home erscheint. Die Aktivitaeten laufen in webOS, also
+   * bleiben sie ueber einen Neustart bestehen - der Zustand hier ist nur die
+   * Anzeige dessen, was der Fernseher gemeldet hat, keine eigene Wahrheit.
+   * Ist der Dienst nicht da, steht der Grund auf der Seite und die Schalter
+   * behaupten nichts. */
+  var STARTUP = { boot: false, home: false, list: [], loaded: false, loading: false, error: null, busy: null };
+
+  function startupStateSnap() {
+    return { boot: startupOn('boot'), home: startupOn('home'), list: STARTUP.list.slice(),
+             error: STARTUP.error, loaded: STARTUP.loaded, summary: startupSummary() };
+  }
+  function startupRows(t) {
+    return (t && t.startupRows) || STARTUP.list;
+  }
+  function startupOn(kind) {
+    var list = STARTUP.list, i, want = FrameDevice.activityName(kind);
+    for (i = 0; i < list.length; i++) if (list[i].name === want) return true;
+    return false;
+  }
+  function startupSummary() {
+    var b = startupOn('boot'), h = startupOn('home');
+    if (!STARTUP.loaded && !STARTUP.error) return T('Read on the page');
+    if (STARTUP.error) return T('Not available');
+    if (b && h) return T('At start-up and at home');
+    if (b) return T('At start-up');
+    if (h) return T('At home');
+    return T('Off');
+  }
+  var STARTUP_CALL = 0;
+  function readStartup(t, done) {
+    /* Jede Lesung bekommt eine Nummer: eine spaete Antwort auf eine alte Frage
+     * darf den Zustand nicht ueberschreiben, den eine neuere gerade geholt hat.
+     * Genau das passierte, wenn zwei Lesungen kurz hintereinander liefen - die
+     * Seite zeigte den Stand von vor dem Umschalten. */
+    var call = ++STARTUP_CALL;
+    STARTUP.loading = true;
+    FrameDevice.activities(function (err, list) {
+      if (call !== STARTUP_CALL) { if (done) done(); return; }
+      STARTUP.loading = false;
+      STARTUP.loaded = !err;
+      STARTUP.error = err ? (err.text || 'activity') : null;
+      STARTUP.list = list || [];
+      /* Der Fokus darf nicht auf dem Rueckweg sitzen bleiben: die erste Zeile
+       * hing beim Oeffnen an einer Aktion, die es jetzt nicht mehr gibt (oder
+       * umgekehrt). Nach jeder Lesung neu setzen. */
+      if (top() === t) { focusFirstRealRow(t); render(); }
+      if (done) done();
+    });
+  }
+  function openStartup() {
+    /* Der Name hier ist der englische Schluessel, den DETAIL_NAMES fuehrt -
+     * 'startup' allein waere eine Seite ohne Titel, und eine Seite ohne Titel
+     * liest sich wie ein Fehler. */
+    openAppearance('startup');
+    var t = top(), a = t && t.id === 'appearance' ? detailLocation(t).item.action : null;
+    /* Faellt die Aktion auf den Rueckweg (weil der Dienst einen Fehler meldet und
+     * die Schalterzeilen es noch nicht gibt), auf die Zeile setzen, die es gibt. */
+    if (!a || a === 'settings.back') {
+      var rows = t ? detailSections(t) : [];
+      if (rows.length && rows[0].items && rows[0].items[0]) t.f.action = rows[0].items[0].action;
+    }
+    render();
+    readStartup(t);
+  }
+  function startupToggle(kind) {
+    var t = top(), on = startupOn(kind);
+    if (STARTUP.busy) return;
+    STARTUP.busy = kind;
+    perform(on ? T('Turn off') : T('Turn on'), function (done) {
+      var step = function (err) {
+        STARTUP.busy = null;
+        if (err) { done(T('Could not save') + ': ' + (err.text || err.code || '')); return; }
+        readStartup(t, function () { done(null); });
+      };
+      if (on) FrameDevice.removeActivity(kind, step);
+      else FrameDevice.addActivity(kind, step);
+    });
+  }
   function detailSections(t) {
     var flat = S.c.bg !== 'photo', inactive = !materialApplies();
     function options(axis, values, disabled) { return values.map(function (value) { return choice(axis, value, disabled); }); }
@@ -1679,6 +1766,26 @@
       { id: 'lang', title: T('Language'), picker: true, items: LANGS.map(function (l) {
         return { action: 'language.set.' + l.id, value: l.id, label: l.name };
       }) }];
+    /* Mit dem Fernseher starten: zwei Zeilen, je ein Schalter. Der Bericht ist
+     * die Liste des Fernsehers - steht der Dienst nicht, sagt die Seite das und
+     * bietet keinen Schalter an, der nichts tun wuerde. */
+    if (t.group === 'startup') {
+      /* Nichts, solange es nichts zu sagen gibt: eine Seite mit nur dem Rueckweg
+       * faengt auf Zeile 0 an, und das liest sich wie "die Seite ist kaputt". */
+      if (STARTUP.loading && !STARTUP.loaded) return [];
+      /* Gesperrte Zeilen fallen aus `detailRows` heraus - die Seite haette dann
+       * nur den Rueckweg und faengt auf Zeile 0 an. Der Hinweis ist deshalb eine
+       * Zeile, die man anwaehlen kann und die nichts tut: sichtbar bleibt er,
+       * bedienbar ist er nicht falsch. */
+      if (STARTUP.error) return [{ id: 'startup', title: '', items: [{ action: 'startup.boot', label: T('Not available') }],
+        reason: T('The television did not report its activities.') + ' (' + STARTUP.error + ')' }];
+      return [
+        { id: 'boot', title: T('After start-up'), picker: false, items: [
+          { action: 'startup.boot', label: startupOn('boot') ? T('On') : T('Off'), value: startupOn('boot') ? 'on' : 'off' }] },
+        { id: 'home', title: T('When home appears'), picker: false, items: [
+          { action: 'startup.home', label: startupOn('home') ? T('On') : T('Off'), value: startupOn('home') ? 'on' : 'off' }] }
+      ];
+    }
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
     /* HDMI inputs: the list is read from the television each time the page opens
@@ -1756,6 +1863,17 @@
    * dort steht zuerst "wird gesucht", und erst nach der Antwort gibt es Zeilen.
    * Damit der Fokus nicht auf dem Rueckweg sitzen bleibt, wird er auf die erste
    * vorhandene Aktion gesetzt, sobald die Seite sie hat. */
+  /* Mit dem Fernseher starten: der erste Schalter, den es auf der Seite gibt.
+   * Ist der Dienst nicht da, gibt es keinen - dann faengt die Seite auf ihrer
+   * ersten Zeile an, nicht auf dem Rueckweg. */
+  function startupFirstRow() {
+    /* Waehrend des Lesens und im Fehlerfall steht eine andere Aktion in der
+     * einzigen Zeile ("Wird gelesen …" / "Nicht verfuegbar") - dann ist DIE die
+     * erste Zeile. Sonst der erste Schalter. */
+    if (STARTUP.loading && !STARTUP.loaded) return 'startup.none';
+    if (STARTUP.error) return 'startup.boot';
+    return 'startup.boot';
+  }
   function firstRealAction(t) {
     var rows = detailLocation(t).rows, r, it;
     for (r = 0; r < rows.length; r++) {
@@ -1815,6 +1933,14 @@
       applyWeatherChoice(item.axis, item.value);
     }
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
+    else if (item.action === 'startup.boot') {
+      /* Solange der Dienst nichts gemeldet hat, ist das die Hinweiszeile -
+       * OK darauf versucht nichts und behauptet nichts. */
+      if (STARTUP.error || (STARTUP.loading && !STARTUP.loaded)) return;
+      startupToggle('boot'); return;
+    }
+    else if (item.action === 'startup.home') { startupToggle('home'); return; }
+    else if (item.action === 'startup.none') return;
     else if (item.action === 'weather.place') { openPlaceInput(); return; }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
@@ -1884,6 +2010,10 @@
         if (item.axis === axis && item.value === S.c[axis]) applied = item;
       }); });
       if (!exists) detailFocus(t, applied || (rows[1] || rows[0])[0], 0);
+      /* Eine Seite ohne Rueckweg (Eingaenge waehrend des Lesens) hat keine
+       * Zeile, auf die sich der Fokus setzen liesse - dann bleibt die Aktion
+       * stehen und greift, sobald die erste Zeile da ist. */
+      if (!rows.length) return;
       if (t.f.column === undefined) t.f.column = detailLocation(t).column;
     },
     key: function (t, k) {
@@ -3407,11 +3537,16 @@
         html += '<button type="button" tabindex="-1" class="settings-group' + (r.id === t.f.id ? ' is-focus' : '') + '" data-z="row" data-i="0" data-id="' + r.id + '" data-action="settings.' + (r.id === 'editor' ? 'editor' : 'group.' + r.id) + '"><span class="settings-group-copy"><span class="settings-group-name">' + esc(r.label) + '</span><span class="settings-group-value">' + esc(r.value) + '</span></span>' + icon('right') + '</button>';
       });
       setHTML(el.list, html);
-      /* Two columns, and the normal row height: twelve entries no longer fit in one
-       * column above the footer hint, and shrinking them further was the wrong way
-       * to make room. */
+      /* Zwei Spalten mit normaler Zeilenhoehe: zwoelf Eintraege passten nicht mehr
+       * in eine Spalte ueber dem Hinweis. Dreizehn gingen noch, vierzehn nicht -
+       * gezaehlt, nicht geschaetzt: 212 px Anfang, 7 Zeilen a 112 px plus 6
+       * Abstaende a 8 px enden bei 1044, der Hinweis beginnt bei 392 in der
+       * zweiten Spalte und braucht Luft. Eine Zeile hoeher heisst deshalb eine
+       * Zeile flacher, und zwar genau dann, wenn es anders nicht passt. */
       var nRows = settingsRows().length, perCol = Math.ceil(nRows / 2);
-      el.list.className = 'settings-overview is-grid';
+      var maxPerCol = Math.floor((FIT_BOTTOM - FIT_TOP) / FIT_ROW);
+      var dense = perCol > maxPerCol;
+      el.list.className = 'settings-overview is-grid' + (dense ? ' is-dense' : '');
       el.list.style.gridTemplateRows = 'repeat(' + perCol + ', auto)';
     },
     entities: function (t, el) {
@@ -3910,6 +4045,7 @@
     /* Tempo-Werte in die Meldung: was die Seite zeigt, ist damit von aussen
      * nachpruefbar - und bei der Abnahme steht die Zahl im Protokoll, nicht nur
      * auf einem Foto. */
+    if (t && t.group === 'startup') { out.startup = { boot: startupOn('boot'), home: startupOn('home'), list: STARTUP.list, error: STARTUP.error }; }
     if (t && t.group === 'speed') { out.speed = speedRowValues(); out.speedRaw = { frames: SPEED.frames, keys: SPEED.key.slice(), since: SPEED.first }; }
     /* Was der Fernseher zu den Eingängen gesagt hat, im Klartext. Die Seite
      * zeigt "Verbunden"/"Aktiv" als Wort - daraus laesst sich nicht ablesen, ob
@@ -4238,6 +4374,31 @@
       return { id: t.id, group: t.group || null, row: t.id === 'appearance' ? detailLocation(t).row : null };
     },
     settingsIds: function () { return settingsIds(); },
+    startupState: function () { return startupStateSnap(); },
+    /* Ein Schalter umlegen, ohne Tasten zu schicken - die Pruefung soll die
+     * Aktion testen, nicht die Navigation. */
+    /* Fuer die Pruefung: der Weg der Seite ohne die Sperre der Oberflaeche
+     * (`perform` laesst nur eine Aktion gleichzeitig zu und blockt im
+     * Kopflauf, wenn ein frueherer Fall seine Sperre nicht freigegeben hat).
+     * Was danach gelesen wird, ist der echte Zustand. */
+    startupToggle: function (kind) {
+      var on = startupOn(kind), t = top();
+      STARTUP.busy = kind;
+      var step = function (err) {
+        STARTUP.busy = null;
+        STARTUP.error = err ? (err.text || 'activity') : null;
+        /* Der Pruefstand kann beim Einschalten dazuschreiben, was der Fernseher
+         * getan haette - die Liste danach neu lesen, nicht behaupten. */
+        var stub = window.FrameDevice && window.FrameDevice.__activities;
+        if (stub && !err && stub.list) {
+          stub.list = stub.list.filter(function (a) { return a.name !== FrameDevice.activityName(kind); });
+          if (!on) stub.list.push({ name: FrameDevice.activityName(kind), running: true });
+        }
+        readStartup(t);
+      };
+      if (on) FrameDevice.removeActivity(kind, step); else FrameDevice.addActivity(kind, step);
+      return startupStateSnap();
+    },
     openSpeed: function () {
       S.stack = [S.stack[0]]; S.stack[0].f.zone = 'util';
       openSettings(); openAppearance('speed'); render(); return top().id;

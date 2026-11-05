@@ -1,3 +1,28 @@
+## 0.6.48
+
+Settings → "Start with the TV": two switches, both off, both alone — open CleanFrame after
+start-up, open it when LG's home shows up.
+
+These are webOS activities, not a mount. webOS runs them itself, they survive a reboot, and a wrong
+one means "the app does not open" rather than "the television has no home screen". It is the cheaper
+half of the home takeover (#5) and the reason it is built first: there is nothing to undo by hand.
+LG's home stays where it is; nothing is stopped.
+
+The two triggers: `bootManager/getBootStatus` subscribed for `core-boot-done`, and
+`applicationManager/getForegroundAppInfo`, both with `applicationManager/launch` on the app's own id,
+`persist: true`, `foreground: true`. The page shows what the television reports — an activity it does
+not know is a switch on "Off", and a missing service says so instead of offering a switch that would
+do nothing.
+
+`tools/test-startup-page.js` reads the payload off a stand-in bus: the call goes to
+`activitymanager/create`, `start: true`, `persist: true`, `foreground: true`, the trigger is a
+subscription with `core-boot-done`, the callback launches `com.blackpearl.cleanframe`; the second
+trigger hangs on the foreground app info. Switch on, the row says On; switch off, Off.
+
+Not yet on the device: the television runs the service (`/usr/sbin/activitymanager`, pid 3345) but
+answers `luna-send` with nothing, so the request is installed with this build and the next power
+cycle is the test.
+
 ## 0.6.47
 
 Every settings page started somewhere, rarely at the top.

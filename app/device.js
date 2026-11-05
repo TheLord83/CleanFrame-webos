@@ -390,6 +390,111 @@
     }
   }
 
+  /* ---------- webOS activities: start with the television ----------
+   * webOS runs activities itself, they survive a reboot and they work where
+   * start-up hooks do not. Two things are wanted here, and only these two:
+   * open CleanFrame once the boot is done, and once more whenever LG's own home
+   * shows up. Nothing is mounted, nothing is stopped, LG's home stays where it
+   * is - a wrong activity means "the app does not open", not "the television
+   * has no home screen". That is the whole reason this is built before any
+   * takeover: there is nothing to undo by hand.
+   *
+   * The reply is the contract: `returnValue` plus `activityId`. A page that
+   * reports "installed" without an id is guessing, and the next reboot will
+   * tell a different story than the screen did. */
+  var ACTIVITY = 'luna://com.webos.service.activitymanager',
+      OWN_ID = 'com.blackpearl.cleanframe',
+      BOOT_TRIGGER = 'luna://com.webos.bootManager/getBootStatus',
+      HOME_TRIGGER = 'com.webos.service.applicationManager/getForegroundAppInfo';
+
+  function activityName(kind) { return 'cleanframe-' + kind; }
+  /* Der Stub des Pruefstands: die Seite fragt den Namen hier, also antwortet
+   * auch der Stub hier - nicht mit einem selbst erfundenen. */
+  function stubActivity() { return (window.FrameDevice && window.FrameDevice.__activities) || null; }
+
+  /* Der Auslöser ist der ganze Trick: `subscribe` auf den Boot-Status, und
+   * gefeuert wird nur beim Signal `core-boot-done` - vorher gibt es kein
+   * Fenster, in das man eine App legen könnte. */
+  function bootTrigger() {
+    return { method: 'subscribe', params: {
+      uri: BOOT_TRIGGER,
+      params: { subscribe: true, prop: ['signals', 'core-boot-done'] }
+    } };
+  }
+  function homeTrigger() {
+    return { method: 'subscribe', params: {
+      uri: HOME_TRIGGER,
+      params: { subscribe: true, prop: ['foregroundAppInfo'] }
+    } };
+  }
+  function launchCallback() {
+    return { method: 'launch', params: { appId: OWN_ID } };
+  }
+  function activityParams(kind) {
+    return {
+      activity: {
+        name: activityName(kind),
+        description: kind === 'boot' ? 'CleanFrame after start-up' : 'CleanFrame when home shows up',
+        type: { foreground: true },
+        trigger: kind === 'boot' ? bootTrigger() : homeTrigger(),
+        callback: launchCallback(),
+        persist: true,
+        explicit: true
+      },
+      start: true
+    };
+  }
+
+  /* Was steht da? Liste der eigenen Activities mit Namen und Auslöser. */
+  function readActivities(done) {
+    /* Pruefstand: der Fernseher wird nachgestellt, statt dass der Test eine
+     * Antwort erfindet (derselbe Weg wie bei den App-Listen). */
+    var stub = window.FrameDevice && window.FrameDevice.__activities;
+    if (stub) {
+      if (stub.error) return done({ code: 'activity', text: stub.error });
+      return done(null, (stub.list || []).slice());
+    }
+    luna(ACTIVITY + '/list', { subscribe: false, activityNames: [activityName('boot'), activityName('home')] }, function (res) {
+      if (res && res.returnValue === false && res.errorText) {
+        return done({ code: 'activity', text: res.errorText });
+      }
+      var list = (res && res.activity) ? (Array.isArray(res.activity) ? res.activity : [res.activity]) : [];
+      done(null, list.map(function (a) {
+        return { name: a.name || '', running: a.running === true, start: a.start !== false,
+                 trigger: (a.trigger && a.trigger.method) || '', id: a.activityId || '' };
+      }));
+    });
+  }
+
+  function createActivity(kind, done) {
+    var stub = window.FrameDevice && window.FrameDevice.__activities;
+    if (stub) {
+      if (stub.error) return done({ code: 'activity', text: stub.error });
+      return done(null, { id: 'stub-' + kind, name: activityName(kind) });
+    }
+    luna(ACTIVITY + '/create', activityParams(kind), function (res) {
+      if (!res || res.returnValue !== true) {
+        return done({ code: 'activity', text: (res && (res.errorText || res.errorCode)) || 'keine Antwort' });
+      }
+      /* Ohne Kennung keine Bestätigung - sie ist das, was `remove` braucht. */
+      done(null, { id: res.activityId || '', name: activityName(kind) });
+    });
+  }
+
+  function removeActivity(kind, done) {
+    var stub = window.FrameDevice && window.FrameDevice.__activities;
+    if (stub) {
+      if (stub.error) return done({ code: 'activity', text: stub.error });
+      return done(null, { removed: true });
+    }
+    luna(ACTIVITY + '/remove', { activityName: activityName(kind) }, function (res) {
+      var missing = res && (res.errorText === 'No such activity' || res.errorCode === -1);
+      if (res && res.returnValue === true) return done(null, { removed: true });
+      if (missing) return done(null, { removed: false, missing: true });
+      done({ code: 'activity', text: (res && (res.errorText || res.errorCode)) || 'keine Antwort' });
+    });
+  }
+
   window.FrameDevice = {
     /* The option schema carries the uploaded wallpapers; without it the
      * launcher would drop a wallpaper id it does not know. */
@@ -428,6 +533,10 @@
     sources: readInputs,
     connectionInfo: connectionInfo,
     setSource: setSource,
+    activities: readActivities,
+    activityName: activityName,
+    addActivity: createActivity,
+    removeActivity: removeActivity,
     resolve: resolve
   };
 }());

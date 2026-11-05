@@ -201,6 +201,9 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   # Jede Einstellungsseite beginnt auf ihrer ersten Zeile: die Eingaenge standen
   # auf dem Rueckweg, Uhr und Sprache auf der zweiten Zeile (am Geraet gemessen).
   run "page entry" node tools/test-page-entry.js --port "$PORT_DEBUG"
+  # Mit dem Fernseher starten: webOS-Activities. Die Nutzlast von create wird an
+  # einem nachgestellten Bus abgelesen - persist, foreground, Boot-Ausloeser.
+  run "startup page" node tools/test-startup-page.js --port "$PORT_DEBUG"
   # Die Adresse, die /api/net anbietet: LAN-nutzbar, nie Loopback. Der Fehler
   # dahinter war eine Verschattung (`var os = info.os`), sichtbar nur als 500er.
   run "net endpoint" python3 tools/check-net-endpoint.py
