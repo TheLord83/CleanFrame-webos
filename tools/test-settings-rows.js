@@ -62,12 +62,6 @@ var EXPECT = {
   'settings.group.samsung': [
     { q: 'LG', kind: 'choice', opts: 2, want: 'choice' }
   ],
-  /* HDMI inputs: one picker row, one answer per input. The count comes from the
-   * television and the test bench has no EIM, so the row is checked by shape and
-   * the answers by "at least one when the list arrived". */
-  'settings.group.inputs': [
-    { q: '', kind: 'one', opts: 1, want: 'picker' }
-  ]
 };
 
 /* Zeilen der Uebersicht, die keine Abschnittsseite oeffnen, sondern etwas anderes

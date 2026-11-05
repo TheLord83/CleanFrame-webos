@@ -1,3 +1,15 @@
+## 0.6.56
+
+Inputs are not a setting. Switching to HDMI 2 changes nothing permanent, it is an action — and it
+lived in Settings next to things you configure once. It is in the home screen's utility row now, next
+to Screensaver, All apps and Settings: one keypress from the home screen, and the settings overview is
+down to 13 rows.
+
+The row of the settings overview and its route are gone; the page itself is the same one, so nothing
+was rebuilt. `tools/test-settings-rows.js` and `tools/test-page-entry.js` follow the new way in, and
+the entry test now says what it can actually prove on a bench without an EIM: the focus starts on the
+page's list and not on the back button.
+
 ## 0.6.55
 
 A place can be set on the television. Until now the place sheet showed the places the hub already knew

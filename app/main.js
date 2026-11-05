@@ -78,7 +78,10 @@
   var LOOK_VALUES = { bg: ['dark', 'light', 'photo'], layout: ['list', 'dock'], apps: ['icons', 'both', 'text'], font: Object.keys(FONTS).filter(function (id) { return id === 'manrope' || PRIVATE_FONTS.indexOf(id) >= 0; }), controls: ['icons', 'both', 'text'], focus: ['type', 'glass'], material: ['soft', 'frost', 'tint'] };
   var LOOK_NAMES = { bg: T('Background'), layout: T('Layout'), apps: 'Apps', font: T('Font'), controls: T('Home controls'), focus: T('Focus'), material: T('Material') };
   var VALUE_NAMES = { dark: T('Dark'), light: T('Light'), photo: T('Photo'), list: T('List'), dock: T('Dock'), type: 'Type', glass: T('Glass'), soft: T('Soft'), frost: T('Frost'), tint: T('Clear tint'), icons: T('Icons'), both: T('Icons and text'), text: T('Text'), '20': '', small: T('Small'), normal: T('Normal'), large: T('Large') };
-  var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], settings: [T('Settings'), 'settings'] };
+  /* Eingaenge stehen hier und nicht in den Einstellungen: Umschalten ist eine
+   * Aktion, keine Einstellung - man aendert nichts dauerhaft. In der Werkzeugzeile
+   * der Startseite ist sie einen Tastendruck entfernt (Stefan, 05.11.2026). */
+  var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], inputs: [T('Inputs'), 'inputs'], settings: [T('Settings'), 'settings'] };
   var MSG = {
     leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] },
     /* Die Einrichtung laeuft im Browser des Hubs, nicht auf dem Fernseher. */
@@ -751,7 +754,7 @@
   }
 
   /* ---------- Navigation targets ---------- */
-  function utils() { return ['art', 'apps', 'settings']; }
+  function utils() { return ['art', 'apps', 'inputs', 'settings']; }
   /* prev/next run along the apps; out goes to the controls, inn comes back (or to a per-app action). */
   function axes() {
     var v = S.c.layout === 'list';
@@ -770,6 +773,7 @@
   function utilAction(u) {
     if (u === 'art') perform(T('Screensaver'), FrameDevice.art);
     else if (u === 'apps') openApps();
+    else if (u === 'inputs') openInputs();
     else openSettings();
   }
   function addAppsRoute() { openEditor('home'); }
@@ -1324,7 +1328,6 @@
       { id: 'weather', label: T('Weather'), value: weatherSummary() },
       { id: 'ent', label: T('Values on the start page'), value: entSummary() },
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
-      { id: 'inputs', label: T('Inputs'), value: T('HDMI sources') },
       { id: 'startup', label: T('Start with the TV'), value: startupSummary() },
       { id: 'stick', label: T('Backup to a stick'), value: stickSummary() },
       { id: 'speed', label: T('Speed'), value: speedSummary() },
@@ -1366,7 +1369,6 @@
     else if (id === 'weather') openAppearance('weather');
     else if (id === 'editor') openEditor('settings');
     else if (id === 'setup') openSetupAgain();
-    else if (id === 'inputs') openInputs();
     else if (id === 'startup') openStartup();
     else if (id === 'stick') openStick();
     else openAppearance(id);

@@ -79,17 +79,20 @@ Einordnung fuer uns, ohne es zu bauen:
 - **Es ist eine andere Produktklasse, kein Feature am Launcher.** Ein Launcher zeigt Kacheln;
   Internet-TV bringt einen Player, einen Playlist-Import und einen EPG-Dienst mit. Das ist
   dieselbe Grenze, an der wir *Live-Hintergrundvideo* und *Sprachsteuerung* schon abgelehnt haben.
-- **Der Teil, der zu uns passt, ist die Form:** eine **eigene Reihe auf der Startseite** fuer Dinge,
-  die man oft braucht (bei uns: Eingaenge, Werte, Wetter) statt einer weiteren Einstellungsseite.
-  Genau diese Richtung verfolgen wir mit `#8` (Eingaenge auf die Startseite), und sie ist billiger.
-- **Was wir dafuer NICHT brauchen:** Playlist-Parser, DRM-Fragen, Sender-Logos, EPG-Abgleich. Wenn
-  Stefan Internet-TV will, ist das ein eigenes Vorhaben mit eigener Doku — nicht ein Anhang an
-  CleanFrame, und nicht etwas, das wir halb bauen.
+- **Was daran hoechstens nachdenkenswert waere:** Dinge, die man oft braucht, gehoeren auf die
+  Startseite und nicht in die Einstellungen. Diese Richtung ist mit der Werkzeugzeile (0.6.56) und
+  `#8` schon Realitaet — dafuer braucht es kein Internet-TV.
+- **Was wir dafuer NICHT brauchen:** Playlist-Parser, DRM-Fragen, Sender-Logos, EPG-Abgleich.
 - **Ehrlich zum Rueckweg:** Ein Player, der auf der Startseite startet, braucht ein sauberes
   Zurueck (Vollbild, Ton, haengende Streams). Solange das am Geraet nicht geprueft ist, kommt es
   nicht auf die Liste.
 
-Damit steht in der Liste nur die Form (eigene Reihe auf Home), nicht der Inhalt.
+- **Entscheidung Stefan, 05.11.2026: nicht nachbauen.** Glasshouse' Internet-TV wird nicht
+  nachgebaut — weder der Player noch der Programmführer, und auch nicht „nur die Form davon". Was
+  am Fernseher fehlt, entscheidet der Betreiber am Gerät und nicht ein Beitrag auf Reddit. Der
+  Eintrag bleibt als Beleg stehen, damit die Frage nicht jedes Mal neu aufkommt.
+
+Damit steht davon nichts auf unserer Liste.
 
 ## 3. Was auf unsere bestehende Liste gehoert (mit Herkunft)
 

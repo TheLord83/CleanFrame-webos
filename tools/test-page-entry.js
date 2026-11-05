@@ -115,12 +115,17 @@ async function main() {
   var clockState = await evaluate('window.CleanFrameDebug.state()');
   check(clock && clock.row === 1 && clockState.action === 'pick.clock',
     'Uhr und Sprache beginnt auf der Zeile "Uhr"', 'row=' + (clock && clock.row) + ' action=' + (clockState && clockState.action));
-  var ins = JSON.parse(await evaluate('JSON.stringify(window.CleanFrameDebug.openGroup("inputs"))') || '{}');
+  /* Die Eingaenge sind keine Einstellungsseite mehr: sie haengen an der
+   * Werkzeugzeile der Startseite. Der Einstieg wird deshalb direkt geoeffnet. */
+  var ins = JSON.parse(await evaluate('JSON.stringify(window.CleanFrameDebug.openInputs())') || '{}');
   await wait(320);
   var insState = await evaluate('window.CleanFrameDebug.state()');
-  check(ins && ins.row === 1, 'die Eingaenge beginnen auf der Eingangsliste', 'row=' + (ins && ins.row));
-  check((insState && insState.action) !== 'settings.back', 'die Eingaenge beginnen nicht auf dem Rueckweg',
-    'action=' + (insState && insState.action));
+  /* Der Pruefstand hat kein EIM, also meldet der Fernseher hier keine Eingaenge -
+   * die Seite zeigt dann ihre "Erneut versuchen"-Zeile. Geprueft wird deshalb,
+   * was in beiden Faellen gilt: der Fokus steht auf einer Zeile der Liste und
+   * nicht auf dem Rueckweg. */
+  check((insState && insState.action) !== 'settings.back' && /^inputs\./.test(String(insState && insState.action)),
+    'die Eingaenge beginnen auf ihrer Liste, nicht auf dem Rueckweg', 'action=' + (insState && insState.action));
 
   console.log('RESULT ' + passed + '/' + (passed + failed));
   ws.close();
