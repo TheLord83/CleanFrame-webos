@@ -1,3 +1,9 @@
+## 0.6.50
+
+The stick page reports what it sees in `/api/ui/state` while it is open: which stick was found, which
+file is on it, and the reason when there is none. An acceptance that only has a photograph of a
+sentence can read a sentence, not a state.
+
 ## 0.6.49
 
 Settings → "Backup to a stick": one named JSON file on a USB stick, and reading it back in.

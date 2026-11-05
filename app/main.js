@@ -4196,6 +4196,11 @@
      * nachpruefbar - und bei der Abnahme steht die Zahl im Protokoll, nicht nur
      * auf einem Foto. */
     if (t && t.group === 'startup') { out.startup = { boot: startupOn('boot'), home: startupOn('home'), list: STARTUP.list, error: STARTUP.error }; }
+    /* Sicherung auf Stick: ob die Seite einen Stick sieht und was sie auf ihm
+     * liest, gehoert in den Bericht - bei der Abnahme ist genau das die Frage,
+     * und ein Foto eines Satzes ist keine Antwort darauf, welcher Grund gemeldet
+     * wurde. */
+    if (t && t.group === 'stick') { out.stick = stickStateSnap(); }
     if (t && t.group === 'speed') { out.speed = speedRowValues(); out.speedRaw = { frames: SPEED.frames, keys: SPEED.key.slice(), since: SPEED.first }; }
     /* Was der Fernseher zu den Eingängen gesagt hat, im Klartext. Die Seite
      * zeigt "Verbunden"/"Aktiv" als Wort - daraus laesst sich nicht ablesen, ob
