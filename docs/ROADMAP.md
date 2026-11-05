@@ -68,11 +68,18 @@ and `luna-send-pub`. The hub itself is fine (`ls-monitor` shows `activitymanager
 measurements, the one mistake that was made (a `SIGTERM` on `ls-hubd` rebooted the television and took
 the running app with it) and what a later attempt should look at first.
 
-**Settings backup on a stick** (#16) — done in 0.6.49. One named JSON file on a USB stick, readable
-back in: `cleanframe-settings-YYYY-MM-DD.json`, written by the hub, atomic, 0600, and deliberately
-not redacted (a backup without the Home Assistant token restores a launcher that cannot reach its
-house). Three states on the page, all honest: no stick, a stick without a backup, a stick with one.
-The remaining step is the one that needs a human: a stick in the television.
+**Settings backup on a stick** (#16) — done in 0.6.49, accepted on the device in 0.6.52. One named
+JSON file on a USB stick, readable back in: `cleanframe-settings-YYYY-MM-DD.json`, written by the hub,
+atomic, 0600, and deliberately not redacted (a backup without the Home Assistant token restores a
+launcher that cannot reach its house). Three states on the page, all honest: no stick, a stick without
+a backup, a stick with one.
+
+The acceptance found one thing the bench could not: an NTFS stick is mounted by the television with its
+own driver and appears in `/proc/mounts` as `tntfs`, which the filesystem list did not know — the page
+said "No stick found" next to a 244 GB stick mounted read-write at `/tmp/usb/sda/sda1`. 0.6.52 fixes
+that. On the device: backup written (1849 bytes, mode `-rw-------`, `kind: cleanframe-backup`), one
+setting changed, restore brought the whole file back — the settings after the restore are identical to
+the backup except `rev` and `updatedAt`.
 
 **Device names at the inputs** (#8, second step) — the input page already shows the name when the
 television reports it; making the television report it needs root (`eim` fills that field only for
