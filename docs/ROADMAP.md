@@ -55,10 +55,18 @@ screensaver before either is built (the neighbour that does this dims in steps, 
 a few pixels per minute for OLED, and can switch the television off after a time — that whole set
 belongs in one decision, not three switches).
 
-**Boot and Home through a webOS activity** (#15) — the cheaper half of #5: an activity with a
-`bootManager` trigger opens the launcher at power-on, a second one opens it when LG's home shows up.
-webOS runs them itself; no init.d hook, no mount, nothing to revert by hand. The lock is the point:
-Home stays LG's unless the person asks for the takeover.
+**Boot and Home through a webOS activity** (#15) — **blocked on this television.** The plan stands: an
+activity with a `bootManager` trigger opens the launcher at power-on, a second one opens it when LG's
+home shows up. webOS runs them itself; no init.d hook, no mount, nothing to revert by hand. The lock
+is the point: Home stays LG's unless the person asks for the takeover.
+
+What stops it is one step below: on this set `luna-send` returns exit code 0 and zero bytes for every
+method — before and after a full power cycle, with the launcher running, on both `/usr/bin/luna-send`
+and `luna-send-pub`. The hub itself is fine (`ls-monitor` shows `activitymanager/create` offered to
+`public`), so the client path is what is mute, and nothing that goes through it — including
+`hbchannel/exec` → `activitymanager/create` — can be proven. `docs/COLDSTART.md` holds the
+measurements, the one mistake that was made (a `SIGTERM` on `ls-hubd` rebooted the television and took
+the running app with it) and what a later attempt should look at first.
 
 **Settings backup on a stick** (#16) — done in 0.6.49. One named JSON file on a USB stick, readable
 back in: `cleanframe-settings-YYYY-MM-DD.json`, written by the hub, atomic, 0600, and deliberately
