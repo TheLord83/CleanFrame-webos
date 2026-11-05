@@ -1597,6 +1597,99 @@
     if (!isFinite(scale)) scale = 100;
     return scale + ' %' + (ui.senior ? ' · ' + T('Senior mode') : '');
   }
+  /* ---- Ort suchen (#neu): ein echtes Eingabefeld -------------------------
+   * Der Fernseher hat keine Tastatur im Sinne einer Hardware, aber webOS blendet
+   * seine Bildschirmtastatur ein, sobald ein Eingabefeld den Fokus hat. Das ist
+   * der Weg, auf dem ein Name in die App kommt, ohne dass jemand ein
+   * Buchstabenraster mit der Fernbedienung abklickt.
+   *
+   * Warum die Trefferliste und nicht der erste Treffer: "Kiel" gibt es in
+   * Deutschland und in Wisconsin. Der Hub liefert bis zu sechs Kandidaten, die
+   * Seite zeigt sie, der Mensch waehlt. */
+  var PS = { query: '', results: [], busy: false, note: '', error: '', i: -1 };
+  function placeSearchReset() {
+    PS = { query: '', results: [], busy: false, note: '', error: '', i: -1 };
+  }
+  function openPlaceSearch() {
+    placeSearchReset();
+    resetSheet();
+    push({ id: 'placesearch', f: { i: 0 } });
+    render(); renderSheet(top(), true);
+    /* Fokus erst nach dem Zeichnen: vorher gibt es das Feld nicht. */
+    setTimeout(function () { focusPlaceInput(); }, 60);
+  }
+  function focusPlaceInput() {
+    var el = document.getElementById('placeSearchInput');
+    if (!el) return false;
+    try { el.focus(); } catch (e) { return false; }
+    return document.activeElement === el;
+  }
+  function searchPlaces() {
+    var el = document.getElementById('placeSearchInput');
+    var q = String((el && el.value) || PS.query || '').trim();
+    PS.query = q;
+    if (q.length < 2) { PS.note = T('Type at least two letters.'); PS.results = []; PS.i = -1; paintPlaceSearch(); return; }
+    PS.busy = true; PS.note = T('Looking up the place ...'); PS.error = ''; PS.results = []; PS.i = -1;
+    paintPlaceSearch();
+    fetch(HUB + '/api/weather/places?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        PS.busy = false;
+        if (!d || d.ok === false) {
+          PS.error = (d && d.error) ? String(d.error) : T('The hub did not answer.');
+          PS.note = ''; PS.results = []; PS.i = -1;
+        } else if (!d.results || !d.results.length) {
+          PS.note = T('No place found for that name.'); PS.results = []; PS.i = -1;
+        } else {
+          PS.results = d.results.slice(0, 6);
+          PS.note = ''; PS.error = '';
+          /* Der Fokus wandert auf den ersten Treffer: OK heisst jetzt "nehmen",
+           * nicht "nochmal suchen". Hoch fuehrt zurueck ins Feld. */
+          PS.i = 0;
+        }
+        paintPlaceSearch();
+      })
+      .catch(function () {
+        PS.busy = false; PS.error = T('The hub did not answer.'); PS.note = ''; paintPlaceSearch();
+      });
+  }
+  function applyPlaceCandidate(hit) {
+    if (!hit) return;
+    PS.busy = true; PS.note = T('Saving ...'); paintPlaceSearch();
+    fetch(HUB + '/api/weather/place', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ name: hit.name }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        PS.busy = false;
+        if (!d || d.ok !== true) {
+          PS.error = (d && d.error) ? String(d.error) : T('The hub did not answer.');
+          paintPlaceSearch(); return;
+        }
+        S.note = T('Place saved: ') + (d.place || hit.name);
+        if (window.FrameDevice && FrameDevice.loadConfig) {
+          FrameDevice.loadConfig(function (err, cfg) { if (!err && cfg) applyConfigInto(cfg); });
+        }
+        pop(); render();
+      })
+      .catch(function () { PS.busy = false; PS.error = T('The hub did not answer.'); paintPlaceSearch(); });
+  }
+  /* Nur den Trefferteil neu zeichnen, nicht das ganze Blatt: ein Neuaufbau
+   * wuerde das Eingabefeld samt Fokus und Text wegwerfen. */
+  function paintPlaceSearch() {
+    var box = document.getElementById('placeSearchResults');
+    if (!box) return;
+    var html = '';
+    if (PS.error) html += '<p class="setting-error">' + esc(PS.error) + '</p>';
+    if (PS.note) html += '<p class="s-sub">' + esc(PS.note) + '</p>';
+    if (PS.results.length) {
+      html += '<div class="settings-overview">' + PS.results.map(function (hit, i) {
+        var focus = i === (PS.i >= 0 ? PS.i : -2) ? ' is-focus' : '';
+        return '<button type="button" tabindex="-1" class="settings-group' + focus + '" data-z="placehit" data-i="' + i + '">'
+          + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(hit.label || hit.name) + '</span></span></button>';
+      }).join('') + '</div>';
+    }
+    box.innerHTML = html;
+  }
+
   /* Ort der Wetterzeile: die Orte, die die Konfiguration kennt, als Liste.
    * Kein Textfeld - der Fernseher hat keine Tastatur; ein neuer Ort entsteht im
    * Hub im Browser (dort gegen Open-Meteo). */
@@ -2463,22 +2556,54 @@
       else if (z === 'rename-cancel') { pop(); render(); }
     }
   };
+  /* Die Ortsseite: Zeile 0 ist die Suche, darunter die Orte, die die
+   * Konfiguration kennt. Die Suche steht zuerst, weil sie der einzige Weg ist,
+   * an einen NEUEN Ort zu kommen - vorher stand hier der Satz, dass das nur im
+   * Browser gehe, und das war die halbe Wahrheit. */
+  function placeRows() {
+    return [{ search: true, label: T('Search for a place') }].concat(wxPlaceChoices());
+  }
   V.place = {
     sheet: true,
     key: function (t, k) {
-      var list = wxPlaceChoices(), n = list.length, i = clamp(t.f.i || 0, 0, Math.max(0, n - 1));
+      var rows = placeRows(), n = rows.length, i = clamp(t.f.i || 0, 0, Math.max(0, n - 1));
       if (k === 'back') { pop(); render(); return; }
-      if (n) {
-        if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); return; }
-        if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); return; }
-        if (k === 'ok') { weatherPlace(list[i].value, list[i].lat, list[i].lon); return; }
+      if (k === 'up') { t.f.i = Math.max(0, i - 1); render(); return; }
+      if (k === 'down') { t.f.i = Math.min(n - 1, i + 1); render(); return; }
+      if (k === 'ok') {
+        var row = rows[i];
+        if (!row) return;
+        if (row.search) { openPlaceSearch(); return; }
+        weatherPlace(row.value, row.lat, row.lon);
+        return;
       }
-      /* Leere Liste: OK tut nichts. Vorher stand hier "Waehle einen Ort aus der
-       * Liste oder tippe einen Namen" - ein Satz, der eine Tastatur verspricht,
-       * die es am Fernseher nicht gibt. Was zu tun ist, steht im Blatt selbst
-       * ("A new place is added in the hub in the browser."). */
     },
     point: function (t, z, i) { if (z === 'place') { t.f.i = i; this.key(t, 'ok'); } }
+  };
+  V.placesearch = {
+    sheet: true,
+    key: function (t, k) {
+      var n = PS.results.length;
+      if (k === 'back') {
+        /* Zurueck aus der Trefferliste ins Feld, erst der zweite Druck schliesst. */
+        if (PS.i >= 0) { PS.i = -1; paintPlaceSearch(); focusPlaceInput(); return; }
+        pop(); render(); return;
+      }
+      if (k === 'down') { if (n) { PS.i = Math.min(n - 1, PS.i + 1); paintPlaceSearch(); } return; }
+      if (k === 'up') {
+        if (PS.i > -1) { PS.i = PS.i - 1; paintPlaceSearch(); if (PS.i < 0) focusPlaceInput(); }
+        return;
+      }
+      if (k === 'ok') {
+        if (PS.i >= 0 && PS.results[PS.i]) { applyPlaceCandidate(PS.results[PS.i]); return; }
+        searchPlaces(); return;
+      }
+    },
+    point: function (t, z, i) {
+      if (z === 'placehit') { PS.i = i; paintPlaceSearch(); applyPlaceCandidate(PS.results[i]); }
+      else if (z === 'placesearch-ok') { searchPlaces(); }
+      else if (z === 'placefield') { focusPlaceInput(); }
+    }
   };
   V.ctx = {
     sheet: true,
@@ -3480,22 +3605,38 @@
     },
     settings: function () { return '<h2 class="s-title">' + T('Settings') + '</h2><div class="settings-overview" data-slot="list"></div><p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Open selected group') + '</span></p>'; },
     place: function (t) {
-      /* Kein Eingabefeld: der Fernseher hat keine Tastatur. Die Orte, die die
-       * Konfiguration kennt, stehen als Liste da - hoch/runter waehlt, OK
-       * uebernimmt. Ein neuer Ort kommt ueber die Browserseite des Hubs dazu
-       * (dort gibt es ein echtes Textfeld). */
-      var list = wxPlaceChoices();
+      /* Zeile 0: suchen. Darunter die bekannten Orte mit Haken beim aktuellen.
+       * Die Suche oeffnet ein echtes Eingabefeld - der Fernseher blendet dafuer
+       * seine Bildschirmtastatur ein. */
+      var rows = placeRows();
       return '<h2 class="s-title">' + T('Place') + '</h2>'
         + '<p class="s-sub">' + esc(t.note || T('Choose a place for the weather line.')) + '</p>'
         + '<div class="settings-overview">'
-        + (list.length ? list.map(function (p, i) {
-            return '<button type="button" tabindex="-1" class="settings-group' + (i === (t.f.i || 0) ? ' is-focus' : '') + '" data-z="place" data-i="' + i + '">'
+        + rows.map(function (p, i) {
+            var focus = i === (t.f.i || 0) ? ' is-focus' : '';
+            if (p.search) {
+              return '<button type="button" tabindex="-1" class="settings-group' + focus + '" data-z="place" data-i="' + i + '">'
+                + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(p.label) + '</span></span></button>';
+            }
+            return '<button type="button" tabindex="-1" class="settings-group' + focus + '" data-z="place" data-i="' + i + '">'
               + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(p.label) + '</span></span>'
               + (p.applied ? '<span class="setting-tick" aria-hidden="true">' + icon('check') + '</span>' : '') + '</button>';
-          }).join('') : '<p class="s-sub">' + T('No place set yet.') + '</p>')
+          }).join('')
         + '</div>'
         + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>'
-        + T('A new place is added in the hub in the browser.') + '</span></p>';
+        + T('Type a name and pick from the list.') + '</span></p>';
+    },
+    placesearch: function (t) {
+      /* Ein echtes Eingabefeld - nur so blendet webOS seine Bildschirmtastatur
+       * ein. OK sucht (oder nimmt den Treffer), hoch/runter wandert zwischen
+       * Feld und Treffern. */
+      return '<h2 class="s-title">' + T('Search for a place') + '</h2>'
+        + '<p class="s-sub">' + esc(T('Type the name and press OK.')) + '</p>'
+        + '<div class="place-search-box"><input id="placeSearchInput" type="text" autocomplete="off" spellcheck="false"'
+        + ' inputmode="text" aria-label="' + esc(T('Search for a place')) + '" value="' + esc(PS.query) + '"></div>'
+        + '<div id="placeSearchResults" data-slot="placesearch"></div>'
+        + '<p class="settings-overview-hint"><span class="remote-key">OK</span><span>' + T('Search') + '</span>'
+        + '<span class="remote-key">' + T('Back') + '</span><span>' + T('Leave the search') + '</span></p>';
     },
     rename: function (t) {
       /* Nur noch der Name der Kachel oder des Geraets. Der Ort hatte frueher
@@ -3568,6 +3709,22 @@
     /* Der Ort hat keine Felder zum Nachtragen - die Liste steht schon im Rahmen.
      * Der Eintrag muss trotzdem existieren: renderSheet ruft FILLS[t.id] auf. */
     place: function () {},
+    placesearch: function (t, slots) {
+      /* Das Feld NICHT neu beschreiben, solange es den Fokus hat: sonst springt
+       * der Cursor beim ersten Tastendruck an den Anfang. Nur beim Aufbau und
+       * wenn sich der Wert von aussen geaendert hat. */
+      var el = document.getElementById('placeSearchInput');
+      if (el && document.activeElement !== el && el.value !== PS.query) el.value = PS.query;
+      if (el && !el.dataset.bound) {
+        el.dataset.bound = '1';
+        el.addEventListener('input', function () { PS.query = el.value; });
+        el.addEventListener('keydown', function (ev) {
+          if (ev.keyCode === 13) { ev.preventDefault(); searchPlaces(); }
+        });
+      }
+      paintPlaceSearch();
+      setTimeout(function () { focusPlaceInput(); }, 40);
+    },
     ctx: function (t, el) {
       var acts = ctxActions(t);
       var i = Math.min(Math.max(0, parseInt(t.f.i, 10) || 0), acts.length - 1);

@@ -838,6 +838,14 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
   border-radius:14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
   font-size:34px;letter-spacing:-.5px}
 .rename-box .rename-caret{width:2px;height:38px;background:currentColor;animation:cf-caret 1s steps(2,start) infinite}
+/* Orts-Suche: ein echtes Eingabefeld. Es muss gross und deutlich sein, weil es
+ * der einzige Ort ist, an dem am Fernseher getippt wird - und webOS blendet
+ * seine Bildschirmtastatur nur ueber einem fokussierbaren Feld ein. */
+.place-search-box{margin:8px 0 18px}
+.place-search-box input{width:100%;box-sizing:border-box;min-height:76px;padding:14px 22px;
+  border-radius:14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+  color:inherit;font:inherit;font-size:38px;letter-spacing:-.5px;outline:none}
+.place-search-box input:focus{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.42)}
 @keyframes cf-caret{to{visibility:hidden}}
 .s-sub{margin:-6px 0 4px;opacity:.62;font-size:20px}
 

@@ -144,11 +144,12 @@ async function main() {
   await sleep(500);
   var d1 = JSON.parse(await jsP(SHEET_DUMP));
   check(d1 && d1.title === 'Ort', 'Blatt traegt die Ueberschrift "Ort"', JSON.stringify(d1 && d1.title));
-  check(d1 && d1.rows.length === 2, 'beide bekannten Orte stehen als Zeile', 'rows=' + (d1 && d1.rows.join(', ')));
+  check(d1 && d1.rows.length === 3, 'Suchzeile plus beide bekannten Orte stehen da', 'rows=' + (d1 && d1.rows.join(', ')));
+  check(d1 && d1.rows[0] === 'Ort suchen', 'oben steht die Suche', d1 && d1.rows[0]);
   check(d1 && d1.undefined === false, 'kein "undefined" im Blatt');
 
   /* --- Fall 2: OK uebernimmt den zweiten Ort --- */
-  await jsP('CleanFrameDebug.press(["down"])');
+  await jsP('CleanFrameDebug.press(["down","down"])');
   await sleep(200);
   await jsP('CleanFrameDebug.press(["ok"])');
   await sleep(1500);
@@ -180,20 +181,20 @@ async function main() {
   check(d3 && d3.undefined === false, 'ohne Ort kein "undefined" im Blatt', JSON.stringify(d3 && d3.text));
   /* Der Text kommt aus der Sprache der App; geprueft wird, dass die Seite den
    * Zustand benennt statt leer zu bleiben ("undefined" war genau der Fehler). */
-  check(d3 && d3.rows.length === 0 && /Ort gesetzt|No place set/.test(d3.text || ''),
-    'ohne Ort steht der Hinweis da', JSON.stringify(d3 && d3.text));
-  /* Der Satz, der eine Tastatur verspricht, ist weg - und die Seite sagt, wo
-   * ein Ort wirklich entsteht. */
-  check(d3 && !/tippe|type a name|Textfeld/i.test(d3.text || ''),
-    'und verspricht kein Tippen', JSON.stringify(d3 && d3.text));
-  check(d3 && /Hub/.test(d3.text || ''), 'sondern nennt den Hub als Weg', JSON.stringify(d3 && d3.text));
-  /* OK auf der leeren Liste tut nichts und schreibt keinen neuen Hinweis. */
+  /* Ohne einen einzigen bekannten Ort muss die Seite trotzdem einen Weg
+   * anbieten: die Suche steht als Zeile 0, auch wenn die Liste leer ist. */
+  check(d3 && d3.undefined === false && d3.rows.length === 1 && d3.rows[0] === 'Ort suchen',
+    'ohne Ort bleibt die Suchzeile stehen', JSON.stringify(d3 && d3.rows));
+  check(d3 && /eintippen|type/i.test(d3.text || ''), 'und der Hinweis nennt das Eintippen',
+    JSON.stringify(d3 && d3.text));
+  /* OK auf der Suchzeile oeffnet die Suche - keine Zeile, die nichts tut. */
   await jsP('CleanFrameDebug.press(["ok"])');
-  await sleep(400);
-  var d3b = JSON.parse(await jsP(SHEET_DUMP));
-  check(d3b && !/tippe|type a name/i.test(d3b.text || ''), 'auch nach OK kein Satz ueber Tippen',
-    JSON.stringify(d3b && d3b.text));
-  check(d3b && d3b.hidden === false, 'und das Blatt bleibt offen', 'hidden=' + (d3b && d3b.hidden));
+  await sleep(500);
+  var d3b = JSON.parse(await jsP('JSON.stringify({view: CleanFrameDebug.state().view, feld: !!document.getElementById("placeSearchInput")})'));
+  check(d3b && d3b.view === 'placesearch', 'OK auf der Suchzeile oeffnet die Suche', d3b && d3b.view);
+  check(d3b && d3b.feld === true, 'mit einem Feld, in das man tippen kann');
+  await jsP('CleanFrameDebug.press(["back"])');
+  await sleep(300);
 
   /* Konfiguration zurueckstellen. */
   await postConfig(cfg);

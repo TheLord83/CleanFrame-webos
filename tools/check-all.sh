@@ -215,6 +215,7 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "net endpoint" python3 tools/check-net-endpoint.py
   # Ort-Seite: Liste aus der Konfiguration, Auswahl mit Koordinaten, kein "undefined".
   run "place sheet" node tools/test-place-sheet.js --port "$PORT_DEBUG" --hub "http://127.0.0.1:$PORT_SERVER"
+  run "place search" node tools/test-place-search.js --port "$PORT_DEBUG"
 fi
 
 # --------------------------------------------- post-exploit setup (fake TV)

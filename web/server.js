@@ -56,7 +56,7 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.6.54';
+var VERSION = '0.6.55';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -610,6 +610,19 @@ function handle(req, res) {
     return weather.forecast(w, wconf.lang, function (err, r) {
       if (err) return json(res, 200, { ok: false, enabled: true, error: err.message });
       json(res, 200, r);
+    });
+  }
+
+  if (req.method === 'GET' && p === '/api/weather/places') {
+    /* Kandidaten zu einem Namen, ohne etwas zu schreiben: die Seite am
+     * Fernseher tippt, sieht die Liste und waehlt. Nur lesend, deshalb ohne
+     * postGuard. */
+    var pconf = store.read();
+    var pq = String(q.q || '').trim();
+    if (pq.length < 2) return json(res, 200, { ok: true, results: [], reason: 'zu-kurz' });
+    return weather.search(pq, pconf.lang, function (err, list) {
+      if (err) return json(res, 200, { ok: false, error: err.message, results: [] });
+      json(res, 200, { ok: true, query: pq, results: list });
     });
   }
 

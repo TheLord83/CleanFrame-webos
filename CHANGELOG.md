@@ -1,3 +1,20 @@
+## 0.6.55
+
+A place can be set on the television. Until now the place sheet showed the places the hub already knew
+and told you that new ones are added in the browser — which is the wrong place to send someone who is
+sitting in front of the television.
+
+Row 0 of that sheet is now "Search for a place". It opens a real `<input>`, and a real input is the
+point: webOS shows its on-screen keyboard for a focused field, so the name arrives with the remote
+rather than through a letter grid. `GET /api/weather/places?q=` returns up to six candidates, because
+"Kiel" is a town in Schleswig-Holstein and one in Wisconsin; the list shows name and region, up/down
+picks, OK takes it and writes the place through the same endpoint the browser uses. Back from the
+results returns to the field first, the second back leaves the sheet.
+
+`tools/test-place-search.js` (19 checks) runs the whole path against a stubbed hub: the field exists
+and holds the focus, OK sends the typed name, both candidates appear as rows, OK takes the one that is
+highlighted and not the first, and an empty answer says so.
+
 ## 0.6.54
 
 Two things the owner saw on the television, both fixed where they come from.

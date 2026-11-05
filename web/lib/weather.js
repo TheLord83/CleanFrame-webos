@@ -130,7 +130,30 @@ function geocode(name, lang, cb) {
   });
 }
 
+/* Kandidaten zu einem Namen. Die Geocoder-Antwort hat mehrere Treffer
+ * ("Kiel" gibt es in Deutschland und in Wisconsin) - den ersten zu nehmen und
+ * den Rest zu verschweigen ist genau die Art Bequemlichkeit, die am Fernseher
+ * auffaellt. Die Seite zeigt die Liste, der Mensch waehlt. */
+function search(name, lang, cb) {
+  var q = (name || '').trim();
+  if (q.length < 2) return cb(new Error('name too short'));
+  getJson(GEO, '/v1/search?name=' + encodeURIComponent(q) + '&count=6&language=' + (lang === 'de' ? 'de' : 'en') + '&format=json', function (err, data) {
+    if (err) return cb(err);
+    var hits = (data && Array.isArray(data.results)) ? data.results : [];
+    var out = hits.map(function (hit) {
+      var region = [hit.admin1, hit.country_code].filter(Boolean).join(', ');
+      return {
+        name: [hit.name, hit.country_code].filter(Boolean).join(', '),
+        label: hit.name + (region ? ' · ' + region : ''),
+        lat: Math.round(hit.latitude * 10000) / 10000,
+        lon: Math.round(hit.longitude * 10000) / 10000
+      };
+    });
+    cb(null, out);
+  });
+}
+
 /* Forgets the cached answer, for when the place or the unit changed. */
 function reset() { cache = { key: '', at: 0, value: null }; }
 
-module.exports = { forecast: forecast, geocode: geocode, describe: describe, reset: reset, CACHE_MS: CACHE_MS };
+module.exports = { forecast: forecast, geocode: geocode, search: search, describe: describe, reset: reset, CACHE_MS: CACHE_MS };
