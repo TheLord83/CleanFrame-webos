@@ -102,7 +102,14 @@ screenshot. 9 checks. The HTTP delivery of that state is not asserted here: the 
 from `file://` pages that do not come from the TV itself, so nothing arrives on the bench — correct
 behaviour, wrong place for the check.
 
-**Network address.** `tools/check-net-endpoint.py` starts a hub on a free port and asks it for
+**Network address.** **Clipped strips are not "too full".** `tools/test-layout-fit.js` now builds a clipped box of its own —
+one button inside the visible window, one pushed outside — and requires that the hidden one is neither
+measured nor allowed to make the page "not fit", and that the clipping container is named in `scrolls`
+so a smaller number never appears without a reason. The old code reported `fits: false, right: 1976`
+for exactly that arrangement; on the television the same mistake showed as `right: 2472` with eight
+apps in the dock while the picture was fine.
+
+`tools/check-net-endpoint.py` starts a hub on a free port and asks it for
 `/api/net` — the address the setup code points at. It has to be a LAN address of that machine, it must
 not appear twice, and neither `127.x` nor `169.254.x` may ever come out. Asking the running server
 matters: the first version of the endpoint died on a shadowed `os` variable (another function declares

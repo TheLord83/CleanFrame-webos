@@ -3919,6 +3919,26 @@
     }
     return best;
   }
+  /* Eine Leiste, die seitlich scrollt, ist keine zu breite Seite. Die Kacheln
+   * rechts sind erreichbar, sie sind nur nicht gleichzeitig zu sehen - und wer
+   * das als "passt nicht" meldet, schickt den naechsten Leser auf die Suche nach
+   * einem Fehler, den es nicht gibt. Gemessen wird deshalb das Sichtfenster:
+   * jedes Element wird auf die Box seines Scrollers beschnitten, was ganz
+   * ausserhalb liegt, faellt aus der Messung, und der Scroller selbst steht im
+   * Bericht (`scrolls`), damit die kleinere Zahl nicht stillschweigend entsteht. */
+  function scrollClipOf(el) {
+    var p = el.parentElement;
+    while (p && p !== document.body && p !== document.documentElement) {
+      var s = getComputedStyle(p);
+      var scrolls = (s.overflowX === 'auto' || s.overflowX === 'scroll') && p.scrollWidth > p.clientWidth + 1;
+      var clips = s.overflowX === 'hidden' || s.overflow === 'hidden';
+      if (scrolls || clips) {
+        return { box: p.getBoundingClientRect(), scrolls: scrolls, name: p.className || p.id || p.tagName.toLowerCase() };
+      }
+      p = p.parentElement;
+    }
+    return null;
+  }
   function layoutReport() {
     /* Bezug ist die BUEHNE (#stage, 1920x1080), nicht #scene: das ist die kleine
      * Vorschau-Box. Mit #scene als Bezug standen die Zeilen im Bericht weit
@@ -3945,18 +3965,33 @@
       return !!sec || (el.getAttribute && el.getAttribute('aria-hidden') === 'true');
     }
     var els = document.querySelectorAll('[data-action]');
-    var items = [];
+    var items = [], scrollers = [];
     for (var i = 0; i < els.length; i++) {
       var el = els[i], r = el.getBoundingClientRect();
       /* verdeckte Zeilen bleiben im Layout stehen, sind aber nicht gemeint */
       if (!r.width || !r.height || !inLayer(el) || hiddenByPicker(el)) continue;
+      var l = r.left, t = r.top, rr = r.right, bb = r.bottom, clip = scrollClipOf(el);
+      if (clip) {
+        l = Math.max(l, clip.box.left); t = Math.max(t, clip.box.top);
+        rr = Math.min(rr, clip.box.right); bb = Math.min(bb, clip.box.bottom);
+        /* Ganz ausserhalb des Sichtfensters: nicht auf dem Schirm, also nicht
+         * gemessen - und der Kasten wird genannt, damit die kleinere Zahl nicht
+         * stillschweigend entsteht. Ein nur angeschnittenes Element bleibt in der
+         * Messung (sein sichtbarer Teil liegt ja im Bild) und braucht keinen
+         * Vermerk. */
+        if (rr - l < 4 || bb - t < 4) {
+          var clipName = clip.scrolls ? clip.name : clip.name + ' (beschnitten)';
+          if (scrollers.indexOf(clipName) < 0) scrollers.push(clipName);
+          continue;
+        }
+      }
       items.push({
         action: el.getAttribute('data-action'),
         label: String(el.textContent || '').trim().slice(0, 32),
-        left: Math.round((r.left - sceneR.left) / scale),
-        top: Math.round((r.top - sceneR.top) / scale),
-        right: Math.round((r.right - sceneR.left) / scale),
-        bottom: Math.round((r.bottom - sceneR.top) / scale)
+        left: Math.round((l - sceneR.left) / scale),
+        top: Math.round((t - sceneR.top) / scale),
+        right: Math.round((rr - sceneR.left) / scale),
+        bottom: Math.round((bb - sceneR.top) / scale)
       });
     }
     var bottom = 0, right = 0;
@@ -4004,6 +4039,10 @@
       intoPreview: previewLeft() ? Math.max(0, right - previewLeft()) : 0,
       fits: bottom <= 1080 && right <= 1920 && !overlaps.length && !(previewLeft() && right > previewLeft()),
       overlaps: overlaps,
+      /* Leisten, die seitlich scrollen: ihre Kacheln rechts sind erreichbar,
+       * nur nicht gleichzeitig sichtbar. Ist die Liste leer, wurde nichts
+       * beschnitten. */
+      scrolls: scrollers,
       below: items.filter(function (it) { return it.bottom > 1080; }),
       beyond: items.filter(function (it) { return it.right > 1920; }),
       items: items
@@ -4126,6 +4165,34 @@
      * Rechnung selbst ist die echte. */
     /* Denselben Weg wie ein Besucher: Startseite, Einstellungen, Seite. Ohne das
      * Zuruecksetzen stapelten sich Seiten, und das DOM blieb leer. */
+    /* Fuer die Pruefung "viele Apps in der Leiste": die Startseite kurz fuellen
+     * und danach zuruecksetzen. Nur im Pruefobjekt, kein Schreibvorgang. */
+    /* Fuer die Pruefung "viele Apps in der Leiste": die Startseite kurz fuellen
+     * und danach zuruecksetzen. `home` ist eine Liste von Kennungen, keine
+     * Objekte - der Name kommt aus dem Katalog. Nur im Pruefobjekt, kein
+     * Schreibvorgang. */
+    stressHome: function (n) {
+      if (!S.homeKeep) S.homeKeep = S.c.home.slice();
+      var ids = [];
+      for (var i = 0; i < (n || 14); i++) {
+        var id = 'stress.app' + (i + 1);
+        /* Denselben Weg wie die echte Konfiguration: ein Eintrag, den der Katalog
+         * nicht kennt, bekommt einen Stub (siehe applyServerConfig). */
+        if (!app(id)) APPS.push({ id: id, appId: id, name: 'App ' + (i + 1), mark: false });
+        ids.push(id);
+      }
+      /* S.c.apps ist der Beschriftungsmodus ('both'/'text'/'icons'), nicht die
+       * Anzahl - hier nichts anfassen. Die Startseite haelt hoechstens neun Apps. */
+      S.c.home = ids.slice(0, 9);
+      norm(); render();
+      return { count: S.c.home.length };
+    },
+    restoreHome: function () {
+      if (!S.homeKeep) return { restored: false };
+      S.c.home = S.homeKeep; S.homeKeep = null;
+      norm(); render();
+      return { restored: true, count: S.c.home.length };
+    },
     model: function () {
       var t = top();
       return { id: t.id, group: t.group || null, action: (t.f && t.f.action) || null,

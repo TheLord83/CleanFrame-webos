@@ -1,3 +1,22 @@
+## 0.6.46
+
+The layout report counted what is not on the screen.
+
+On the television, with eight apps in the dock, `/api/ui/state` said `fits: false,
+right: 2472` — and the picture was fine. The tiles beyond the dock's edge live
+inside `.shelf`, which is `overflow: hidden`: they sit outside the visible window
+on purpose, reachable by walking the strip, not cut off. The report measured them
+anyway and called a working page too full.
+
+Elements are now measured inside their clipping ancestor, and a strip that hides
+whole tiles is named in `scrolls`, so the smaller number never appears silently. A
+tile that is merely spliced at the edge stays in the measurement — its visible part
+is on screen.
+
+`tools/test-layout-fit.js` builds its own clipped box (one button inside, one
+pushed outside) and requires that the hidden one is not counted and the container is
+named. With the old code that case reports `fits: false, right: 1976`.
+
 ## 0.6.45
 
 The Speed page has a heading.

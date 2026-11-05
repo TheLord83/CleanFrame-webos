@@ -88,6 +88,47 @@ function measure(name, cb) {
     });
   }, 550);
 }
+/* Ein beschnittener Kasten ist keine zu breite Seite.
+ *
+ * Die Kachelleiste liegt in `.shelf` mit `overflow: hidden`; was rechts davon
+ * steht, ist nicht auf dem Schirm, sondern weggeschoben. Ein Bericht, der solche
+ * Elemente mitzaehlt, meldet "passt nicht" fuer eine Seite, die in Ordnung ist -
+ * am Geraet gesehen: `fits: false`, `right: 2472` bei acht Apps in der Leiste,
+ * waehrend im Bild nichts fehlt. Geprueft mit eigenem Kasten auf der Startseite:
+ * ein Knopf im Sichtfenster, einer daneben im weggeschobenen Teil.
+ */
+function measureClip(cb) {
+  var setup = "(function () {" +
+    "var old = document.getElementById('clipProbe'); if (old && old.parentNode) old.parentNode.removeChild(old);" +
+    "var box = document.createElement('div');" +
+    "box.id = 'clipProbe';" +
+    "box.style.cssText = 'position:absolute;left:100px;top:100px;width:300px;height:120px;overflow:hidden;';" +
+    "for (var i = 0; i < 2; i++) {" +
+    "  var b = document.createElement('button');" +
+    "  b.setAttribute('data-action', 'probe.' + i);" +
+    "  b.textContent = 'Probe ' + i;" +
+    "  b.style.cssText = 'position:absolute;top:0;width:280px;height:100px;left:' + (i * 320) + 'px;';" +
+    "  box.appendChild(b);" +
+    "}" +
+    "document.getElementById('stage').appendChild(box);" +
+    "return true; })()";
+  var teardown = "(function(){ var b = document.getElementById('clipProbe'); if (b && b.parentNode) b.parentNode.removeChild(b); return true; })()";
+  ev(setup, function () {
+    setTimeout(function () {
+      ev('JSON.stringify(CleanFrameDebug.layout())', function (l) {
+        total++;
+        var probe = (l.beyond || []).filter(function (b) { return String(b.action || '').indexOf('probe.') === 0; });
+        var named = (l.scrolls || []).some(function (n) { return String(n).indexOf('clipProbe') >= 0; });
+        var ok = l.fits && probe.length === 0 && named;
+        if (!ok) bad.push('beschnittener Kasten');
+        console.log((ok ? '  ok       ' : '  ZU VOLL  ') + 'beschnittener Kasten' +
+          '  fits=' + l.fits + '  right=' + l.right +
+          '  weggeschoben=' + probe.length + '  scrolls=' + JSON.stringify(l.scrolls || []));
+        ev(teardown, function () { cb(); });
+      });
+    }, 350);
+  });
+}
 /* Von oben nach unten bis zur gewuenschten Aktion; am Zeilenende eine Spalte
  * weiter. Bricht ab, wenn sich nichts mehr bewegt. */
 function goTo(action, cb, tries, seen) {
@@ -170,10 +211,12 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/json/list' }, function (res) {
                       press(['back', 'down', 'ok'], function () {
                         measure('Einstellungen', function () {
                           openRow(0, function () {
+                          measureClip(function () {
                             console.log('RESULT ' + (total - bad.length) + '/' + total +
                               (bad.length ? '  zu voll: ' + bad.join(', ') : ''));
                             client.close();
                             process.exit(bad.length ? 1 : 0);
+                          });
                           });
                         });
                       });
