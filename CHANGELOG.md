@@ -1,3 +1,22 @@
+## 0.6.47
+
+Every settings page started somewhere, rarely at the top.
+
+Measured on the television: "Clock and language" opened with the focus on the
+second row (Language, not Clock), and "Inputs" opened with the focus on the back
+button. Both pages have no single axis, so `openAppearance()` fell back to an
+action that only exists on the LG page — and a row that cannot be found resolves
+to row 0, which is the way back.
+
+Pages now name their first row, and an action that does not exist on the page
+falls to its first real row. The input list is read from the television, so its
+rows appear late: the focus follows the list once it arrives.
+
+`tools/test-page-entry.js` walks every entry of the settings overview and requires
+row 1 and: the focus not on the back button. The old code fails six of its checks
+(`clocklang row=2 action=pick.lang`, `inputs row=0 action=settings.back`); the
+device said the same before the fix.
+
 ## 0.6.46
 
 The layout report counted what is not on the screen.

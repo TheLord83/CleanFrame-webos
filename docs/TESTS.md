@@ -109,6 +109,13 @@ so a smaller number never appears without a reason. The old code reported `fits:
 for exactly that arrangement; on the television the same mistake showed as `right: 2472` with eight
 apps in the dock while the picture was fine.
 
+**Every settings page starts at its first row.** `tools/test-page-entry.js` opens each entry of the
+settings overview through the same function the OK key calls and requires row 1, with the focus not
+on the back button. It exists because the device showed two pages starting in the wrong place:
+"Clock and language" on its second row (`action=pick.lang`) and "Inputs" on the back button
+(`row=0`, `action=settings.back`) — a page that does not start at the top reads as a page that does
+not react. With the old code the test fails six checks; the counter-check value is in the commit.
+
 `tools/check-net-endpoint.py` starts a hub on a free port and asks it for
 `/api/net` — the address the setup code points at. It has to be a LAN address of that machine, it must
 not appear twice, and neither `127.x` nor `169.254.x` may ever come out. Asking the running server

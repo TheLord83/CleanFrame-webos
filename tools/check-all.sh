@@ -198,6 +198,9 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   run "setup qr" node tools/test-setup-qr.js --port "$PORT_DEBUG"
   # Tempo-Seite: misst wirklich, und erfindet keine Zahl, wo noch keine ist.
   run "speed page" node tools/test-speed-page.js --port "$PORT_DEBUG"
+  # Jede Einstellungsseite beginnt auf ihrer ersten Zeile: die Eingaenge standen
+  # auf dem Rueckweg, Uhr und Sprache auf der zweiten Zeile (am Geraet gemessen).
+  run "page entry" node tools/test-page-entry.js --port "$PORT_DEBUG"
   # Die Adresse, die /api/net anbietet: LAN-nutzbar, nie Loopback. Der Fehler
   # dahinter war eine Verschattung (`var os = info.os`), sichtbar nur als 500er.
   run "net endpoint" python3 tools/check-net-endpoint.py

@@ -26,22 +26,29 @@ browser and checked again in the hub, stored next to the configuration, fetched 
 from the hub. The material surface falls back to the picture itself: there are no baked variants
 for a picture the package does not know.
 
+**Every selection row is a picker** (#13) — done in 0.6.34. Background kind, layout, app display,
+home controls, font, text size, focus style, material, clock, language, the five weather questions
+and the inputs are one row each: the value sits in the row, OK opens the answers underneath, up/down
+walks the questions. Wallpaper, rotation and the place stay actions, and the inputs keep the
+exception the rows test knows about, because their answers come from the television. The rows test
+guards the whole list. 0.6.47 fixed what the device showed on two of those pages: "Clock and
+language" opened on its second row and "Inputs" on the back button — `tools/test-page-entry.js`
+now requires every page to start at row 1.
+
+**The app sheet rebuilds itself** (#14) — done in 0.6.34. Opening the sheet clears the catalog,
+reads it again and finds the focus by app id, so an app that was removed cannot stay in the menu and
+launch into nothing.
+
+**Speed tab** (#12) — done in 0.6.45. Frame time, key delay and time from start to first picture,
+measured on the reference television: 16.7 ms (60/s), 25.5 ms, 2 s. Everything is measured up to the
+paint, so the numbers are a floor, and the page says so.
+
 ## Next
 
 **Input key** (#8) — done in 0.6.33. Settings → Inputs lists the HDMI ports with their state
 (Active / Connected / No device) and the connected device's name where the television knows it;
 OK switches over and stays. The list is read on every open, and a television that reports nothing
 gets the reason plus "Try again".
-
-**The rest of the picker migration** (#13) — 0.6.33 moved one page (inputs); font, background kind,
-focus style, material, clock and language still use button rows. The rows test already knows every
-page, so the order is: turn a row's expectation to `picker`, watch the test go red, then change the
-page. Each row is one commit and one device check.
-
-**App picker rebuilding itself** (#14) — the sheet says "Apps" and hangs off the home plus anything
-else the hub copies over; when that list changes, the entries on the sheet do not necessarily
-follow. Every other page is generated from the configuration on each open, this one is not. Small,
-unglamorous, and the reason a removed app can still sit in a menu.
 
 **Quiet mode** (#10) — after an idle time only the clock stays. Still needs settling against the
 screensaver before either is built (the neighbour that does this dims in steps, shifts the picture
@@ -52,9 +59,6 @@ belongs in one decision, not three switches).
 `bootManager` trigger opens the launcher at power-on, a second one opens it when LG's home shows up.
 webOS runs them itself; no init.d hook, no mount, nothing to revert by hand. The lock is the point:
 Home stays LG's unless the person asks for the takeover.
-
-**Speed tab** (#12) — frame time, key delay and start-up measured on the television itself. Our own
-claims about speed are currently unmeasured, and "it feels fine" is not a report from a stranger.
 
 **Settings backup on a stick** (#16) — one named JSON file on a USB stick, readable back in. It is
 the difference between ten seconds after a factory reset and an evening. Seen at two neighbours.

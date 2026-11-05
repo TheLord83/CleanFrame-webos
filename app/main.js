@@ -780,9 +780,20 @@
     /* Seiten ohne Achse brauchen eine erste Zeile, sonst landet der Fokus auf
      * dem Rueckweg oder auf einer Aktion, die es hier nicht gibt - die Tempo-
      * Seite stand dadurch auf ihrer letzten Zeile fest. */
-    var firstRow = { rotation: 'rotation.' + S.c.mode, speed: 'speed.frames' }[group];
+    /* Seiten ohne Achse (Uhr/Sprache, Wetter, Eingaenge) brauchen ihre erste Zeile
+     * ausdruecklich: ohne Eintrag fiel der Fokus auf 'samsung.home', das es dort
+     * nicht gibt - und die Seite stand dann auf ihrer ZWEITEN Zeile (gemessen am
+     * Geraet: Uhr und Sprache oeffnete mit Fokus auf "Sprache", die Eingaenge mit
+     * Fokus auf dem Zurueck-Knopf). Wer eine Seite oeffnet, erwartet oben anzufangen. */
+    var firstRow = { rotation: 'rotation.' + S.c.mode, speed: 'speed.frames',
+                     clocklang: 'pick.clock', weather: 'pick.wxStyle', inputs: 'pick.inputs' }[group];
     var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : (firstRow || 'samsung.home'));
     push({ id: 'appearance', group: group, f: { action: action } });
+    /* Eine Aktion, die es auf dieser Seite nicht gibt, landet in detailLocation
+     * auf Zeile 0 - dem Rueckweg. Gemessen am Geraet: die Eingaenge gingen mit
+     * dem Fokus auf "Einstellungen" auf, weil ihre Liste erst vom Geraet kommt.
+     * Dann faengt die Seite auf ihrer ersten echten Zeile an. */
+    if (detailLocation(top()).item.action !== action) focusFirstRealRow(top());
   }
   function openMessage(key) {
     push({ id: 'message', msg: key, f: { b: 0 } });
@@ -1376,6 +1387,7 @@
       t.loading = false;
       t.inputs = list || [];
       t.inputError = err || null;
+      focusFirstRealRow(t);
       render();
     });
   }
@@ -1738,6 +1750,24 @@
     var rows = detailRows(t), row = 0, column = 0;
     rows.forEach(function (items, r) { items.forEach(function (item, c) { if (item.action === t.f.action) { row = r; column = c; } }); });
     return { rows: rows, row: row, column: column, item: rows[row][column] };
+  }
+  /* Die erste Zeile einer Seite, die kein Rueckweg ist. Seiten mit vom Geraet
+   * gelieferten Listen (Eingaenge) kennen ihre Aktionen beim Oeffnen noch nicht -
+   * dort steht zuerst "wird gesucht", und erst nach der Antwort gibt es Zeilen.
+   * Damit der Fokus nicht auf dem Rueckweg sitzen bleibt, wird er auf die erste
+   * vorhandene Aktion gesetzt, sobald die Seite sie hat. */
+  function firstRealAction(t) {
+    var rows = detailLocation(t).rows, r, it;
+    for (r = 0; r < rows.length; r++) {
+      it = rows[r][0];
+      if (it && it.action && it.action !== 'settings.back') return it.action;
+    }
+    return null;
+  }
+  function focusFirstRealRow(t) {
+    var a = firstRealAction(t);
+    if (a && detailLocation(t).item.action === 'settings.back') t.f.action = a;
+    return t.f.action;
   }
   function detailFocus(t, item, column) {
     t.f.action = item.action;
@@ -4198,6 +4228,16 @@
       return { id: t.id, group: t.group || null, action: (t.f && t.f.action) || null,
                index: t.f && t.f.i, column: t.f && t.f.column };
     },
+    /* Dieselbe Funktion, die OK auf der Uebersichtszeile aufruft - kein zweiter
+     * Weg zum Testen. Die Pruefung fragt danach, auf welcher Zeile die Seite
+     * aufgeht. */
+    openGroup: function (id) {
+      S.stack = [S.stack[0]]; S.stack[0].f.zone = 'settings';
+      openSettings(); settingsOk(id); render();
+      var t = top();
+      return { id: t.id, group: t.group || null, row: t.id === 'appearance' ? detailLocation(t).row : null };
+    },
+    settingsIds: function () { return settingsIds(); },
     openSpeed: function () {
       S.stack = [S.stack[0]]; S.stack[0].f.zone = 'util';
       openSettings(); openAppearance('speed'); render(); return top().id;
