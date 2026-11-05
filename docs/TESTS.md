@@ -170,6 +170,17 @@ have counted as green. On 2026-10-25 the new test was missing the call to its ma
 script exited 0 without a single check and the run was green and worthless. The guard is proven:
 `RESULT 8/9`, a missing `RESULT` line and exit code 1 each turn the layer red.
 
+## The settings pages, row by row
+
+`tools/test-settings-rows.js` knows every settings page by name and what its rows have to be: a
+picker or an explicit action. The list is written down in the test, not read from the app, because a
+list read from the app agrees with the app even when both are wrong. **The one page it does not
+know is "Backup to a stick"**: its rows depend on what the hub reports (no stick / stick without a
+backup / stick with one), and the bench page reaches no hub at all, so any expectation written there
+would test the absence of a hub rather than the page. That page is covered by
+`tools/test-stick-page.js`, which puts `window.fetch` in the hub's place and checks all three states,
+and by `tools/test-page-entry.js`, which opens it from the overview like a remote would.
+
 ## What is not checked here
 
 The device: installation, start, the real screen, the long-press threshold, the context menu from

@@ -54,8 +54,9 @@ var ssap = require('./lib/ssap');
 var screen = require('./lib/screen');
 var schema = require('./lib/schema');
 var weather = require('./lib/weather');
+var stick = require('./lib/stick');
 
-var VERSION = '0.6.48';
+var VERSION = '0.6.49';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -664,6 +665,94 @@ function handle(req, res) {
         return json(res, 500, { ok: false, error: e.message });
       }
       json(res, 200, { ok: true, imported: true, config: config.redact(saved) });
+    });
+  }
+
+  /* ---- Settings backup on a USB stick (#16) -------------------------------
+   *
+   * The download in /api/backup is redacted: anybody in the LAN can fetch it.
+   * This one is not, and must not be - a backup without the Home Assistant
+   * token and the MQTT password restores a launcher that cannot reach its
+   * house. The file goes on a stick that belongs to the owner, is written 0600
+   * and the page says what is in it.
+   */
+  if (req.method === 'GET' && p === '/api/stick') {
+    var found = stick.sticks();
+    var chosen = stick.pick(found);
+    var files = [];
+    if (chosen.stick) files = stick.listFiles(chosen.stick.path);
+    return json(res, 200, {
+      ok: true,
+      sticks: found,
+      chosen: chosen.stick ? { path: chosen.stick.path, label: chosen.stick.label, fstype: chosen.stick.fstype } : null,
+      /* The reason is a word the page translates, not a sentence: the hub has no
+       * interface language. */
+      reason: chosen.reason || '',
+      count: chosen.count || 0,
+      files: files
+    });
+  }
+
+  if (req.method === 'POST' && p === '/api/stick/backup') {
+    if (!postGuard(req, res)) return;
+    return readBody(req, function (body) {
+      var found = stick.sticks();
+      var chosen = stick.pick(found);
+      var wanted = body && body.path ? String(body.path) : '';
+      if (wanted) {
+        /* A path from the caller is only taken if it is one of the sticks that
+         * are actually mounted - otherwise the API would write anywhere on the
+         * television. */
+        var match = null;
+        found.forEach(function (s2) { if (s2.path === wanted) match = s2; });
+        if (!match) return json(res, 400, { ok: false, error: 'unbekannter Stick' });
+        chosen = { stick: match, reason: '' };
+      }
+      if (!chosen.stick) {
+        return json(res, 409, { ok: false, error: chosen.reason || 'kein-stick', sticks: found.length });
+      }
+      var full = store.read();
+      var saved = stick.write(chosen.stick.path, full, { schemaVersion: config.VERSION, version: VERSION });
+      if (!saved.ok) return json(res, 500, saved);
+      saved.stick = chosen.stick.path;
+      saved.files = stick.listFiles(chosen.stick.path);
+      json(res, 200, saved);
+    });
+  }
+
+  if (req.method === 'POST' && p === '/api/stick/restore') {
+    if (!postGuard(req, res)) return;
+    return readBody(req, function (body) {
+      var found = stick.sticks();
+      var chosen = stick.pick(found);
+      if (!chosen.stick) return json(res, 409, { ok: false, error: chosen.reason || 'kein-stick' });
+      var files = stick.listFiles(chosen.stick.path);
+      var name = body && body.name ? String(body.name) : (files.length ? files[files.length - 1].name : '');
+      var got = stick.read(chosen.stick.path, name);
+      if (!got.ok) return json(res, 400, got);
+      var payload = got.payload.config;
+      /* Beide Fassungen pruefen: die im Umschlag (welche Fassung die Datei
+       * geschrieben hat) und die in den Einstellungen (welche Fassung der Hub
+       * beim Sichern hatte). Eine juengere Fassung darf nicht halb landen - die
+       * Felder, die sie kennt, wuerde dieser Hub beim naechsten Schreiben
+       * verlieren. */
+      var stamp = Number(got.payload.schemaVersion || (payload && payload.schemaVersion) || 0);
+      if (stamp > config.VERSION) {
+        return json(res, 400, { ok: false, error: 'juengere-fassung', detail: 'schemaVersion ' + stamp });
+      }
+      /* Import is deliberate: no revision comparison, the stick wins. */
+      delete payload.rev;
+      var savedCfg;
+      try { savedCfg = store.write(payload); } catch (e) {
+        return json(res, 500, { ok: false, error: 'schreibfehler', detail: e.message });
+      }
+      json(res, 200, {
+        ok: true,
+        restored: true,
+        file: name,
+        exportedAt: got.payload.exportedAt || '',
+        config: config.redact(savedCfg)
+      });
     });
   }
 

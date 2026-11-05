@@ -204,6 +204,11 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT_DEBUG/json/list" >/dev/null 2>&1; then
   # Mit dem Fernseher starten: webOS-Activities. Die Nutzlast von create wird an
   # einem nachgestellten Bus abgelesen - persist, foreground, Boot-Ausloeser.
   run "startup page" node tools/test-startup-page.js --port "$PORT_DEBUG"
+  # Sicherung auf Stick: der Hub schreibt/liest eine Datei, die Seite zeigt die
+  # drei Lagen (kein Stick / Stick ohne Sicherung / mit Sicherung) und schickt
+  # nur, was sie soll.
+  run "stick api" python3 tools/test-stick-api.py
+  run "stick page" node tools/test-stick-page.js --port "$PORT_DEBUG"
   # Die Adresse, die /api/net anbietet: LAN-nutzbar, nie Loopback. Der Fehler
   # dahinter war eine Verschattung (`var os = info.os`), sichtbar nur als 500er.
   run "net endpoint" python3 tools/check-net-endpoint.py

@@ -1,3 +1,31 @@
+## 0.6.49
+
+Settings → "Backup to a stick": one named JSON file on a USB stick, and reading it back in.
+The difference between ten seconds after a factory reset and an evening.
+
+The hub does the filesystem work (it runs as root on the television and can see the mounts),
+the page only asks and shows. Three states, all three of which occur and none of which is dressed
+up as an error: no stick, a stick without a backup, a stick with one.
+
+- The stick is found in `/proc/mounts`, never guessed: a block device (`/dev/sd*`, `/dev/disk/by-*`)
+  with a stick filesystem (vfat/exfat/ntfs/ext) mounted read-write. The television's own storage and
+  the pseudo filesystems under `/media` are excluded.
+- The file is written atomically (tmp + rename) as `cleanframe-settings-YYYY-MM-DD.json`, mode 0600.
+  It is deliberately **not** redacted: a backup without the Home Assistant token and the MQTT
+  password restores a launcher that cannot reach its house. The page says so in the row.
+- Reading it back checks the envelope (kind, schema version, a config object) and refuses a newer
+  schema rather than half-importing one. A foreign file, a truncated file and a path instead of a
+  name are all refused with a reason, and the configuration is left untouched.
+- `CF_STICK` points the module at a directory, which is how the bench tests the whole chain without
+  a USB port.
+
+Two checks: `tools/test-stick-api.py` drives a real hub against a temporary stick (40 checks: name,
+size, checksum, mode, the token actually in the file, restore puts the value back, foreign/broken/
+newer files refused, no stick is a 409 and not a crash), `tools/test-stick-page.js` stands in for the
+hub with `window.fetch` and checks what the page shows and sends in all three states (26 checks).
+
+Not yet on the device: the page is installed with this build; a stick in the television is the test.
+
 ## 0.6.48
 
 Settings → "Start with the TV": two switches, both off, both alone — open CleanFrame after

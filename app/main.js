@@ -787,7 +787,8 @@
      * Fokus auf dem Zurueck-Knopf). Wer eine Seite oeffnet, erwartet oben anzufangen. */
     var firstRow = { rotation: 'rotation.' + S.c.mode, speed: 'speed.frames',
                      clocklang: 'pick.clock', weather: 'pick.wxStyle', inputs: 'pick.inputs',
-                     startup: startupFirstRow() }[group];
+                     startup: startupFirstRow(),
+                     stick: 'stick.info' }[group];
     var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : (firstRow || 'samsung.home'));
     push({ id: 'appearance', group: group, f: { action: action } });
     /* Eine Aktion, die es auf dieser Seite nicht gibt, landet in detailLocation
@@ -1324,6 +1325,7 @@
       { id: 'setup', label: T('Run setup again'), value: T('Language, home screen, display') },
       { id: 'inputs', label: T('Inputs'), value: T('HDMI sources') },
       { id: 'startup', label: T('Start with the TV'), value: startupSummary() },
+      { id: 'stick', label: T('Backup to a stick'), value: stickSummary() },
       { id: 'speed', label: T('Speed'), value: speedSummary() },
       { id: 'samsung', label: 'LG', value: T('Home and TV settings') }];
   }
@@ -1366,6 +1368,7 @@
     else if (id === 'setup') openSetupAgain();
     else if (id === 'inputs') openInputs();
     else if (id === 'startup') openStartup();
+    else if (id === 'stick') openStick();
     else openAppearance(id);
   }
 
@@ -1538,7 +1541,7 @@
     if (window.FrameDevice && FrameDevice.saveConfig) FrameDevice.saveConfig(cfg, function () { reload(); });
     else reload();
   }
-  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), startup: T('Start with the TV'), speed: T('Speed'), samsung: 'LG' };
+  var DETAIL_NAMES = { background: T('Background'), layout: T('Layout'), typography: T('Typography'), focus: T('Focus'), rotation: T('Rotation'), language: T('Language'), clocklang: T('Clock and language'), weather: T('Weather'), setup: T('Run setup again'), inputs: T('Inputs'), startup: T('Start with the TV'), stick: T('Backup to a stick'), speed: T('Speed'), samsung: 'LG' };
   function choice(axis, value, disabled) {
     return { action: axis === 'mode' ? 'rotation.' + value : 'choice.' + axis + '.' + value, axis: axis, value: value, disabled: !!disabled,
       label: axis === 'font' ? FONTS[value].name : axis === 'mode' ? MODES.filter(function (m) { return m.id === value; })[0].name : value === 'both' ? T('Both') : VALUE_NAMES[value] };
@@ -1697,6 +1700,126 @@
       else FrameDevice.addActivity(kind, step);
     });
   }
+  /* ---- Sicherung auf Stick (#16) -----------------------------------------
+   *
+   * Der Hub schreibt die Datei (er ist root auf dem Fernseher und sieht die
+   * Einhängepunkte), die Seite fragt und zeigt. Drei Zustaende, die alle drei
+   * vorkommen: kein Stick, Stick ohne Sicherung, Stick mit Sicherung. Keiner
+   * wird als "geht nicht" verkleidet, und keiner behauptet etwas, das nicht
+   * gelesen wurde. */
+  var STICK = { loading: false, loaded: false, error: '', sticks: [], chosen: null, reason: '', files: [], note: '', busy: null };
+  var STICK_CALL = 0;
+
+  function stickStateSnap() {
+    return { loading: STICK.loading, loaded: STICK.loaded, error: STICK.error,
+             sticks: STICK.sticks.slice(), chosen: STICK.chosen, reason: STICK.reason,
+             files: STICK.files.slice(), note: STICK.note, summary: stickSummary() };
+  }
+  function stickFile() {
+    return STICK.files.length ? STICK.files[STICK.files.length - 1] : null;
+  }
+  /* Die Zeile in den Einstellungen sagt den Zustand in drei Woertern - mehr
+   * passt dort nicht, und mehr braucht man auch nicht, um zu wissen, ob die
+   * Sicherung steht. */
+  function stickSummary() {
+    if (STICK.loading && !STICK.loaded) return T('Reading ...');
+    if (STICK.error) return T('Not available');
+    if (!STICK.chosen) return T('No stick');
+    var f = stickFile();
+    if (!f) return T('Ready');
+    var stamp = String(f.savedAt || '').slice(0, 10), p = stamp.split('-');
+    return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : T('Saved');
+  }
+  function stickNote(err) {
+    if (!err) return '';
+    var map = {
+      'kein-stick': T('No stick found'),
+      'mehrere-sticks': T('More than one stick is plugged in.'),
+      'schreibfehler': T('The stick cannot be written.'),
+      'keine-cleanframe-sicherung': T('This backup is not from CleanFrame.'),
+      'unlesbar': T('The backup cannot be read.'),
+      'ohne-einstellungen': T('The stick holds a backup without settings.'),
+      'juengere-fassung': T('The stick holds a newer version of the settings.'),
+      'nicht-gefunden': T('Nothing to restore'),
+      'kein-sicherungsname': T('Nothing to restore')
+    };
+    return map[err] || T('The file was not written.');
+  }
+  function readStick(t, done) {
+    var call = ++STICK_CALL;
+    STICK.loading = true;
+    function finish(data, err) {
+      if (call !== STICK_CALL) { if (done) done(); return; }
+      STICK.loading = false;
+      STICK.loaded = !err;
+      STICK.error = err || '';
+      if (!err && data) {
+        STICK.sticks = data.sticks || [];
+        STICK.chosen = data.chosen || null;
+        STICK.reason = data.reason || '';
+        STICK.files = data.files || [];
+      }
+      if (top() === t) { focusFirstRealRow(t); render(); }
+      if (done) done();
+    }
+    try {
+      fetch(HUB + '/api/stick').then(function (r) { return r.json(); })
+        .then(function (d) { finish(d, d && d.ok ? '' : 'kein-stick'); })
+        .catch(function () { finish(null, 'hub'); });
+    } catch (e) { finish(null, 'hub'); }
+  }
+  function openStick() {
+    openAppearance('stick');
+    STICK.note = '';
+    var t = top();
+    render();
+    readStick(t);
+  }
+  /* Sichern und Zurueckspielen laufen ueber `perform`, damit die Seite waehrend
+   * des Schreibens nicht bedienbar ist - ein zweiter Druck soll nicht zwei
+   * Dateien schreiben. */
+  function stickSave() {
+    var t = top();
+    if (STICK.busy || !STICK.chosen) return;
+    STICK.busy = 'save';
+    perform(T('Save to stick'), function (done) {
+      function fail(err) { STICK.busy = null; STICK.note = stickNote(err); if (top() === t) render(); done(null); }
+      try {
+        fetch(HUB + '/api/stick/backup', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: '{}' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d || !d.ok) return fail((d && d.error) || 'schreibfehler');
+            STICK.busy = null;
+            STICK.note = T('Saved as {name}', { name: d.file || '' });
+            readStick(t, function () { done(null); });
+          }).catch(function () { fail('schreibfehler'); });
+      } catch (e) { fail('schreibfehler'); }
+    });
+  }
+  function stickRestore() {
+    var t = top(), f = stickFile();
+    if (STICK.busy || !f || f.problem) return;
+    STICK.busy = 'restore';
+    var name = f.name;
+    perform(T('Restore'), function (done) {
+      function fail(err) { STICK.busy = null; STICK.note = stickNote(err); if (top() === t) render(); done(null); }
+      try {
+        fetch(HUB + '/api/stick/restore', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ name: name }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d || !d.ok) return fail((d && d.error) || 'unlesbar');
+            STICK.busy = null;
+            STICK.note = T('Restored from {name}', { name: d.file || name });
+            /* Die Einstellungen sind jetzt andere: erst den Serverstand holen,
+             * dann die Seite neu zeichnen - sonst zeigt sie den alten Zustand
+             * ueber den neuen Werten. */
+            applyServerConfig(d.config);
+            readStick(t, function () { done(null); });
+          }).catch(function () { fail('unlesbar'); });
+      } catch (e) { fail('unlesbar'); }
+    });
+  }
+
   function detailSections(t) {
     var flat = S.c.bg !== 'photo', inactive = !materialApplies();
     function options(axis, values, disabled) { return values.map(function (value) { return choice(axis, value, disabled); }); }
@@ -1785,6 +1908,29 @@
         { id: 'home', title: T('When home appears'), picker: false, items: [
           { action: 'startup.home', label: startupOn('home') ? T('On') : T('Off'), value: startupOn('home') ? 'on' : 'off' }] }
       ];
+    }
+    if (t.group === 'stick') {
+      /* Drei Lagen, und alle drei sind Zeilen, die man anwaehlen kann: eine
+       * gesperrte Zeile verschwindet aus der Liste und die Seite haette nur den
+       * Rueckweg. Was nichts tut, sagt das in seiner Zeile. */
+      var f = stickFile(), rows = [];
+      if (STICK.loading && !STICK.loaded) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Reading ...') }] }];
+      if (STICK.error) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Not available') }],
+        reason: STICK.error === 'hub' ? T('The hub did not answer.') : stickNote(STICK.reason || 'kein-stick') }];
+      if (!STICK.chosen) return [{ id: 'stick', title: T('Stick'), items: [{ action: 'stick.info', label: T('No stick found') }],
+        reason: STICK.reason === 'mehrere-sticks' ? T('More than one stick is plugged in.') : T('Plug in a stick formatted as FAT32 or exFAT.') }];
+      rows.push({ id: 'stick', title: T('Stick'), items: [{ action: 'stick.info', label: STICK.chosen.label + (STICK.chosen.fstype ? ' · ' + STICK.chosen.fstype : '') }],
+        reason: STICK.note || T('The backup holds the Home Assistant token and the MQTT password.') });
+      rows.push({ id: 'save', title: '', items: [{ action: 'stick.save', label: STICK.busy === 'save' ? T('Reading ...') : T('Save to stick') }] });
+      if (f) {
+        var when = String(f.savedAt || '').slice(0, 10).split('-');
+        var label = when.length === 3 ? when[2] + '.' + when[1] + '.' + when[0] : String(f.savedAt || '');
+        rows.push({ id: 'restore', title: '', items: [{ action: 'stick.restore', label: T('Restore from stick') + ' · ' + label }],
+          reason: f.problem ? stickNote(f.problem) : '' });
+      } else {
+        rows.push({ id: 'restore', title: '', items: [{ action: 'stick.none', label: T('Nothing to restore') }] });
+      }
+      return rows;
     }
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? T('Choose Photo in Background to use rotation.') : 'Timed changes pause while Settings or another panel is open.' }];
@@ -1933,6 +2079,10 @@
       applyWeatherChoice(item.axis, item.value);
     }
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
+    else if (item.action === 'stick.info') return;
+    else if (item.action === 'stick.none') return;
+    else if (item.action === 'stick.save') { stickSave(); return; }
+    else if (item.action === 'stick.restore') { stickRestore(); return; }
     else if (item.action === 'startup.boot') {
       /* Solange der Dienst nichts gemeldet hat, ist das die Hinweiszeile -
        * OK darauf versucht nichts und behauptet nichts. */
@@ -4375,6 +4525,23 @@
     },
     settingsIds: function () { return settingsIds(); },
     startupState: function () { return startupStateSnap(); },
+    /* Sicherung auf Stick: die Pruefung stellt die Antwort des Hubs nach und
+     * liest, was die Seite daraus macht. */
+    stickState: function () { return stickStateSnap(); },
+    stickSet: function (data) {
+      STICK.loading = false;
+      STICK.loaded = true;
+      STICK.error = (data && data.error) || '';
+      STICK.sticks = (data && data.sticks) || [];
+      STICK.chosen = (data && data.chosen) || null;
+      STICK.reason = (data && data.reason) || '';
+      STICK.files = (data && data.files) || [];
+      STICK.note = (data && data.note) || '';
+      if (top()) { focusFirstRealRow(top()); render(); }
+      return stickStateSnap();
+    },
+    stickSave: function () { stickSave(); return true; },
+    stickRestore: function () { stickRestore(); return true; },
     /* Ein Schalter umlegen, ohne Tasten zu schicken - die Pruefung soll die
      * Aktion testen, nicht die Navigation. */
     /* Fuer die Pruefung: der Weg der Seite ohne die Sperre der Oberflaeche
