@@ -187,6 +187,34 @@ async function main() {
   await jsP('CleanFrameDebug.press(["back"])');
   await sleep(300);
 
+  /* --- Fall 5: Ort steht, `style` steht, aber `enabled` ist aus -------------
+   * Genau der Zustand am Fernseher: "Kiel, DE" gesetzt, Form "Symbol und
+   * Temperatur", Anzeige trotzdem aus. "Aus" muss dann als das gelten, was
+   * angezeigt wird - sonst laesst sich das Wetter am Geraet nicht einschalten. */
+  var offState = JSON.parse(JSON.stringify(cfg));
+  offState.integrations = offState.integrations || {};
+  var w5 = offState.integrations.weather = offState.integrations.weather || {};
+  w5.place = 'Kiel, DE'; w5.lat = 54.3213; w5.lon = 10.1349;
+  w5.style = 'icon-temp'; w5.enabled = false;
+  await postConfig(offState);
+  await boot();
+  var rowsOff = JSON.parse(await jsP("JSON.stringify(window.CleanFrameDebug.settingsRows())") || '[]');
+  var wxRow = (rowsOff || []).filter(function (r) { return r && r.id === 'weather'; })[0] || {};
+  check(/Aus/.test(String(wxRow.value || '')), 'die Uebersicht sagt "Aus", auch wenn in der Form noch etwas steht', 'value=' + wxRow.value);
+
+  /* Und ein Schritt zurueck: die Form waehlen schaltet ein. */
+  await jsP("CleanFrameDebug.openSettings('weather')");
+  await sleep(500);
+  var before = await hub('GET', '/api/weather');
+  check(before && before.enabled === false, 'vorher liefert der Hub kein Wetter', JSON.stringify(before && before.enabled));
+  /* Zeile "Angezeigt als" oeffnen, dann die Antwort "Symbol und Temperatur". */
+  await jsP("CleanFrameDebug.press(['ok'])");
+  await sleep(300);
+  await jsP("CleanFrameDebug.press(['right','right','ok'])");
+  await sleep(1200);
+  var after = await hub('GET', '/api/weather');
+  check(after && after.enabled === true && typeof after.temp === 'number', 'die Form zu waehlen schaltet das Wetter ein', JSON.stringify(after && { enabled: after.enabled, temp: after.temp }));
+
   /* Konfiguration zurueckstellen. */
   await postConfig(cfg);
   await boot();

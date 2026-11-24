@@ -1,3 +1,11 @@
+## 0.6.63
+
+**A place with "Off" in the summary could not be switched on again.** The hub keeps the on/off state
+and the shape in two fields, and an older version of this app left `enabled` false while `style` still
+said "Symbol and temperature" — the television then showed the shape as chosen and the line stayed
+silent, with no way back. What counts now is what is on screen: with `enabled` off, "Off" is the chosen
+answer, and picking a shape switches the weather on.
+
 ## 0.6.62
 
 **Weather stayed off after a place was set.** "Shown as" and "on/off" are two fields in the hub

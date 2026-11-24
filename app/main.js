@@ -1589,6 +1589,13 @@
     var c = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
     return { style: c.style || 'icon-temp', pos: c.pos || 'right', size: c.size || 'normal', gap: c.gap || 72 };
   }
+  /* Die Form, die am Fernseher wirklich angezeigt wird. `enabled` und `style`
+   * sind zwei Felder im Hub; "aus" kann in beiden stehen. */
+  function wxShownStyle() {
+    var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+    if (w.enabled !== true || !w.style || w.style === 'none' || !wxPlaceName()) return 'none';
+    return w.style;
+  }
   function wxChoices(axis, values) {
     var cur = wxConf();
     return values.map(function (v) {
@@ -1599,9 +1606,14 @@
        * beim Waehlen, dass zuerst der Ort fehlt. */
       var noPlace = axis === 'wxStyle' && key !== 'none' && !wxHasPlace();
       var val = axis === 'wxGap' ? cur.gap : cur[axis === 'wxStyle' ? 'style' : axis === 'wxPos' ? 'pos' : 'size'];
+      /* Was zaehlt, ist das, was man auf dem Bildschirm sieht: ohne Ort und ohne
+       * `enabled` ist das Wetter aus, auch wenn in `style` noch "icon-temp"
+       * steht. Vorher galt die Form als gesetzt, obwohl die Zeile still war -
+       * die Zeile liess sich damit nicht mehr einschalten. */
+      var shown = axis === 'wxStyle' ? wxShownStyle() : '';
       return { action: 'wx.' + axis + '.' + key, axis: axis, value: key,
         label: (WX_LABELS[axis] || {})[key] || String(v),
-        applied: String(val) === (axis === 'wxStyle' && !wxHasPlace() ? 'none' : key),
+        applied: axis === 'wxStyle' ? key === shown : String(val) === key,
         off: noPlace };
     });
   }
