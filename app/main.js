@@ -1,6 +1,7 @@
 /* CleanFrame Home. Static materials, local preferences and public Tizen app controls. */
 (function () {
   'use strict';
+  if (window.FrameDevice && FrameDevice.mark) FrameDevice.mark('js');
   /* webOS port: bilingual interface (de/en), dictionary in i18n.js */
   /* The language may change later (configuration from the server), so the
    * translation is fetched on every call and not copied at startup. */
@@ -5169,6 +5170,7 @@
     clearTimeout(startTimer);
     setLook({}, { transient: true, startup: true });
     norm(); render(); fit(); focusStage(); updateClock(); syncRotation();
+    if (window.FrameDevice && FrameDevice.mark) FrameDevice.mark('painted');
     markFirstPicture();
     dropBootWall();
     startIdleWatch();
@@ -5184,6 +5186,7 @@
     try {
       var readConfig = function () {
         FrameDevice.loadConfig(function (err, cfg) {
+          if (FrameDevice.mark) FrameDevice.mark('config');
           if (cfg) applyServerConfig(cfg);
           startApp();
         });
@@ -5204,7 +5207,7 @@
   }
 
   if (window.FrameDevice && FrameDevice.loadConfig) {
-    startTimer = setTimeout(startApp, 1200);
+    startTimer = setTimeout(startApp, 400);
     /* The bundled hub may be starting in the same second. Its answer is the
      * configuration; asking too early would paint from localStorage and then
      * jump. whenReady gives up after about three seconds, so a TV without the

@@ -137,7 +137,11 @@
     whenReady: function (cb) {
       if (ready) { try { cb(); } catch (e) {} return; }
       readyCallbacks.push(cb);
-      setTimeout(fireReady, 3000);
+      /* Beim Kaltstart ist der Hub noch nicht da (er wird gerade erst
+       * gestartet). Drei Sekunden Schwarz waren messbar: die App zeigt nach
+       * 900 ms das zwischengespeicherte Bild, die echte Konfiguration folgt
+       * ein bis zwei Sekunden spaeter und wird nachgezogen. */
+      setTimeout(fireReady, 900);
     },
     /* Test hooks: no process is started or stopped by using these. */
     _startCommand: startCommand,

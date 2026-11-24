@@ -108,6 +108,16 @@
   /* LG Home ausdruecklich oeffnen: erst dem Hub sagen, dass er die Startseite
    * kurz in Ruhe lassen soll - sonst holt der Startdienst sie in derselben
    * Sekunde zurueck und der Eintrag waere unbedienbar. */
+  /* Startmarke an den Hub: wann ist was passiert? Nur Messen, kein Verhalten. */
+  function mark(step) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', CF_API + '/api/tv/mark', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({ step: step, ms: Math.round(window.performance.now()) }));
+    } catch (e) {}
+  }
+
   function holdHome(seconds, done) {
     var xhr = new XMLHttpRequest();
     try { xhr.open('POST', CF_API + '/api/tv/hold', true); } catch (e) { return done && done(); }
@@ -576,6 +586,7 @@
     connectionInfo: connectionInfo,
     setSource: setSource,
     holdHome: holdHome,
+    mark: mark,
     activities: readActivities,
     activityName: activityName,
     addActivity: createActivity,

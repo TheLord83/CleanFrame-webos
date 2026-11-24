@@ -1,3 +1,33 @@
+## 0.8.11
+
+**The return from the home key is faster because the key press is the trigger.** Until now the service
+noticed the home screen by asking what is in front once a second - the worst case was a full second
+before anything happened. The press itself arrives earlier (the service reads the input devices), so a
+press now switches the foreground poll to 120 ms for three seconds and the launcher is brought back the
+moment LG's home screen appears. The idle poll went from 1000 ms to 700 ms. The old self-launch on the
+key press is gone: it was swallowed while LG's home screen was still building and only caused a double
+transition.
+
+## 0.8.10
+
+**The launcher no longer waits six seconds for the hub before it paints.** The marks from 0.8.9 showed
+where a cold start went: configuration at 6150 ms, first picture at 6999 ms. The app was waiting for the
+hub, which on a cold boot is only being started at that moment (`whenReady` waited 3 s, then the request
+followed). It now paints from the stored configuration after 900 ms and lets the real configuration
+arrive afterwards - `startConfigWatch` already applies it. Trade-off: on a television that has just been
+set up, the picture can shift once about a second after it appears.
+
+## 0.8.9
+
+**The start gap is now measured instead of felt.** Measured on a cold boot: the service starts at uptime
+~77 s, our launch is accepted one second later, and the launcher is visible at uptime ~81-84 s. The six
+seconds in between are the app's own start. Three marks now record where they go (script runs,
+configuration arrives, first picture) via `POST /api/tv/mark`, readable at `GET /api/tv/mark`. The
+service logs the moment LG's home screen and the launcher come to the front, with uptime, so every
+later change can be compared against these numbers. Also: `com.blackpearl.cleanframe` is listed in the
+television's preload policy next to LG's own apps, which moved the launcher from uptime 84.3 s to
+80.8 s.
+
 ## 0.8.8
 
 **First attempt at the root cause: offer the launcher as a home app.** Until now the launcher was an

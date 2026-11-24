@@ -23,6 +23,7 @@ var TICK_MS = 16;
 var http = require('http');
 var DEBUG_KEYS = process.env.CF_DEBUG_KEYS === '1';
 var HOME_APP = 'com.webos.app.home';
+var T0 = Date.now();
 var RETRY_MS = 2000;
 var RETRY_MAX = 30;
 
@@ -97,6 +98,15 @@ function comeBack() {
 	req.end();
 }
 
+/* Wie lange laeuft der Fernseher schon? Ohne das laesst sich die Startluecke
+ * nicht mit dem Boot vergleichen. */
+function upSuffix() {
+	try {
+		var up = parseFloat(String(fs.readFileSync('/proc/uptime', 'utf8')).split(' ')[0]);
+		return ' (uptime ' + up.toFixed(1) + ' s)';
+	} catch (e) { return ''; }
+}
+
 function launch(reason, done, id) {
 	if (launching) { if (done) done({ skipped: true }); return; }
 	launching = true;
@@ -150,8 +160,13 @@ function watchRemote() {
 				// HOME was found here in the first place.
 				if (DEBUG_KEYS) log('key ' + d.name + ' code=' + code);
 				if (code === HOME_CODE) {
-					log('HOME pressed on ' + d.name);
-					launch('home-key');
+					/* Der Druck ist das frueheste Signal, das wir bekommen -
+					 * frueher als die Startseite im Vordergrund. Statt selbst
+					 * zu starten (das verschluckt LG waehrend des Aufbaus),
+					 * wird ab jetzt engmaschig geprueft und in dem Moment
+					 * zurueckgeholt, in dem die Startseite vorne ist. */
+					burstUntil = Date.now() + 3000;
+					log('HOME pressed on ' + d.name + ' -> watching closely');
 				}
 			}
 		});
@@ -165,7 +180,9 @@ function watchRemote() {
 // A subscription to getForegroundAppInfo delivers exactly one message on this
 // television and then goes quiet, so this asks once a second instead. One luna
 // call per second is nothing, and it cannot silently stop working.
-var FOREGROUND_MS = 1000;
+var FOREGROUND_MS = 700;    // Ruhetakt: oft genug, um nicht zu traeumen
+var FOREGROUND_BURST_MS = 120; // nach einem HOME-Druck: engmaschig
+var burstUntil = 0;           // bis wann engmaschig geprueft wird
 var HOME_RETRY_MS = 1200;  // Abstand der Nachsetzer
 var HOME_WINDOW_MS = 25000; // so lange nachgesetzt, dann ist der Mensch dran
 var lastForeground = '';
@@ -177,14 +194,21 @@ var HOLD_MS = 2500;        // so oft wird die Haltezeit im Hub gefragt
 var holdSeenAt = 0;        // wann der Hub zuletzt "Ruhe" gesagt hat
 var HOLD_RECHECK_MS = 5000; // solange gilt ein "Ruhe" ohne neue Frage
 function watchForeground() {
-	setInterval(function () {
+	(function tick() {
+		var wait = Date.now() < burstUntil ? FOREGROUND_BURST_MS : FOREGROUND_MS;
+		setTimeout(tick, wait);
 		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
 			var p = (m && m.payload) || {};
 			if (!p.appId) return;
 			if (p.appId !== lastForeground) {
 				lastForeground = p.appId;
 				if (p.appId === HOME_APP) homeSince = Date.now();
-				if (DEBUG_KEYS) log('foreground: ' + p.appId);
+				// Startzeitleiste: der Abstand zwischen LGs Startseite und
+				// unserem Bild ist die Luecke, die der Nutzer sieht.
+				if (p.appId === HOME_APP || p.appId === APP_ID) {
+					log('timeline ' + (p.appId === HOME_APP ? 'lg home' : 'launcher')
+						+ ' at +' + (Date.now() - T0) + ' ms' + upSuffix());
+				} else if (DEBUG_KEYS) log('foreground: ' + p.appId);
 			}
 			if (p.appId !== HOME_APP) { homeTries = 0; lastTry = 0; holdCheckedAt = 0; return; }
 			// Zeitfenster statt fester Anzahl: LG nimmt waehrend des Aufbaus
@@ -206,7 +230,7 @@ function watchForeground() {
 			}
 			tryComeBack();
 		});
-	}, FOREGROUND_MS);
+	})();
 }
 
 // ------------------------------------------------------------------- luna API

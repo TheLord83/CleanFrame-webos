@@ -56,14 +56,15 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.8';
+var VERSION = '0.8.11';
 /* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
  * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
  * laeuft oder noch der alte im Speicher haengt. */
 var appVersionHits = 0;
 var reportedCode = '';   // welche Fassung die App im Speicher geladen hat
 var reportedAt = '';
-var holdUntil = 0;   // bis wann der Startdienst die Startseite in Ruhe laesst
+var holdUntil = 0;
+var bootMarks = [];   // Startzeitleiste der App (nur die letzten 30)   // bis wann der Startdienst die Startseite in Ruhe laesst
 /* Die letzten Aufrufe der Fernseher-Endpunkte, mit Herkunft und Ergebnis.
  * Steht in /api/health. Damit ist unterscheidbar, ob die App den Hub gar nicht
  * fragt (alter Code im Speicher) oder ob der Hub ablehnt (Fehlertext). */
@@ -1098,6 +1099,21 @@ function handle(req, res) {
       holdUntil = sec ? Date.now() + sec * 1000 : 0;
       json(res, 200, { ok: true, holdSeconds: sec, until: holdUntil ? new Date(holdUntil).toISOString() : '' });
     });
+  }
+  /* Startmarken: die App meldet, wann sie geladen ist, wann die Konfiguration
+   * da ist und wann das erste Bild steht. Ohne diese drei Zeiten ist "dauert
+   * lange" nicht zu beheben, nur zu bedauern. */
+  if (req.method === 'POST' && p === '/api/tv/mark') {
+    return readBody(req, function (body) {
+      if (body && body.step) {
+        bootMarks.push({ step: String(body.step).slice(0, 20), ms: Number(body.ms) || 0, at: Date.now() });
+        if (bootMarks.length > 30) bootMarks = bootMarks.slice(-30);
+      }
+      json(res, 200, { ok: true });
+    });
+  }
+  if (req.method === 'GET' && p === '/api/tv/mark') {
+    return json(res, 200, { ok: true, marks: bootMarks });
   }
   if (req.method === 'GET' && p === '/api/tv/hold') {
     return json(res, 200, { ok: true, hold: Date.now() < holdUntil,
