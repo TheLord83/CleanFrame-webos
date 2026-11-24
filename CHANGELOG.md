@@ -1,3 +1,29 @@
+## 0.6.61
+
+**Inputs are their own page now.** The group page wrapped the sockets in a picker: one collapsed row
+that had to be opened to see the others, so you could not tell at a glance what was plugged in. Now
+the page is two columns — the sockets on the left with their number, device name and state ("Running
+now", "Device connected", "No device"), the highlighted one on the right with its details. OK switches
+to it; the running input says so instead of switching a picture that is already there.
+
+A live picture of the input is not possible and the page says so: webOS hands the HDMI signal to the
+system tuner only, there is no capture interface an app could draw from. What the page can show is
+everything the television reports about the socket, plus the one action that matters.
+
+**The Inputs icon was a box with two lines.** Replaced with the HDMI socket as it is printed on every
+device: wide top, narrower bottom, notch in the middle, two contact strips.
+
+**The stick page showed a date before it had read anything.** `openStick()` drew the page first and read
+afterwards, so the row carried the previous state's date and looked like the stick's answer. It now
+clears the state, shows "Looking at the stick ..." and prints the date only once it has been read.
+
+**"Values on the start page" said nothing useful** when the hub had no entities. The row now says
+"none yet - choose them in the hub", the page explains that these are Home Assistant values and where
+to pick them.
+
+**The place search had its instruction twice** and the line was drawn into the field. One line only;
+the field has no text of its own.
+
 ## 0.6.60
 
 The three things the operator hit while actually setting a place on the television.

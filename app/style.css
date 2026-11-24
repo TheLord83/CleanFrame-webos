@@ -866,6 +866,33 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 @keyframes cf-caret{to{visibility:hidden}}
 .s-sub{margin:-6px 0 4px;opacity:.62;font-size:20px}
 
+/* ---------- Eingaenge: links die Buchsen, rechts der markierte ---------- */
+.in-cols{position:absolute;left:112px;top:212px;right:112px;display:flex;gap:32px;align-items:flex-start}
+.in-list{width:640px}
+.in-side{flex:1;min-height:420px;padding:28px 32px;border-radius:20px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.in-row{display:flex;align-items:center;gap:20px;width:100%;height:92px;margin-bottom:6px;
+  padding:0 24px;border:0;border-radius:16px;background:rgba(255,255,255,.06);color:inherit;
+  font:inherit;text-align:left;cursor:pointer}
+.in-row.is-focus{background:rgba(255,255,255,.20);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+.in-row.is-active .in-num{background:#59d18c;color:#0b1a10}
+.in-num{flex:0 0 56px;height:56px;border-radius:14px;background:rgba(255,255,255,.14);
+  display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600}
+.in-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.in-name{font-size:32px;line-height:38px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in-device{font-size:22px;line-height:26px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in-state{flex:0 0 auto;font-size:22px;line-height:26px;color:var(--mute)}
+.in-state.is-on{color:#59d18c}
+.in-state.is-off{opacity:.55}
+.in-empty{margin:0 0 18px;font-size:26px;line-height:34px;color:var(--mute)}
+.in-big{font-size:64px;line-height:70px;font-weight:600;letter-spacing:-1.5px}
+.in-side-name{margin-top:6px;font-size:34px;line-height:40px}
+.in-side-device{margin-top:2px;font-size:24px;line-height:30px;color:var(--mute)}
+.in-side-state{margin-top:18px;font-size:26px;line-height:32px;color:var(--mute)}
+.in-side-state.is-on{color:#59d18c}
+.in-side-state.is-off{opacity:.6}
+.in-side-note{margin-top:24px;font-size:24px;line-height:32px;color:var(--mute);max-width:420px}
+
 /* webOS port: settings list tighter, so that eight entries too clearly end above
    the control hint line (the hint sits at y=968):
    8 x 88 + 7 x 4 = 732 px, the list starts at 196 -> ends at 928. */

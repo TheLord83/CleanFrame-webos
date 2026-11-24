@@ -148,6 +148,44 @@ async function main() {
   check(Array.isArray(inj) && inj.length === 3, 'die Zustandsmeldung fuehrt die Eingaenge mit',
     JSON.stringify(inj));
 
+  /* ---- Die Seite ist eine Liste mit Vorschau-Spalte, kein Aufklapp-Feld ----
+   * Vorher war der markierte Eingang ein Picker: eine zugeklappte Zeile, hinter
+   * der die anderen Buchsen verschwanden. Geprueft wird jetzt die Form der
+   * Seite, damit der Rueckfall nicht unbemerkt zurueckkommt. */
+  await evaluate("window.CleanFrameDebug.openInputs()");
+  await new Promise(function (r) { setTimeout(r, 400); });
+  console.log('  debug:', await evaluate("JSON.stringify({view:(CleanFrameDebug.state?CleanFrameDebug.state().view:'?'),list:((document.querySelector('.in-list')||{}).innerText||'').slice(0,80),err:JSON.stringify(CleanFrameDebug.inputError?CleanFrameDebug.inputError():null)})"));
+  for (var k = 0; k < 40; k++) {
+    var rows = await evaluate("document.querySelectorAll('.in-row').length");
+    if (rows) break;
+    await new Promise(function (r) { setTimeout(r, 150); });
+  }
+  var shape = await evaluate("JSON.stringify((function(){" +
+    "var l=document.querySelector('.in-list'), s=document.querySelector('.in-side')," +
+    " rows=[].slice.call(document.querySelectorAll('.in-row'));" +
+    "var lb=l?l.getBoundingClientRect():null, sb=s?s.getBoundingClientRect():null;" +
+    "return {rows:rows.length, listLeft:lb?Math.round(lb.left):null, listRight:lb?Math.round(lb.right):null," +
+    " sideLeft:sb?Math.round(sb.left):null, sideText:(s?s.innerText:'').replace(/\\n/g,' ')," +
+    " picker:document.querySelectorAll('.pick-row,.setting-section.is-picker').length," +
+    " states:rows.map(function(r){return (r.querySelector('.in-state')||{}).innerText;})," +
+    " overflow:[].slice.call(document.querySelectorAll('.in-row,.in-side,.in-name,.in-device'))" +
+    ".filter(function(e){return e.scrollWidth>e.clientWidth+2;}).length" +
+    "};})())");
+  var sh = JSON.parse(shape || '{}');
+  check(sh.rows === 3, 'drei Zeilen in der Liste', 'rows=' + sh.rows);
+  check(sh.picker === 0, 'kein Aufklapp-Feld mehr auf der Seite', 'picker=' + sh.picker);
+  check(typeof sh.listLeft === 'number' && typeof sh.sideLeft === 'number' && sh.sideLeft > sh.listRight,
+    'Liste links, Vorschau-Spalte rechts daneben', 'list=' + sh.listRight + ' side=' + sh.sideLeft);
+  check(/HDMI 1/.test(String(sh.sideText)) && /Google OTT/.test(String(sh.sideText)),
+    'rechts steht der markierte Eingang', String(sh.sideText).slice(0, 60));
+  check(Array.isArray(sh.states) && sh.states[0] === 'Läuft gerade' && sh.states[1] === 'Kein Gerät',
+    'jede Zeile traegt ihren Zustand', JSON.stringify(sh.states));
+  check(sh.overflow === 0, 'kein Text laeuft aus seiner Zeile', 'overflow=' + sh.overflow);
+
+  /* Ein Bild der Seite fuer die Ablage; der Screenshot ist Beleg, nicht Pruefung. */
+  var shot = await send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } });
+  if (shot && shot.data) require('fs').writeFileSync('/root/.hermes/cache/scratch/inputs-page.png', Buffer.from(shot.data, 'base64'));
+
   ws.close();
   console.log('RESULT ' + passed + '/' + (passed + failed));
   process.exit(failed ? 1 : 0);

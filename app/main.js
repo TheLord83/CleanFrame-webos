@@ -96,7 +96,11 @@
     /* HDMI: das genormte Buchsenprofil. Aussen ein Rechteck, innen die Kerbe
      * oben mittig und die zwei Kontaktleisten - so ist es auch auf jedem Gerät
      * aufgedruckt und nicht mit einem Lautsprecher zu verwechseln. */
-    inputs: '<rect x="3" y="7" width="18" height="10" rx="1.6"/><path d="M7.5 7v2.6h9V7"/><path d="M6 11.4h12M6 13.6h12"/>',
+    /* Die HDMI-Buchse, wie sie auf jedem Geraet aufgedruckt ist: oben breit,
+     * unten schmaler, mit der Kerbe in der Mitte und den zwei Kontaktleisten.
+     * Die Wikipedia-Zeichnung (HDMI Connector, female) ist die Vorlage; als
+     * Pfad nachgezeichnet, damit das Symbol in einer Farbe bleibt. */
+    inputs: '<path d="M4 6.5h16a1 1 0 0 1 1 1v3.2a2 2 0 0 1-1.5 1.94V15a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-2.36A2 2 0 0 1 3 10.7V7.5a1 1 0 0 1 1-1Z"/><path d="M8 13h8"/><path d="M8.5 15.2h7"/>',
     settings: '<path d="m9 3-.6 2.4-2 1.2L4 6l-2 3.5L3.8 11v2L2 14.5 4 18l2.4-.6 2 1.2L9 21h6l.6-2.4 2-1.2 2.4.6 2-3.5-1.8-1.5v-2L22 9.5 20 6l-2.4.6-2-1.2L15 3Z"/><circle cx="12" cy="12" r="3.2"/>',
     home: '<path d="M4 11 12 4.5l8 6.5v8a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1Z"/>',
     undo: '<path d="M9 6 5 10l4 4"/><path d="M5 10h9.5a4.5 4.5 0 0 1 0 9H11"/>',
@@ -827,9 +831,13 @@
   /* ---------- Values on the start page (TV-side) ---------- */
   function entSummary() {
     var all = haAll(), shown = 0;
-    if (!all.length) return T('nothing chosen in the hub');
+    /* Was hier steht, sind Entitaeten aus Home Assistant: Temperatur, Fenster,
+     * Verbrauch. Ohne Auswahl im Hub ist die Leiste leer - das gehoert in die
+     * Zeile, sonst klingt "Werte auf der Startseite" nach einer Einstellung, die
+     * es hier gibt. */
+    if (!all.length) return T('none yet - choose them in the hub');
     all.forEach(function (e) { if (e && e.shown !== false) shown++; });
-    return shown + ' / ' + all.length;
+    return shown + ' / ' + all.length + ' · ' + T('Home Assistant');
   }
 
   function openEntities() {
@@ -1389,23 +1397,32 @@
   /* HDMI inputs: read on every open, so a device plugged in later shows up. The
    * error path is deliberate: a TV that reports nothing says so instead of
    * showing an empty list that looks like "you have no inputs". */
+  /* Eingaenge sind eine eigene Seite, kein Einstellungs-Blatt mit Aufklapp-
+   * Auswahl: links die Buchsen mit ihrem Zustand, rechts der markierte Eingang.
+   * Ein Auswahlfeld (Picker) versteckte die Liste hinter einem Klick und zeigte
+   * immer nur eine Zeile - man konnte nicht sehen, was ueberhaupt angeschlossen
+   * ist, ohne jeden Eingang einzeln aufzuklappen. */
   function openInputs() {
-    openAppearance('inputs');
+    resetSheet();
+    push({ id: 'inputs', f: { i: 0 }, inputs: [], loading: true, inputError: null, note: '' });
     var t = top();
-    t.inputs = []; t.loading = true; t.inputError = null;
-    render();
+    render(); renderSheet(t, true);
     loadInputs(t);
   }
   function loadInputs(t) {
     t.loading = true; t.inputError = null;
-    if (top() === t) render();
+    if (top() === t) renderSheet(t, true);
     FrameDevice.sources(function (err, list) {
       if (top() !== t) return;
       t.loading = false;
       t.inputs = list || [];
       t.inputError = err || null;
-      focusFirstRealRow(t);
+      /* Der laufende Eingang ist die sinnvollste Vorauswahl, sonst der erste. */
+      var start = 0;
+      t.inputs.forEach(function (x, i) { if (x.active) start = i; });
+      t.f.i = start;
       render();
+      renderSheet(t, true);
     });
   }
   /* Switching is a one-shot action with a visible result; the error text comes
@@ -1849,7 +1866,9 @@
    * passt dort nicht, und mehr braucht man auch nicht, um zu wissen, ob die
    * Sicherung steht. */
   function stickSummary() {
-    if (STICK.loading && !STICK.loaded) return T('Reading ...');
+    /* Solange nichts gelesen ist, steht hier nichts: vorher zeigte die Zeile das
+     * Datum des alten Stands, und das sah aus wie eine Antwort vom Stick. */
+    if (!STICK.loaded) return '';
     if (STICK.error) return T('Not available');
     if (!STICK.chosen) return T('No stick');
     var f = stickFile();
@@ -1896,8 +1915,14 @@
     } catch (e) { finish(null, 'hub'); }
   }
   function openStick() {
-    openAppearance('stick');
+    /* Erst lesen, dann zeichnen: vorher stand die Zeile mit dem alten Stand
+     * (oder mit "Sicherung vom 24.") schon da, bevor der Stick geantwortet
+     * hatte. Jetzt bleibt die Zeile leer, bis die Antwort da ist. */
     STICK.note = '';
+    STICK.loaded = false;
+    STICK.error = '';
+    STICK.sticks = []; STICK.chosen = null; STICK.files = []; STICK.reason = '';
+    openAppearance('stick');
     var t = top();
     render();
     readStick(t);
@@ -2041,7 +2066,7 @@
        * gesperrte Zeile verschwindet aus der Liste und die Seite haette nur den
        * Rueckweg. Was nichts tut, sagt das in seiner Zeile. */
       var f = stickFile(), rows = [];
-      if (STICK.loading && !STICK.loaded) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Reading ...') }] }];
+      if (!STICK.loaded) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Looking at the stick ...') }] }];
       if (STICK.error) return [{ id: 'stick', title: '', items: [{ action: 'stick.info', label: T('Not available') }],
         reason: STICK.error === 'hub' ? T('The hub did not answer.') : stickNote(STICK.reason || 'kein-stick') }];
       if (!STICK.chosen) return [{ id: 'stick', title: T('Stick'), items: [{ action: 'stick.info', label: T('No stick found') }],
@@ -2623,10 +2648,55 @@
     point: function (t, z, i) { if (z === 'ctx') { t.f.i = i; this.key(t, 'ok'); } }
   };
 
+  /* ---------- Eingaenge ---------- */
+  /* Links die Liste, rechts der markierte Eingang. Die Idee einer Bildvorschau
+   * waere schoen, geht aber nicht: webOS gibt das HDMI-Signal nicht an Apps
+   * weiter (keine Capture-Schnittstelle, Chromium 79, nur der System-Tuner
+   * bekommt ein Bild). Was hier stehen kann, ist alles, was der Fernseher ueber
+   * den Eingang sagt - und ein Satz, dass die Vorschau das Geraet selbst zeigt. */
+  function inputStateText(x) {
+    if (x.active) return T('Running now');
+    if (x.connected) return T('Device connected');
+    return T('No device');
+  }
+  V.inputs = {
+    sheet: true,
+    key: function (t, k) {
+      var list = t.inputs || [], n = list.length;
+      if (k === 'back') { pop(); render(); return; }
+      if (!n) {
+        /* Ohne Liste gibt es nichts zu waehlen; OK versucht das Lesen erneut. */
+        if (k === 'ok') { loadInputs(t); }
+        return;
+      }
+      t.f.i = clamp(t.f.i || 0, 0, n - 1);
+      if (k === 'up') { t.f.i = Math.max(0, t.f.i - 1); renderSheet(t, true); return; }
+      if (k === 'down') { t.f.i = Math.min(n - 1, t.f.i + 1); renderSheet(t, true); return; }
+      if (k === 'ok') {
+        var hit = list[t.f.i];
+        if (!hit) return;
+        /* Der laufende Eingang ist schon da - umschalten waere ein Bildwechsel
+         * ohne Anlass (und auf diesem Geraet ein Schwarzbild). */
+        if (hit.active) { t.note = T('This input is already running.'); renderSheet(t, true); return; }
+        switchInput(hit.number);
+        return;
+      }
+    },
+    point: function (t, z, i) {
+      if (z === 'inRetry') { loadInputs(t); return; }
+      if (z !== 'inRow') return;
+      t.f.i = i; t.note = '';
+      renderSheet(t, true);
+      this.key(t, 'ok');
+    }
+  };
   V.entities = {
     sheet: true,
     key: function (t, k) {
       var all = haAll(), n = all.length, f = t.f;
+      /* Ist im Hub nichts ausgewaehlt, gibt es hier nichts zu schalten. Zurueck
+       * geht trotzdem, und die Seite sagt, was zu tun ist - vorher war das eine
+       * leere Liste ohne Erklaerung. */
       if (!n) { if (k === 'back') pop(); render(); return; }
       f.i = clamp(f.i || 0, 0, n - 1);
       if (f.part !== 'name') f.part = 'on';
@@ -3615,9 +3685,10 @@
        * die Tastatur offen und die Fernbedienung kommt nicht an die Liste),
        * hoch fuehrt zurueck ins Feld. */
       return '<h2 class="s-title">' + T('Search for a place') + '</h2>'
-        /* Eine Zeile, kein zweiter Hinweis: der Text im Feld sagt schon, was zu
-         * tun ist, und der alte Satz stand doppelt auf der Seite. */
-        + '<p class="s-sub">' + esc(T('Type the name, then press OK. The results appear below the field.')) + '</p>'
+        /* Kein zweiter Hinweis: er stand doppelt und ragte in die Textbox. Die
+         * Statuszeile unten sagt, was gerade passiert; das Feld blinkt von
+         * selbst. */
+        + '<p class="s-sub is-blank" aria-hidden="true"></p>'
         + '<div class="place-search-box"><input id="placeSearchInput" type="text" autocomplete="off" spellcheck="false"'
         + ' inputmode="text" aria-label="' + esc(T('Search for a place')) + '" value="' + esc(PS.query) + '"></div>'
         + '<p class="place-search-status" id="placeSearchStatus" hidden></p>'
@@ -3650,6 +3721,12 @@
               + '<span class="settings-group-copy"><span class="settings-group-name"></span></span></button>';
           }).join('')
         + '</div>';
+    },
+    inputs: function () {
+      return '<h2 class="s-title">' + T('Inputs') + '</h2><p class="s-sub" data-slot="sub"></p>'
+        + '<div class="in-cols"><div class="in-list" data-slot="list"></div>'
+        + '<div class="in-side" data-slot="side"></div></div>'
+        + '<p class="settings-overview-hint" data-slot="hint"></p>';
     },
     entities: function () {
       return '<h2 class="s-title">' + T('Values on the start page') + '</h2><p class="s-sub" data-slot="sub"></p>'
@@ -3686,6 +3763,47 @@
     return '<span class="panel-content">' + appMark(a, 176, 84, 66) + '<span class="label">' + esc(a.name) + '</span></span><span class="state">' + state + '</span>';
   }
   var FILLS = {
+    inputs: function (t, el) {
+      var list = t.inputs || [], i = clamp(t.f.i || 0, 0, Math.max(0, list.length - 1)), pick = list[i];
+      setHTML(el.sub, list.length
+        ? T('What the television reports on its HDMI sockets.')
+        : '');
+      if (t.loading) {
+        setHTML(el.list, '<p class="in-empty">' + T('Looking for inputs ...') + '</p>');
+        setHTML(el.side, '');
+        setHTML(el.hint, '');
+        return;
+      }
+      if (t.inputError || !list.length) {
+        var why = (t.inputError && t.inputError.message) || T('No HDMI inputs were reported by this TV.');
+        setHTML(el.list, '<p class="in-empty">' + esc(why) + '</p>'
+          + '<button type="button" tabindex="-1" class="settings-group" data-z="inRetry">'
+          + '<span class="settings-group-copy"><span class="settings-group-name">' + T('Try again') + '</span></span></button>');
+        setHTML(el.side, '');
+        setHTML(el.hint, '');
+        return;
+      }
+      el.list.innerHTML = list.map(function (x, idx) {
+        return '<button type="button" tabindex="-1" class="in-row' + (idx === i ? ' is-focus' : '') + (x.active ? ' is-active' : '') + '"'
+          + ' data-z="inRow" data-i="' + idx + '" aria-label="' + esc('HDMI ' + x.number + ', ' + x.name + ', ' + inputStateText(x)) + '">'
+          + '<span class="in-num">' + x.number + '</span>'
+          + '<span class="in-copy"><span class="in-name">' + esc(x.name) + '</span>'
+          + (x.device ? '<span class="in-device">' + esc(x.device) + '</span>' : '')
+          + '</span>'
+          + '<span class="in-state' + (x.active ? ' is-on' : (x.connected ? '' : ' is-off')) + '">' + esc(inputStateText(x)) + '</span>'
+          + '</button>';
+      }).join('');
+      if (!pick) { setHTML(el.side, ''); setHTML(el.hint, ''); return; }
+      el.side.innerHTML = '<div class="in-big">HDMI ' + pick.number + '</div>'
+        + '<div class="in-side-name">' + esc(pick.name) + '</div>'
+        + (pick.device ? '<div class="in-side-device">' + esc(pick.device) + '</div>' : '')
+        + '<div class="in-side-state' + (pick.active ? ' is-on' : (pick.connected ? '' : ' is-off')) + '">' + esc(inputStateText(pick)) + '</div>'
+        + '<div class="in-side-note">' + esc(pick.connected || pick.active
+          ? T('The picture stays with the television - an app cannot show an HDMI input.')
+          : T('Nothing is plugged into this socket.')) + '</div>';
+      setHTML(el.hint, t.note ? esc(t.note) : '<span class="remote-key">OK</span><span>'
+        + (pick.active ? T('Nothing to do, this input is running.') : T('Switch to this input')) + '</span>');
+    },
     /* The focus in the context menu comes from t.f.i and is set on every render.
      * The markup is cached (sheetKey), so the highlight must not live in the
      * HTML — otherwise the first entry stays highlighted while the keys already
@@ -3842,7 +3960,13 @@
     },
     entities: function (t, el) {
       var all = haAll(), f = t.f, html = '';
-      setHTML(el.sub, all.length ? T('Chosen in the hub. Left switches the value on or off, right renames it.') : T('Nothing chosen in the hub yet.'));
+      /* Der Hinweis nennt die Herkunft: diese Werte sind Home-Assistant-
+       * Entitaeten (Temperatur, Fenster, Verbrauch) und werden im Hub
+       * ausgesucht, nicht auf dem Fernseher. Ohne Auswahl steht hier, wo man sie
+       * trifft, statt eines leeren Fensters. */
+      setHTML(el.sub, all.length
+        ? T('Values from Home Assistant, chosen in the hub. Left switches one on or off, right renames it.')
+        : T('No values chosen yet. Pick them in the hub under Home Assistant - then they show up here.'));
       if (!all.length) { el.list.innerHTML = ''; return; }
       f.i = clamp(f.i || 0, 0, all.length - 1);
       if (f.part !== 'name') f.part = 'on';
