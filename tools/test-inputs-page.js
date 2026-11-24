@@ -182,6 +182,30 @@ async function main() {
     'jede Zeile traegt ihren Zustand', JSON.stringify(sh.states));
   check(sh.overflow === 0, 'kein Text laeuft aus seiner Zeile', 'overflow=' + sh.overflow);
 
+  /* Farbe und Abstand: die Nummer war gruen hinterlegt und der Text klebte an
+   * ihr. Geprueft werden die gerechneten Werte, nicht der Quelltext. */
+  var look = JSON.parse(await evaluate("JSON.stringify((function(){" +
+    "var n=document.querySelector('.in-row .in-num'), c=document.querySelector('.in-row .in-copy')," +
+    " st=document.querySelector('.in-row.is-active .in-state');" +
+    "if(!n||!c) return {};" +
+    "var bg=getComputedStyle(n).backgroundColor, col=getComputedStyle(n).color," +
+    " stc=st?getComputedStyle(st).color:'', nb=n.getBoundingClientRect(), cb=c.getBoundingClientRect();" +
+    "function hue(rgb){var m=/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/.exec(rgb)||[];var r=+m[1]||0,g=+m[2]||0,b=+m[3]||0;" +
+    "return Math.max(r,g,b)-Math.min(r,g,b);}" +
+    "return {bgHue:hue(bg), numHue:hue(col), stateHue:stc?hue(stc):0, gap:Math.round(cb.left-nb.right)};})())"));
+  check((look.bgHue || 0) <= 12, 'die Nummer sitzt auf einer neutralen Flaeche, nicht auf Gruen', 'hue=' + look.bgHue);
+  /* Der Text ist die helle Grundfarbe des Launchers (leicht warm, Hue ~15) -
+   * "neutral" heisst hier: nicht farbig gesetzt, also derselbe Ton wie die
+   * Ueberschrift. Verglichen wird deshalb mit der Textfarbe der Seite. */
+  var page = JSON.parse(await evaluate("JSON.stringify((function(){" +
+    "function hue(rgb){var m=/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/.exec(rgb)||[];var r=+m[1]||0,g=+m[2]||0,b=+m[3]||0;" +
+    "return Math.max(r,g,b)-Math.min(r,g,b);}" +
+    "var t=document.querySelector('.s-title');" +
+    "return {pageHue:t?hue(getComputedStyle(t).color):0, pageCol:t?getComputedStyle(t).color:''};})())"));
+  check(look.numHue === page.pageHue, 'die Nummer traegt die normale Textfarbe, keine eigene', 'num=' + look.numHue + ' seite=' + page.pageHue);
+  check(look.stateHue === page.pageHue, 'auch der Zustand des laufenden Eingangs ist nicht eingefaerbt', 'state=' + look.stateHue + ' seite=' + page.pageHue);
+  check((look.gap || 0) >= 24, 'zwischen Nummer und Text ist Luft', 'gap=' + look.gap);
+
   /* Ein Bild der Seite fuer die Ablage; der Screenshot ist Beleg, nicht Pruefung. */
   var shot = await send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } });
   if (shot && shot.data) require('fs').writeFileSync('/root/.hermes/cache/scratch/inputs-page.png', Buffer.from(shot.data, 'base64'));

@@ -1532,8 +1532,14 @@
       cfg.integrations = cfg.integrations || {};
       cfg.integrations.weather = cfg.integrations.weather || {};
       cfg.integrations.weather[field] = v;
+      /* Der Schalter und die Form sind zwei Felder im Hub (`enabled` und
+       * `style`). Am Fernseher gibt es nur "Angezeigt als", also muss die
+       * Antwort beides schreiben - sonst steht die Form auf "Symbol und
+       * Temperatur", waehrend `enabled` aus bleibt und die Zeile still bleibt.
+       * Genau das war der Zustand: Ort gesetzt, nichts zu sehen. */
+      if (field === 'style') cfg.integrations.weather.enabled = v !== 'none';
     }, function () {
-      if (field === 'style') wxState.style = v;
+      if (field === 'style') { wxState.style = v; wxState.enabled = v !== 'none'; if (wxState.enabled) loadWeather(true); }
       else if (field === 'pos') wxState.pos = v;
       else if (field === 'size') wxState.size = v;
       else wxState.gap = v;
@@ -1705,6 +1711,24 @@
         if (window.FrameDevice && FrameDevice.loadConfig) {
           FrameDevice.loadConfig(function (err, cfg) { if (!err && cfg) applyConfigInto(cfg); });
         }
+        /* Ein Ort allein zeigt noch kein Wetter: der Hub holt nur, wenn
+         * `enabled` an ist. Wer hier einen Ort eintraegt, will das Wetter
+         * sehen - also einschalten, sofern die Form nicht ausdruecklich "Aus"
+         * ist. Ohne das blieb die Zeile stumm, obwohl ein Ort dastand. */
+        var wNow = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
+        if (wNow.enabled !== true && wNow.style !== 'none') {
+          applyConfig(function (cfg) {
+            cfg.integrations = cfg.integrations || {};
+            cfg.integrations.weather = cfg.integrations.weather || {};
+            cfg.integrations.weather.enabled = true;
+            if (!cfg.integrations.weather.style || cfg.integrations.weather.style === 'none') cfg.integrations.weather.style = 'icon-temp';
+          }, function () {
+            wxState.enabled = true;
+            if (wxState.style === 'none') wxState.style = 'icon-temp';
+            loadWeather(true);
+            render();
+          });
+        }
         pop(); render();
       })
       .catch(function () { PS.busy = false; PS.error = T('The hub did not answer.'); paintPlaceSearch(); });
@@ -1761,7 +1785,9 @@
   }
   function weatherSummary() {
     var w = (S.serverCfg && S.serverCfg.integrations && S.serverCfg.integrations.weather) || {};
-    if (!w.enabled) return T('Off');
+    /* `enabled` allein reicht nicht: schaltet man die Form auf "Aus", steht in
+     * `style` das "none" und `enabled` bleibt aus - beides heisst dasselbe. */
+    if (!w.enabled || w.style === 'none') return T('Off');
     return (w.place || T('No place')) + ' · ' + (WX_LABELS.wxStyle[w.style] || '');
   }
   /* ---------- Mit dem Fernseher starten (webOS-Activity) ----------
@@ -3798,9 +3824,8 @@
         + '<div class="in-side-name">' + esc(pick.name) + '</div>'
         + (pick.device ? '<div class="in-side-device">' + esc(pick.device) + '</div>' : '')
         + '<div class="in-side-state' + (pick.active ? ' is-on' : (pick.connected ? '' : ' is-off')) + '">' + esc(inputStateText(pick)) + '</div>'
-        + '<div class="in-side-note">' + esc(pick.connected || pick.active
-          ? T('The picture stays with the television - an app cannot show an HDMI input.')
-          : T('Nothing is plugged into this socket.')) + '</div>';
+        + (pick.connected || pick.active ? ''
+          : '<div class="in-side-note">' + esc(T('Nothing is plugged into this socket.')) + '</div>');
       setHTML(el.hint, t.note ? esc(t.note) : '<span class="remote-key">OK</span><span>'
         + (pick.active ? T('Nothing to do, this input is running.') : T('Switch to this input')) + '</span>');
     },

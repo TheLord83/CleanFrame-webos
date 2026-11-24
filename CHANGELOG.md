@@ -1,3 +1,22 @@
+## 0.6.62
+
+**Weather stayed off after a place was set.** "Shown as" and "on/off" are two fields in the hub
+(`style` and `enabled`); the television only has the first one, so setting it left `enabled` false and
+the line silent — place there, nothing to see. Picking a style now writes both, picking a place in the
+search switches the weather on unless the style says "Off", and the summary row reads "Off" when either
+field says so.
+
+**"Kiel, DE" found nothing in the place search.** Open-Meteo searches names, not "name, country": the
+appended country code turned six hits into an empty list, and the page said no place by that name. The
+search now splits the input and narrows the hits to the given country, like the geocoder already did.
+
+**The place sheet's instruction sat inside the field.** The box, its status line and the list moved
+20 px down together.
+
+**Inputs:** the numbers no longer sit on green, the running state is not tinted, the text has room next
+to the number, and the sentence about a missing HDMI picture is gone — it explained the implementation
+to someone who just wanted to switch inputs.
+
 ## 0.6.61
 
 **Inputs are their own page now.** The group page wrapped the sockets in a picker: one collapsed row

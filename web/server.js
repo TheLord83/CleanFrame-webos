@@ -56,7 +56,7 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.6.61';
+var VERSION = '0.6.62';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -637,9 +637,18 @@ function handle(req, res) {
         current.integrations.weather.place = hit.name;
         current.integrations.weather.lat = hit.lat;
         current.integrations.weather.lon = hit.lon;
+        /* Ein Ort ist eine Ansage, kein Schalter - aber wer hier einen Ort
+         * eintraegt, will das Wetter sehen. Vorher blieb `enabled` aus und die
+         * Zeile am Fernseher still, obwohl ein Ort dastand. "Aus" bleibt "Aus":
+         * steht die Form auf "none", wird nur der Ort geschrieben. */
+        if (current.integrations.weather.style !== 'none') {
+          current.integrations.weather.enabled = true;
+          if (!current.integrations.weather.style) current.integrations.weather.style = 'icon-temp';
+        }
         store.write(current);
         weather.reset();
-        json(res, 200, { ok: true, place: hit.name, lat: hit.lat, lon: hit.lon });
+        json(res, 200, { ok: true, place: hit.name, lat: hit.lat, lon: hit.lon,
+          enabled: current.integrations.weather.enabled === true });
       });
     });
   }

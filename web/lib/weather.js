@@ -120,11 +120,26 @@ function forecast(weather, lang, cb) {
  * Wisconsin) - den ersten zu nehmen und den Rest zu verschweigen ist genau die
  * Art Bequemlichkeit, die am Fernseher auffaellt. */
 function lookup(name, lang, count, cb) {
-  var q = (name || '').trim();
+  /* Open-Meteo sucht nach Ortsnamen, nicht nach "Name, Land": ein angehaengtes
+   * ", DE" macht aus einer Trefferliste eine leere Antwort (der Orts-Dialog
+   * zeigte dann "Kein Ort mit diesem Namen gefunden" fuer "Kiel, DE", obwohl
+   * "Kiel" sechs Treffer liefert). Also die Eingabe genauso aufteilen wie beim
+   * Geocoding: Namen suchen, Treffer auf das genannte Land eingrenzen. */
+  var raw = (name || '').trim();
+  if (raw.length < 2) return cb(new Error('name too short'));
+  var m = /^(.+?),\s*([A-Za-z]{2})$/.exec(raw);
+  var q = m ? m[1].trim() : raw;
+  var want = m ? m[2].toUpperCase() : '';
   if (q.length < 2) return cb(new Error('name too short'));
   getJson(GEO, '/v1/search?name=' + encodeURIComponent(q) + '&count=' + count + '&language=' + (lang === 'de' ? 'de' : 'en') + '&format=json', function (err, data) {
     if (err) return cb(err);
     var hits = (data && Array.isArray(data.results)) ? data.results : [];
+    if (want) {
+      var narrowed = hits.filter(function (hit) { return String(hit.country_code || '').toUpperCase() === want; });
+      /* Nichts im genannten Land: dann ist der Name die bessere Auskunft als
+       * eine leere Liste - der Mensch sieht die Treffer und waehlt. */
+      if (narrowed.length) hits = narrowed;
+    }
     cb(null, hits.map(function (hit) {
       var region = [hit.admin1, hit.country_code].filter(Boolean).join(', ');
       return {

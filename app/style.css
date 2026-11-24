@@ -845,12 +845,12 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
  * 72, der Hinweis (s-sub) bei 148, die Liste bei 196. Das Feld braucht seinen
  * eigenen Platz und darf den Hinweis nicht ueberschreiben - deshalb steht es
  * hier fest bei 216, und die Trefferliste beginnt erst darunter. */
-.place-search-box{position:absolute;left:112px;top:216px;width:1056px}
-.place-search-results{position:absolute;left:112px;top:342px;width:1056px}
+.place-search-box{position:absolute;left:112px;top:236px;width:1056px}
+.place-search-results{position:absolute;left:112px;top:362px;width:1056px}
 /* Statuszeile zwischen Feld und Treffern. Sie ist eine Zeile hoch und sichtbar
  * nur, wenn es etwas zu sagen gibt - frueher stand "Wird gespeichert ..." als
  * eigener Block zwischen dem ersten und zweiten Treffer. */
-.place-search-status{position:absolute;left:112px;top:278px;width:1056px;height:34px;
+.place-search-status{position:absolute;left:112px;top:298px;width:1056px;height:34px;
   font-size:26px;line-height:34px;letter-spacing:-.2px;color:var(--mute)}
 /* Die Trefferliste beginnt unter der Statuszeile, auch wenn die unsichtbar ist:
  * sonst springt die Liste, sobald eine Meldung erscheint. */
@@ -871,25 +871,25 @@ background:rgba(16,14,12,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 1
 .in-list{width:640px}
 .in-side{flex:1;min-height:420px;padding:28px 32px;border-radius:20px;
   background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
-.in-row{display:flex;align-items:center;gap:20px;width:100%;height:92px;margin-bottom:6px;
+.in-row{display:flex;align-items:center;gap:28px;width:100%;height:92px;margin-bottom:6px;
   padding:0 24px;border:0;border-radius:16px;background:rgba(255,255,255,.06);color:inherit;
   font:inherit;text-align:left;cursor:pointer}
 .in-row.is-focus{background:rgba(255,255,255,.20);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
-.in-row.is-active .in-num{background:#59d18c;color:#0b1a10}
+.in-row.is-active .in-num{background:rgba(255,255,255,.26)}
 .in-num{flex:0 0 56px;height:56px;border-radius:14px;background:rgba(255,255,255,.14);
   display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600}
-.in-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.in-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;margin-left:8px}
 .in-name{font-size:32px;line-height:38px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .in-device{font-size:22px;line-height:26px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .in-state{flex:0 0 auto;font-size:22px;line-height:26px;color:var(--mute)}
-.in-state.is-on{color:#59d18c}
+.in-state.is-on{color:var(--fg)}
 .in-state.is-off{opacity:.55}
 .in-empty{margin:0 0 18px;font-size:26px;line-height:34px;color:var(--mute)}
 .in-big{font-size:64px;line-height:70px;font-weight:600;letter-spacing:-1.5px}
 .in-side-name{margin-top:6px;font-size:34px;line-height:40px}
 .in-side-device{margin-top:2px;font-size:24px;line-height:30px;color:var(--mute)}
 .in-side-state{margin-top:18px;font-size:26px;line-height:32px;color:var(--mute)}
-.in-side-state.is-on{color:#59d18c}
+.in-side-state.is-on{color:var(--fg)}
 .in-side-state.is-off{opacity:.6}
 .in-side-note{margin-top:24px;font-size:24px;line-height:32px;color:var(--mute);max-width:420px}
 
