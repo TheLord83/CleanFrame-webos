@@ -178,8 +178,22 @@ async function main() {
     'Liste links, Vorschau-Spalte rechts daneben', 'list=' + sh.listRight + ' side=' + sh.sideLeft);
   check(/HDMI 1/.test(String(sh.sideText)) && /Google OTT/.test(String(sh.sideText)),
     'rechts steht der markierte Eingang', String(sh.sideText).slice(0, 60));
-  check(Array.isArray(sh.states) && sh.states[0] === 'Läuft gerade' && sh.states[1] === 'Kein Gerät',
+  /* "Zuletzt gewaehlt", nicht "Laeuft gerade": der Fernseher meldet den Eingang
+   * unter dem Launcher weiter als aktiv, sehen kann man ihn aber nicht. */
+  check(Array.isArray(sh.states) && sh.states[0] === 'Zuletzt gewählt' && sh.states[1] === 'Kein Gerät',
     'jede Zeile traegt ihren Zustand', JSON.stringify(sh.states));
+
+  /* Der eigentliche Fehler: ein Druck auf OK beim "aktiven" Eingang wurde mit
+   * "laeuft bereits" abgewiesen - deshalb war HDMI 1 nicht umschaltbar. Der
+   * Test haelt fest, dass OK wirklich schaltet. */
+  var switched = await evaluate("(async function () {" +
+    "  window.__sw = null;" +
+    "  window.FrameDevice.setSource = function (n, cb) { window.__sw = n; if (cb) cb(null); };" +
+    "  window.CleanFrameDebug.press('ok');" +
+    "  await new Promise(function (r) { setTimeout(r, 400); });" +
+    "  return window.__sw;" +
+    "})()");
+  check(switched === 1, 'OK auf dem laufenden Eingang schaltet um, statt abzuweisen', 'setSource=' + switched);
   check(sh.overflow === 0, 'kein Text laeuft aus seiner Zeile', 'overflow=' + sh.overflow);
 
   /* Farbe und Abstand: die Nummer war gruen hinterlegt und der Text klebte an
