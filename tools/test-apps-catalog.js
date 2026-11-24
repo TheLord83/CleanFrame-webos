@@ -139,7 +139,11 @@ async function main() {
   var state = await evP('JSON.stringify(CleanFrameDebug.catalogState())');
   check(state && state.loaded === true, 'Katalog ist nach dem Oeffnen geladen', JSON.stringify(state));
   var first = await tiles();
-  check(first.length === 3, 'drei Apps auf der Seite', 'n=' + first.length);
+  /* Drei gestubbte Apps plus der feste Eintrag fuer LGs Startseite, den der
+   * Katalog immer anhaengt (LG liefert die App mit visible:false aus). */
+  check(first.length === 4, 'drei Apps plus LG-Startseite auf der Seite', 'n=' + first.length);
+  check(first.filter(function (t) { return /LG Startseite|LG Home/.test(t.name); }).length === 1,
+    'die Kachel fuer LGs Startseite ist dabei', JSON.stringify(first.map(function (t) { return t.name; })));
 
   /* Fokus auf "Zulu", dann eine kuerzere Liste: nur deren Apps, Fokus bleibt. */
   /* Fokus auf "Zulu" setzen: runter bis zur letzten Kachel im Raster. */
@@ -155,7 +159,7 @@ async function main() {
   var second = await tiles();
   var names = second.map(function (t) { return t.name; });
   check(names.indexOf('Alpha') < 0, 'entfernte App ist nicht mehr auf der Seite', names.join(', '));
-  check(second.length === 2, 'nur die neue Liste steht da', 'n=' + second.length + ' (' + names.join(', ') + ')');
+  check(second.length === 3, 'nur die neue Liste plus LG-Startseite steht da', 'n=' + second.length + ' (' + names.join(', ') + ')');
 
   console.log('\nRESULT ' + results.filter(function (r) { return r.ok; }).length + '/' + results.length);
   if (results.every(function (r) { return r.ok; })) console.log('All checks passed.');

@@ -66,8 +66,11 @@ def build(workdir, version):
     # Built under the release name on purpose: the URL in the repository file is
     # the file name of the package, so this is what a release build looks like.
     target = os.path.join(workdir, release_name(version))
+    # Same parts as the released package: the service belongs in it since 0.7.0,
+    # otherwise this check compares the release against a package the release
+    # never contained (measured: 5000 bytes of service.js missing).
     run = subprocess.run([sys.executable, os.path.join(HERE, "build-ipk.py"), "app", target,
-                          "--hub", "web"], cwd=ROOT, capture_output=True, text=True)
+                          "--hub", "web", "--service", "service"], cwd=ROOT, capture_output=True, text=True)
     if run.returncode != 0:
         print("  build failed: " + (run.stderr or run.stdout).strip()[:400])
         return None

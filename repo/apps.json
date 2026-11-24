@@ -13,18 +13,18 @@
       "shortDescription": "Quiet start screen with wallpapers, Home Assistant values and a hub in the browser.",
       "manifest": {
         "id": "com.blackpearl.cleanframe",
-        "version": "0.5.8",
+        "version": "0.8.12",
         "type": "web",
         "title": "CleanFrame",
         "appDescription": "A quiet start screen: photo, clock, apps and settings.",
         "iconUri": "https://raw.githubusercontent.com/TheLord83/CleanFrame-webos/main/app/icon.png",
         "sourceUrl": "https://github.com/TheLord83/CleanFrame-webos",
         "rootRequired": "optional",
-        "ipkUrl": "https://github.com/TheLord83/CleanFrame-webos/releases/download/v0.5.8/cleanframe_0.5.8_all.ipk",
+        "ipkUrl": "https://github.com/TheLord83/CleanFrame-webos/releases/download/v0.8.12/cleanframe_0.8.12_all.ipk",
         "ipkHash": {
-          "sha256": "f291d0255d0b1199fe505f7aa859cf92c1e335b8cb0f7f011c27465538a24e4c"
+          "sha256": "e8c84ebed00e773b7abebc7052951c2c551c5438a87f9124668e8c43cf558c47"
         },
-        "ipkSize": 8206810
+        "ipkSize": 8510478
       }
     }
   ]

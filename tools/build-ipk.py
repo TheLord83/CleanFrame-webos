@@ -123,7 +123,12 @@ def main():
         os.path.dirname(appdir), "ipk",
         "%s_%s_all.ipk" % (appid.replace(".", "_"), version))
     os.makedirs(os.path.dirname(target), exist_ok=True)
-    mtime = int(time.time())
+    # Baut reproduzierbar: ein fester Zeitstempel statt der Uhr. Vorher
+    # unterschieden sich zwei Laeufe desselben Stands um zwei Byte (die Ziffern
+    # im Gzip-Kopf), und der Release-Pruefer verglich Hashes, die nie gleich
+    # werden konnten. SOURCE_DATE_EPOCH ueberschreibt ihn, wenn ein echtes Datum
+    # gewuenscht ist.
+    mtime = int(os.environ.get("SOURCE_DATE_EPOCH", "315532800"))
 
     # data.tar.gz
     entries = []
