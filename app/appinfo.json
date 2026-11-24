@@ -1,6 +1,6 @@
 {
   "id": "com.blackpearl.cleanframe",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "vendor": "blackpearl",
   "type": "web",
   "main": "index.html",
@@ -16,6 +16,10 @@
   "disableBackHistoryAPI": true,
   "transparent": false,
   "noSplashOnLaunch": true,
+  "defaultWindowType": "home",
+  "visible": false,
+  "lockable": false,
+  "supportQuickStart": true,
   "appCategory": [
     "home"
   ],

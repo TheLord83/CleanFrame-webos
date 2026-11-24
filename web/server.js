@@ -56,7 +56,7 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.7';
+var VERSION = '0.8.8';
 /* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
  * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
  * laeuft oder noch der alte im Speicher haengt. */

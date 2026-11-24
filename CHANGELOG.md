@@ -1,3 +1,12 @@
+## 0.8.8
+
+**First attempt at the root cause: offer the launcher as a home app.** Until now the launcher was an
+ordinary app with a service that pulled it forward a second after LG's home screen appeared. That
+fight is why the home screen was still visible. `appinfo.json` now declares `defaultWindowType:
+"home"`, `visible: false`, `lockable: false` and `supportQuickStart: true` - the same shape LG's own
+`com.webos.app.home` uses. Whether webOS accepts a second home window from a developer app is a device
+question, not a documentation question; it is measured, not assumed.
+
 ## 0.8.7
 
 **LG Home stays when it is wanted.** Since the launcher replaces LG's home screen at once, an explicit
