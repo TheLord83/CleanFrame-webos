@@ -19,10 +19,13 @@ for pid in $(cat /tmp/cfsvc.pid 2>/dev/null); do kill -9 "$pid" 2>/dev/null; don
 
 export NODE_PATH=/usr/lib/node_modules:/usr/lib/nodejs
 cd "$SVCDIR" || exit 0
+# Zusatzargumente werden durchgereicht: tools/install-ipk.py startet den Dienst
+# nach einem Update mit --reload, damit im Fernseher nicht weiter das alte
+# JavaScript laeuft (ein Paket laedt eine laufende App nicht neu).
 if [ -x "$WRAP" ]; then
-	nohup "$WRAP" -n "$SVCDIR" --boot --watch >/tmp/cfsvc.out 2>&1 &
+	nohup "$WRAP" -n "$SVCDIR" --boot --watch "$@" >/tmp/cfsvc.out 2>&1 &
 else
-	nohup /usr/bin/run-js-service -n "$SVCDIR" --boot --watch >/tmp/cfsvc.out 2>&1 &
+	nohup /usr/bin/run-js-service -n "$SVCDIR" --boot --watch "$@" >/tmp/cfsvc.out 2>&1 &
 fi
 echo $! > /tmp/cfsvc.pid
 exit 0

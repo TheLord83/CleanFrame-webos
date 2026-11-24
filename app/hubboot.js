@@ -145,5 +145,33 @@
     _probe: probe
   };
 
+  /* Nach einem Paket-Update laeuft im Fernseher weiter das alte JavaScript:
+   * das Paket ersetzt die Dateien, laedt aber keine laufende App neu. Der Hub
+   * weiss, welche Fassung installiert ist. Beim Laden merken wir uns die, und
+   * wenn sie sich spaeter aendert, laden wir uns selbst neu - einmal, damit
+   * eine Schleife ausgeschlossen ist (am Geraet gemessen: ein Update kam sonst
+   * nie auf den Schirm). */
+  function watchAppVersion() {
+    var seen = '';
+    function tick() {
+      var xhr = new XMLHttpRequest();
+      try { xhr.open('GET', HEALTH.replace('/api/health', '/api/tv/appversion'), true); }
+      catch (e) { return; }
+      xhr.timeout = 4000;
+      xhr.onload = function () {
+        var res = null;
+        try { res = JSON.parse(xhr.responseText); } catch (e) { return; }
+        if (!res || !res.ok || !res.version) return;
+        if (!seen) { seen = res.version; return; }
+        if (res.version !== seen) { try { location.reload(); } catch (e) {} }
+      };
+      xhr.onerror = xhr.ontimeout = function () {};
+      xhr.send();
+    }
+    tick();
+    setInterval(tick, 20000);
+  }
+
   boot();
+  try { watchAppVersion(); } catch (e) {}
 })();

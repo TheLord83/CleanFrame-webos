@@ -342,8 +342,18 @@ function press(keys, opts, cb) {
  */
 function launch(appId, opts, cb) {
   opts = opts || {};
-  var host = opts.host || '127.0.0.1';
   if (!appId) return cb('keine App-ID');
+  request('ssap://system.launcher/launch', { id: appId }, opts, cb);
+}
+
+/* Eine beliebige Anfrage ueber den gekoppelten SSAP-Kanal. Der Start der
+ * eigenen App und ihr Schliessen (fuer ein Neuladen nach einem Update) laufen
+ * hierueber, weil SSAP auch dann greift, wenn die luna-Schnittstelle den Start
+ * verschluckt - am Geraet gemessen. */
+function request(uri, payload, opts, cb) {
+  opts = opts || {};
+  if (typeof opts === 'function') { cb = opts; opts = {}; }
+  var host = opts.host || '127.0.0.1';
   var known = readKey();
   if (!known || !known.key) return cb('noch nicht gekoppelt');
   Ws.connect(host, SSAP_PORT, function (e2, ws) {
@@ -362,15 +372,14 @@ function launch(appId, opts, cb) {
         try { msg = JSON.parse(text); } catch (e4) { msg = null; }
         if (msg && msg.type === 'error') { ws.close(); return cb(msg.error || 'Fehler'); }
         if (!msg || msg.type !== 'registered') return warteAufRegistered();
-        ws.send({ type: 'request', id: 'lch',
-          uri: 'ssap://system.launcher/launch', payload: { id: appId } });
+        ws.send({ type: 'request', id: 'lch', uri: uri, payload: payload || {} });
         ws.recv(function (e5, text2) {
           ws.close();
           if (e5) return cb(e5);
           var antwort = null;
           try { antwort = JSON.parse(text2); } catch (e6) { return cb('unlesbare Antwort'); }
           if (antwort && antwort.type === 'error') return cb(antwort.error || 'Fernseher hat abgelehnt');
-          cb(null, { app: appId, payload: (antwort && antwort.payload) || {} });
+          cb(null, { uri: uri, payload: (antwort && antwort.payload) || {} });
         });
       }, 8000);
     }
@@ -427,4 +436,4 @@ function status() {
   return { paired: !!(k && k.key), tv: (k && k.tv) || '', saved: (k && k.saved) || '' };
 }
 
-module.exports = { register: register, press: press, launch: launch, status: status, BUTTONS: BUTTONS };
+module.exports = { register: register, press: press, launch: launch, request: request, status: status, BUTTONS: BUTTONS };

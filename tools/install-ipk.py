@@ -185,7 +185,7 @@ def main():
     args = parser.parse_args()
     tvguard.require_release(args.tv, "tools/install-ipk.py", sys.argv[1:], args.release_ok)
     app = install(args.tv, args.ipk, args.app_id, args.quiet)
-    restart_service(args.tv, args.quiet)
+    restart_service(args.tv)
     if not args.quiet:
         print(json.dumps({"installed": app}, ensure_ascii=False))
     return 0

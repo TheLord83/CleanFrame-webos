@@ -1,3 +1,38 @@
+## 0.8.4
+
+**No grace period any more.** 0.8.0 held the home screen for 15 seconds so a person pressing HOME
+could look at it. That was my idea, not the requirement: the launcher is meant to replace LG's home
+screen, so every appearance is replaced at once - measured at under a second via the hub's SSAP path.
+
+## 0.8.3
+
+**The launcher now replaces itself after an update.** A package replaces the files but does not reload
+a running app, and closing it from outside is not permitted on this television - `close` answers
+`no app matched by pid` for both the app id and the process id. So the hub tells which version is
+installed (`GET /api/tv/appversion`), the launcher remembers the one it loaded with and reloads itself
+when they differ. From this version on, an update reaches the screen without anyone rebooting.
+
+## 0.8.2
+
+**An update now really replaces the running code.** Installing a package does not reload a running
+app, so the launcher kept executing the old JavaScript - which is why the HDMI fix from 0.8.0 never
+reached the screen. Closing over SSAP does not work on this television (`closed: false`), so the
+service does it over luna, where it has the rights: `--reload` closes the app and starts it again,
+and `tools/install-ipk.py` passes that flag after every install.
+
+## 0.8.1
+
+**Coming back does not go through luna any more.** Measured with a real HOME press: the key arrives, the
+launch answers `true`, and LG swallows it while its home screen is still starting - five attempts in a
+row, all accepted, none effective. The same launch over the hub's paired SSAP channel works in exactly
+that state (`{"ok":true,"via":"ssap"}`, checked on a screenshot). So the service now asks the hub
+(`POST /api/tv/front`), keeps luna as fallback, and retries for up to 25 seconds instead of six tries.
+
+**An update now really replaces the running code.** Installing a package does not reload a running
+app, so the launcher kept executing the old JavaScript - which is why the HDMI fix from 0.8.0 did not
+reach the screen. `POST /api/tv/reload` closes the app over SSAP and starts it again;
+`tools/install-ipk.py` calls it after every install.
+
 ## 0.8.0
 
 **The inputs page can switch HDMI again.** Inside the launcher webOS refuses the input services

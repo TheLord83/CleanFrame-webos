@@ -20,6 +20,7 @@ var HOME_CODE = parseInt(process.env.CF_HOME_CODE || '773', 10); // measured on 
 var LOG = process.env.CF_LOG || '/tmp/cfsvc.log';
 var EVENT_SIZE = 16; // struct input_event, 32 bit
 var TICK_MS = 16;
+var http = require('http');
 var DEBUG_KEYS = process.env.CF_DEBUG_KEYS === '1';
 var HOME_APP = 'com.webos.app.home';
 var RETRY_MS = 2000;
@@ -37,6 +38,32 @@ log('service up pid=' + process.pid + ' args=' + process.argv.slice(2).join(' ')
 
 // ------------------------------------------------------------------ launching
 var launching = false;
+/* Zuerst der Hub: er startet die App ueber den gekoppelten SSAP-Kanal, und
+ * dieser Start kommt auch durch, wenn LGs Startseite gerade hochfaehrt -
+ * ueber luna wird er in dieser Phase verschluckt (am Geraet gemessen).
+ * Antwortet der Hub nicht, wird der luna-Weg genommen. */
+function comeBack() {
+	var body = '{}';
+	var req = http.request({
+		host: '127.0.0.1', port: 8484, path: '/api/tv/front', method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'Content-Length': body.length },
+		timeout: 6000
+	}, function (res) {
+		var d = '';
+		res.on('data', function (c) { d += c; });
+		res.on('end', function () {
+			var ok = false;
+			try { ok = !!(JSON.parse(d) || {}).ok; } catch (e) { ok = false; }
+			log('hub front -> ' + (ok ? 'ok' : 'failed ' + d.slice(0, 100)));
+			if (!ok) launch('home-screen');
+		});
+	});
+	req.on('error', function (e) { log('hub front unreachable (' + e.code + '), using luna'); launch('home-screen'); });
+	req.on('timeout', function () { req.abort(); log('hub front timeout, using luna'); launch('home-screen'); });
+	req.write(body);
+	req.end();
+}
+
 function launch(reason, done, id) {
 	if (launching) { if (done) done({ skipped: true }); return; }
 	launching = true;
@@ -106,12 +133,12 @@ function watchRemote() {
 // television and then goes quiet, so this asks once a second instead. One luna
 // call per second is nothing, and it cannot silently stop working.
 var FOREGROUND_MS = 1000;
-var HOME_TRIES = 6;    // so often per home episode, then it is someone else's turn
-var HOME_GRACE_MS = 15000; // wer selbst Home drueckt, will die Startseite sehen
+var HOME_RETRY_MS = 1200;  // Abstand der Nachsetzer
+var HOME_WINDOW_MS = 25000; // so lange nachgesetzt, dann ist der Mensch dran
 var lastForeground = '';
 var homeTries = 0;
 var homeSince = 0;
-var booting = false;
+var lastTry = 0;
 function watchForeground() {
 	setInterval(function () {
 		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
@@ -122,24 +149,20 @@ function watchForeground() {
 				if (p.appId === HOME_APP) homeSince = Date.now();
 				if (DEBUG_KEYS) log('foreground: ' + p.appId);
 			}
-			if (p.appId !== HOME_APP) { homeTries = 0; booting = false; return; }
-			// Beim Einschalten sofort zurueck: da war niemand, der die Startseite
-			// sehen wollte. Spaeter gilt eine Schonfrist - wer waehrend der ersten
-			// Sekunden Home drueckt, will sie wirklich sehen und kommt mit einem
-			// zweiten Druck zurueck.
-			if (!booting && homeSince && Date.now() - homeSince < HOME_GRACE_MS) {
-				if (DEBUG_KEYS) log('home screen stays (grace), not coming back');
+			if (p.appId !== HOME_APP) { homeTries = 0; lastTry = 0; return; }
+			// Zeitfenster statt fester Anzahl: LG nimmt waehrend des Aufbaus
+			// seiner Startseite mehrere Starts nicht an, deshalb wird bis zu
+			// 25 Sekunden nachgesetzt - danach ist der Mensch dran.
+			if (homeTries && Date.now() - lastTry < HOME_RETRY_MS) return;
+			if (homeTries && Date.now() - homeSince > HOME_WINDOW_MS) {
+				if (homeTries === 1) log('giving up on the home screen after 25 s');
+				if (homeTries === 1) homeTries = 2;
 				return;
 			}
-			// The first launch right after the home screen appears is accepted
-			// (returnValue true) and then swallowed while LG's home is still
-			// starting up - and because the foreground does not change, an
-			// "only launch once" rule would never try again. So: try again,
-			// a bounded number of times per appearance.
-			if (homeTries >= HOME_TRIES) return;
 			homeTries++;
-			log('home screen in front -> coming back (try ' + homeTries + '/' + HOME_TRIES + ')');
-			launch('home-screen');
+			lastTry = Date.now();
+			log('home screen in front -> coming back (try ' + homeTries + ')');
+			comeBack();
 		});
 	}, FOREGROUND_MS);
 }
@@ -159,7 +182,7 @@ if (process.env.CF_TEST_HOME === '1') {
 	setTimeout(function () { log('test: opening the home screen myself'); launch('test-home', null, HOME_APP); }, 5000);
 }
 
-if (process.argv.indexOf('--boot') !== -1) { booting = true; launchAtBoot(1); }
+if (process.argv.indexOf('--boot') !== -1) launchAtBoot(1);
 if (process.argv.indexOf('--watch') !== -1) {
 	watchRemote();
 	watchForeground();

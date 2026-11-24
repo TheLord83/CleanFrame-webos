@@ -56,7 +56,11 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.0';
+var VERSION = '0.8.4';
+/* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
+ * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
+ * laeuft oder noch der alte im Speicher haengt. */
+var appVersionHits = 0;
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -302,7 +306,9 @@ function handle(req, res) {
       uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
       configPath: path.basename(CONFIG_PATH),
       glasshouse: TV_BASE,
-      tokenRequired: !!token && !fromTV(req)
+      tokenRequired: !!token && !fromTV(req),
+      appVersion: appVersionSeen(),
+      appVersionHits: appVersionHits
     });
   }
 
@@ -1008,6 +1014,13 @@ function handle(req, res) {
   /* Was der Hub starten darf. Die HDMI-Buchsen sind auf webOS eigene native
    * Apps (com.webos.app.hdmi1..4), keine Tastenkombination - deshalb gehoeren
    * sie hier hinein, sonst kann die Eingangsseite sie nicht umschalten. */
+  /* Die Fassung, die im Paket liegt - auch fuer /api/health. */
+  function appVersionSeen() {
+    try {
+      var j = JSON.parse(fs.readFileSync('/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/appinfo.json', 'utf8'));
+      return String(j.version || '');
+    } catch (e) { return ''; }
+  }
   var LAUNCHABLE = ['com.webos.app.home', 'com.blackpearl.cleanframe'];
   for (var hdmi = 1; hdmi <= 4; hdmi++) LAUNCHABLE.push('com.webos.app.hdmi' + hdmi);
 
@@ -1034,6 +1047,27 @@ function handle(req, res) {
     });
   }
 
+  /* Welche Fassung der App liegt im Fernseher? Das Paket ersetzt die Dateien,
+   * laedt aber keine laufende App neu - im Speicher laeuft weiter das alte
+   * JavaScript. Die App vergleicht diesen Wert mit dem, den sie beim Laden
+   * gesehen hat, und laedt sich bei Unterschied selbst neu. */
+  if (req.method === 'GET' && p === '/api/tv/appversion') {
+    appVersionHits++;
+    var info = '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/appinfo.json';
+    try {
+      var j = JSON.parse(fs.readFileSync(info, 'utf8'));
+      return json(res, 200, { ok: true, version: String(j.version || '') });
+    } catch (e) {
+      return json(res, 200, { ok: false, error: String(e.code || e.message || e) });
+    }
+  }
+  /* Die eigene App nach vorne holen - der Weg, den der Startdienst nimmt.
+   * SSAP statt luna: der Start ueber luna wird verschluckt, solange LGs
+   * Startseite noch hochfaehrt (am Geraet gemessen), ueber den gekoppelten
+   * SSAP-Kanal kommt die App auch dann nach vorne. */
+  if (req.method === 'POST' && p === '/api/tv/front') {
+    return launchApp('com.blackpearl.cleanframe', false, res);
+  }
   /* Home: die Home-Oberflaeche des Fernsehers. Kein Tastencode, sondern ein
    * App-Start - der Home-Knopf der LG-Fernbedienung macht dasselbe. Deshalb laeuft
    * das ueber system.launcher/launch und nicht ueber den Pointer-Socket. */
