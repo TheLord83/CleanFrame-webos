@@ -1,3 +1,10 @@
+## 0.8.7
+
+**LG Home stays when it is wanted.** Since the launcher replaces LG's home screen at once, an explicit
+"open LG Home" (Settings -> LG Home) had no chance: the service took the screen back in the same
+second. The app now sets a 120 second hold at the hub (`POST /api/tv/hold`) before it opens the home
+screen, and the service asks before it comes back. Without the hold everything stays as it was.
+
 ## 0.8.6
 
 **HDMI 1 was never a permissions problem - the inputs page refused to switch.** `"Laeuft gerade"` was

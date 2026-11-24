@@ -42,6 +42,39 @@ var launching = false;
  * dieser Start kommt auch durch, wenn LGs Startseite gerade hochfaehrt -
  * ueber luna wird er in dieser Phase verschluckt (am Geraet gemessen).
  * Antwortet der Hub nicht, wird der luna-Weg genommen. */
+/* Zurueckholen, aber nicht oefter als alle HOME_RETRY_MS und nicht nach
+ * HOME_WINDOW_MS. Die Haltezeit wird vorher geprueft (siehe watchForeground). */
+function tryComeBack() {
+	if (homeTries && Date.now() - lastTry < HOME_RETRY_MS) return;
+	if (homeTries && Date.now() - homeSince > HOME_WINDOW_MS) {
+		if (homeTries === 1) log('giving up on the home screen after 25 s');
+		if (homeTries === 1) homeTries = 2;
+		return;
+	}
+	homeTries++;
+	lastTry = Date.now();
+	log('home screen in front -> coming back (try ' + homeTries + ')');
+	comeBack();
+}
+
+/* Fragt den Hub, ob gerade Ruhe gewuenscht ist (LG Home ausdruecklich geoeffnet).
+ * Antwortet der Hub nicht, wird zurueckgeholt - der Launcher ist der Normalfall. */
+function hubHold(done) {
+	var req = http.get({ host: '127.0.0.1', port: 8484, path: '/api/tv/hold', timeout: 3000 },
+		function (res) {
+			var d = '';
+			res.on('data', function (c) { d += c; });
+			res.on('end', function () {
+				var hold = false;
+				try { hold = !!(JSON.parse(d) || {}).hold; } catch (e) { hold = false; }
+				if (DEBUG_KEYS) log('hub hold -> ' + (d || '(leer)').slice(0, 80));
+				done(hold);
+			});
+		});
+	req.on('error', function (e) { log('hub hold unreachable (' + (e && e.code) + ')'); done(false); });
+	req.on('timeout', function () { log('hub hold timeout'); req.abort(); done(false); });
+}
+
 function comeBack() {
 	var body = '{}';
 	var req = http.request({
@@ -139,6 +172,10 @@ var lastForeground = '';
 var homeTries = 0;
 var homeSince = 0;
 var lastTry = 0;
+var holdCheckedAt = 0;
+var HOLD_MS = 2500;        // so oft wird die Haltezeit im Hub gefragt
+var holdSeenAt = 0;        // wann der Hub zuletzt "Ruhe" gesagt hat
+var HOLD_RECHECK_MS = 5000; // solange gilt ein "Ruhe" ohne neue Frage
 function watchForeground() {
 	setInterval(function () {
 		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
@@ -149,20 +186,25 @@ function watchForeground() {
 				if (p.appId === HOME_APP) homeSince = Date.now();
 				if (DEBUG_KEYS) log('foreground: ' + p.appId);
 			}
-			if (p.appId !== HOME_APP) { homeTries = 0; lastTry = 0; return; }
+			if (p.appId !== HOME_APP) { homeTries = 0; lastTry = 0; holdCheckedAt = 0; return; }
 			// Zeitfenster statt fester Anzahl: LG nimmt waehrend des Aufbaus
 			// seiner Startseite mehrere Starts nicht an, deshalb wird bis zu
 			// 25 Sekunden nachgesetzt - danach ist der Mensch dran.
-			if (homeTries && Date.now() - lastTry < HOME_RETRY_MS) return;
-			if (homeTries && Date.now() - homeSince > HOME_WINDOW_MS) {
-				if (homeTries === 1) log('giving up on the home screen after 25 s');
-				if (homeTries === 1) homeTries = 2;
-				return;
+			// Wer LG Home ausdruecklich geoeffnet hat, will es sehen: der Hub
+			// fuehrt dafuer eine Haltezeit (POST /api/tv/hold). Sie wird
+			// waehrend der ganzen Zeit beachtet, nicht nur beim ersten Poll.
+			// Ein "Ruhe" gilt weiter, bis es ausdruecklich nachgefragt wurde:
+			// sonst holt der naechste Poll die Startseite trotzdem zurueck
+			// (gemessen: hold kam an, eine Sekunde spaeter war sie weg).
+			if (Date.now() - holdSeenAt < HOLD_RECHECK_MS) return;
+			if (!holdCheckedAt || Date.now() - holdCheckedAt > HOLD_MS) {
+				holdCheckedAt = Date.now();
+				return hubHold(function (hold) {
+					if (hold) { holdSeenAt = Date.now(); homeTries = 0; lastTry = 0; return; }
+					tryComeBack();
+				});
 			}
-			homeTries++;
-			lastTry = Date.now();
-			log('home screen in front -> coming back (try ' + homeTries + ')');
-			comeBack();
+			tryComeBack();
 		});
 	}, FOREGROUND_MS);
 }

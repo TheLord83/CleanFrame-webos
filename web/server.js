@@ -56,13 +56,14 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.6';
+var VERSION = '0.8.7';
 /* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
  * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
  * laeuft oder noch der alte im Speicher haengt. */
 var appVersionHits = 0;
 var reportedCode = '';   // welche Fassung die App im Speicher geladen hat
 var reportedAt = '';
+var holdUntil = 0;   // bis wann der Startdienst die Startseite in Ruhe laesst
 /* Die letzten Aufrufe der Fernseher-Endpunkte, mit Herkunft und Ergebnis.
  * Steht in /api/health. Damit ist unterscheidbar, ob die App den Hub gar nicht
  * fragt (alter Code im Speicher) oder ob der Hub ablehnt (Fehlertext). */
@@ -1087,6 +1088,20 @@ function handle(req, res) {
     } catch (e) {
       return json(res, 200, { ok: false, error: String(e.code || e.message || e) });
     }
+  }
+  /* Kurzzeitig Ruhe fuer den Startdienst: wer LG Home ausdruecklich oeffnet,
+   * will es sehen. Ohne das wuerde der Dienst die Startseite in derselben
+   * Sekunde wieder ersetzen - der Eintrag waere unbedienbar. */
+  if (req.method === 'POST' && p === '/api/tv/hold') {
+    return readBody(req, function (body) {
+      var sec = Math.max(0, Math.min(3600, parseInt((body && body.seconds), 10) || 0));
+      holdUntil = sec ? Date.now() + sec * 1000 : 0;
+      json(res, 200, { ok: true, holdSeconds: sec, until: holdUntil ? new Date(holdUntil).toISOString() : '' });
+    });
+  }
+  if (req.method === 'GET' && p === '/api/tv/hold') {
+    return json(res, 200, { ok: true, hold: Date.now() < holdUntil,
+      secondsLeft: holdUntil ? Math.max(0, Math.round((holdUntil - Date.now()) / 1000)) : 0 });
   }
   /* Die eigene App nach vorne holen - der Weg, den der Startdienst nimmt.
    * SSAP statt luna: der Start ueber luna wird verschluckt, solange LGs
