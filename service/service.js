@@ -107,8 +107,11 @@ function watchRemote() {
 // call per second is nothing, and it cannot silently stop working.
 var FOREGROUND_MS = 1000;
 var HOME_TRIES = 6;    // so often per home episode, then it is someone else's turn
+var HOME_GRACE_MS = 15000; // wer selbst Home drueckt, will die Startseite sehen
 var lastForeground = '';
 var homeTries = 0;
+var homeSince = 0;
+var booting = false;
 function watchForeground() {
 	setInterval(function () {
 		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
@@ -116,9 +119,18 @@ function watchForeground() {
 			if (!p.appId) return;
 			if (p.appId !== lastForeground) {
 				lastForeground = p.appId;
+				if (p.appId === HOME_APP) homeSince = Date.now();
 				if (DEBUG_KEYS) log('foreground: ' + p.appId);
 			}
-			if (p.appId !== HOME_APP) { homeTries = 0; return; }
+			if (p.appId !== HOME_APP) { homeTries = 0; booting = false; return; }
+			// Beim Einschalten sofort zurueck: da war niemand, der die Startseite
+			// sehen wollte. Spaeter gilt eine Schonfrist - wer waehrend der ersten
+			// Sekunden Home drueckt, will sie wirklich sehen und kommt mit einem
+			// zweiten Druck zurueck.
+			if (!booting && homeSince && Date.now() - homeSince < HOME_GRACE_MS) {
+				if (DEBUG_KEYS) log('home screen stays (grace), not coming back');
+				return;
+			}
 			// The first launch right after the home screen appears is accepted
 			// (returnValue true) and then swallowed while LG's home is still
 			// starting up - and because the foreground does not change, an
@@ -147,7 +159,7 @@ if (process.env.CF_TEST_HOME === '1') {
 	setTimeout(function () { log('test: opening the home screen myself'); launch('test-home', null, HOME_APP); }, 5000);
 }
 
-if (process.argv.indexOf('--boot') !== -1) launchAtBoot(1);
+if (process.argv.indexOf('--boot') !== -1) { booting = true; launchAtBoot(1); }
 if (process.argv.indexOf('--watch') !== -1) {
 	watchRemote();
 	watchForeground();

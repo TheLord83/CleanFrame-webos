@@ -212,6 +212,10 @@
    * Everything answers with (err, value) and never throws. A device that reports
    * nothing gets an honest error, not an empty page that looks like "no inputs". */
 
+  /* Adresse des eigenen Konfig-Servers. Steht hier oben, weil auch das Schalten
+   * der Eingaenge darueber laeuft (switchViaHub). */
+  var CF_API = 'http://127.0.0.1:8484';
+
   var HDMI = /^HDMI[_-]?(\d+)$/i;
 
   function hdmiNumberOf(id) {
@@ -337,6 +341,27 @@
     return String(res.errorText || res.errorCode || res.error || 'unbekannt');
   }
 
+  /* Der gemessene Weg auf diesem Fernseher: die HDMI-Buchse ist eine eigene
+   * native App (com.webos.app.hdmi1..4). Der Hub startet sie ueber seine
+   * SSAP-Verbindung; aus der App heraus fehlen dafuer die Rechte
+   * ("Not permitted to send to com.webos.service.eim"), im Hub sind sie da.
+   * Am Geraet geprueft: schaltet wirklich um, nicht nur "gestartet". */
+  function switchViaHub(input, done) {
+    var xhr = new XMLHttpRequest();
+    try { xhr.open('POST', CF_API + '/api/tv/launch', true); }
+    catch (e) { return done({ message: 'Der Hub ist nicht erreichbar.' }, true); }
+    xhr.timeout = 6000;
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onload = function () {
+      var res = null;
+      try { res = JSON.parse(xhr.responseText); } catch (e) { res = null; }
+      if (res && res.ok) return done(null);
+      done({ message: 'Der Hub konnte den Eingang nicht schalten.', detail: String((res && res.error) || xhr.status) }, true);
+    };
+    xhr.onerror = xhr.ontimeout = function () { done({ message: 'Der Hub antwortet nicht.' }, true); };
+    xhr.send(JSON.stringify({ appId: 'com.webos.app.hdmi' + Number(input.number) }));
+  }
+
   /* Each step hands over to the next one only when it could not do the job
    * (`retry`), so the last error is the one the person sees. */
   function setSource(inputOrNumber, done) {
@@ -345,19 +370,22 @@
       input = { id: 'HDMI_' + inputOrNumber, number: inputOrNumber };
     }
     if (!input || !input.id) { done({ message: 'Diesen Eingang gibt es nicht.' }); return; }
-    switchViaAdapter(input, function (err, retry) {
-      if (!retry && !err) return done(null);
-      switchViaEim(input, function (err2, retry2) {
-        if (!retry2 && !err2) return done(null);
-        switchViaExtinputs(input, function (err3) { done(err3 || err2 || err); });
+    switchViaHub(input, function (err0, retry0) {
+      if (!retry0 && !err0) return done(null);
+      switchViaAdapter(input, function (err, retry) {
+        if (!retry && !err) return done(null);
+        switchViaEim(input, function (err2, retry2) {
+          if (!retry2 && !err2) return done(null);
+          switchViaExtinputs(input, function (err3) { done(err3 || err2 || err); });
+        });
       });
     });
   }
 
   /* ---------- Configuration from the CleanFrame web server (port 8484) ----------
    * The server is the shared source for TV and web interface.
-   * If it is not installed, everything stays as before (localStorage). */
-  var CF_API = 'http://127.0.0.1:8484';
+   * If it is not installed, everything stays as before (localStorage).
+   * CF_API selbst steht weiter oben, bei den Eingaengen. */
 
   function apiCall(method, path, body, done, contentType) {
     var xhr = new XMLHttpRequest(), finished = false;

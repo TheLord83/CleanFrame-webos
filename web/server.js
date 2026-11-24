@@ -56,7 +56,7 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.7.2';
+var VERSION = '0.8.0';
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -1005,7 +1005,11 @@ function handle(req, res) {
 
   /* Apps, die der Hub starten darf. Bewusst eine Liste und kein freier Parameter:
    * der Hub lauscht im LAN ohne Anmeldung. */
+  /* Was der Hub starten darf. Die HDMI-Buchsen sind auf webOS eigene native
+   * Apps (com.webos.app.hdmi1..4), keine Tastenkombination - deshalb gehoeren
+   * sie hier hinein, sonst kann die Eingangsseite sie nicht umschalten. */
   var LAUNCHABLE = ['com.webos.app.home', 'com.blackpearl.cleanframe'];
+  for (var hdmi = 1; hdmi <= 4; hdmi++) LAUNCHABLE.push('com.webos.app.hdmi' + hdmi);
 
   /* Startet eine App ueber den gekoppelten SSAP-Kanal. Home hat als Rueckfall die
    * HOME-Taste von Home Assistant (die gibt es dort); fuer CleanFrame gibt es keinen

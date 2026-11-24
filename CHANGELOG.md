@@ -1,3 +1,17 @@
+## 0.8.0
+
+**The inputs page can switch HDMI again.** Inside the launcher webOS refuses the input services
+(`Not permitted to send to com.webos.service.eim`, same for apiadapter and utp.extinputs), which is
+why picking HDMI 1 ended in "something is running" and nothing happened. A port is its own native app
+on this television (`com.webos.app.hdmi1..4`), and the hub may start it: the app now asks the hub
+first, the old luna paths stay as fallback. Measured on the device - `{"ok":true,"via":"ssap"}` and
+the screen really switched to HDMI 1.
+
+**The home screen stays out of the way at power-on.** Right after boot nobody wants to see LG's home,
+so the service brings the launcher back immediately. Pressing HOME later is respected for the first
+15 seconds - whoever presses it wants to see it, a second press comes back. Before, every appearance
+of the home screen was treated as an accident.
+
 ## 0.7.2
 
 **The home screen swallowed the first launch.** Looking at the television - not at the return value -
