@@ -1,3 +1,21 @@
+## 0.8.6
+
+**HDMI 1 was never a permissions problem - the inputs page refused to switch.** `"Laeuft gerade"` was
+not a television error but our own label: the app treated the input's `activate` flag as "this is on
+screen" and answered an OK press with "This input is already running". The flag only means "last
+chosen": while the launcher is in front, the television keeps reporting the input underneath as
+active. So the page blocked exactly the case it exists for. It now always switches, and the state line
+says "Zuletzt gewaehlt" instead of claiming the input is running. The hub path added in 0.8.0 (a port
+is its own native app, started over SSAP) carries the switch.
+
+## 0.8.5
+
+**Which build is running is now visible, not guessed.** The hub's System page shows two lines: the
+version in the package and the version the launcher reports from memory (`build.js`, written by the
+packer). If they differ, the page says so. The reload now changes the document address
+(`?v=<version>`) instead of calling `location.reload()`, which did not reliably fetch the new files on
+this television.
+
 ## 0.8.4
 
 **No grace period any more.** 0.8.0 held the home screen for 15 seconds so a person pressing HOME

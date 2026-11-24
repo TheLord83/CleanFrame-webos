@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import tarfile
+import tempfile
 import time
 
 
@@ -137,6 +138,15 @@ def main():
                 continue
             entries.append(("usr/palm/applications/%s/%s" % (appid, rel.replace(os.sep, "/")),
                             os.path.join(root, name)))
+    # build.js: die Fassung, die in der App steht. Der Fernseher laedt eine
+    # laufende App nach einem Paketwechsel nicht neu - mit dieser Datei kann die
+    # App sagen, welchen Stand sie wirklich geladen hat, und der Hub zeigt es.
+    stamp_dir = tempfile.mkdtemp(prefix="cfbuild-")
+    stamp_path = os.path.join(stamp_dir, "build.js")
+    with open(stamp_path, "w") as fh:
+        fh.write("window.CF_BUILD=%s;\n" % json.dumps(version))
+    entries.append(("usr/palm/applications/%s/build.js" % appid, stamp_path))
+
     hub_files = 0
     if hubdir:
         for root, dirs, files in os.walk(hubdir):

@@ -2693,7 +2693,7 @@
    * bekommt ein Bild). Was hier stehen kann, ist alles, was der Fernseher ueber
    * den Eingang sagt - und ein Satz, dass die Vorschau das Geraet selbst zeigt. */
   function inputStateText(x) {
-    if (x.active) return T('Running now');
+    if (x.active) return T('Last chosen');
     if (x.connected) return T('Device connected');
     return T('No device');
   }
@@ -2713,9 +2713,12 @@
       if (k === 'ok') {
         var hit = list[t.f.i];
         if (!hit) return;
-        /* Der laufende Eingang ist schon da - umschalten waere ein Bildwechsel
-         * ohne Anlass (und auf diesem Geraet ein Schwarzbild). */
-        if (hit.active) { t.note = T('This input is already running.'); renderSheet(t, true); return; }
+        /* Immer umschalten. Das Feld "activate" des Fernsehers heisst nicht
+         * "dieser Eingang ist zu sehen", sondern "zuletzt gewaehlt": waehrend
+         * der Launcher vorne ist, meldet der Fernseher den Eingang darunter
+         * weiterhin als aktiv. Darauf zu blocken machte HDMI 1 unbedienbar
+         * ("Laeuft gerade"), obwohl auf dem Schirm der Launcher stand -
+         * am Geraet nachgemessen. */
         switchInput(hit.number);
         return;
       }
@@ -3839,7 +3842,7 @@
         + (pick.connected || pick.active ? ''
           : '<div class="in-side-note">' + esc(T('Nothing is plugged into this socket.')) + '</div>');
       setHTML(el.hint, t.note ? esc(t.note) : '<span class="remote-key">OK</span><span>'
-        + (pick.active ? T('Nothing to do, this input is running.') : T('Switch to this input')) + '</span>');
+        + T('Switch to this input') + '</span>');
     },
     /* The focus in the context menu comes from t.f.i and is set on every render.
      * The markup is cached (sheetKey), so the highlight must not live in the

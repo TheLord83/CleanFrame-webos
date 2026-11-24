@@ -41,6 +41,8 @@
       'Type the name and press OK.': 'Namen eintippen und OK drücken.',
       'What the television reports on its HDMI sockets.': 'Was der Fernseher über seine HDMI-Buchsen meldet.',
       'Running now': 'Läuft gerade',
+      'Last chosen': 'Zuletzt gewählt',
+      'Switch to this input': 'Auf diesen Eingang schalten',
       'Device connected': 'Gerät angeschlossen',
       'No device': 'Kein Gerät',
       'The picture stays with the television - an app cannot show an HDMI input.': 'Das Bild bleibt beim Fernseher – eine App kann keinen HDMI-Eingang anzeigen.',

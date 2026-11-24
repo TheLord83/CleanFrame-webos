@@ -56,11 +56,22 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.4';
+var VERSION = '0.8.6';
 /* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
  * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
  * laeuft oder noch der alte im Speicher haengt. */
 var appVersionHits = 0;
+var reportedCode = '';   // welche Fassung die App im Speicher geladen hat
+var reportedAt = '';
+/* Die letzten Aufrufe der Fernseher-Endpunkte, mit Herkunft und Ergebnis.
+ * Steht in /api/health. Damit ist unterscheidbar, ob die App den Hub gar nicht
+ * fragt (alter Code im Speicher) oder ob der Hub ablehnt (Fehlertext). */
+var tvCalls = [];
+function noteTvCall(path, req, result) {
+  tvCalls.push({ at: new Date().toISOString().slice(11, 19), path: path,
+    origin: String(req.headers.origin || ''), result: String(result || '') });
+  if (tvCalls.length > 20) tvCalls.shift();
+}
 var PORT = parseInt(process.env.CF_PORT || '8484', 10);
 /* Letzter von der App gemeldeter Auswahl-Zustand (nur im Speicher). */
 var uiState = null;
@@ -308,7 +319,8 @@ function handle(req, res) {
       glasshouse: TV_BASE,
       tokenRequired: !!token && !fromTV(req),
       appVersion: appVersionSeen(),
-      appVersionHits: appVersionHits
+      appVersionHits: appVersionHits,
+      recentTvCalls: tvCalls
     });
   }
 
@@ -1051,6 +1063,21 @@ function handle(req, res) {
    * laedt aber keine laufende App neu - im Speicher laeuft weiter das alte
    * JavaScript. Die App vergleicht diesen Wert mit dem, den sie beim Laden
    * gesehen hat, und laedt sich bei Unterschied selbst neu. */
+  /* Die App meldet, welche Fassung sie geladen hat. Damit ist zum ersten Mal
+   * messbar, ob im Speicher der neue Code laeuft - der Unterschied zwischen
+   * "Paket ist neu" und "laeuft auch". */
+  if (req.method === 'POST' && p === '/api/tv/appcode') {
+    return readBody(req, function (body) {
+      reportedCode = String((body && body.code) || '').slice(0, 40);
+      reportedAt = new Date().toISOString();
+      json(res, 200, { ok: true, code: reportedCode });
+    });
+  }
+  if (req.method === 'GET' && p === '/api/tv/appcode') {
+    var inst = appVersionSeen();
+    return json(res, 200, { ok: true, installed: inst, reported: reportedCode,
+      at: reportedAt, same: !!reportedCode && reportedCode === inst });
+  }
   if (req.method === 'GET' && p === '/api/tv/appversion') {
     appVersionHits++;
     var info = '/media/developer/apps/usr/palm/applications/com.blackpearl.cleanframe/appinfo.json';
@@ -1080,6 +1107,7 @@ function handle(req, res) {
   if (req.method === 'POST' && p === '/api/tv/launch') {
     return readBody(req, function (body) {
       var appId = String((body && body.appId) || '');
+      noteTvCall(p, req, appId);
       if (LAUNCHABLE.indexOf(appId) < 0) {
         return json(res, 400, { ok: false, error: 'unbekannte App: ' + appId, allowed: LAUNCHABLE });
       }

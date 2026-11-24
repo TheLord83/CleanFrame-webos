@@ -350,6 +350,8 @@
       <tr><th data-t="sys.dev.codename">Plattform</th><td id="devCodename">…</td></tr>
       <tr><th data-t="sys.dev.hub">Hub</th><td id="devHub">…</td></tr>
       <tr><th data-t="sys.dev.node">node</th><td id="devNode">…</td></tr>
+      <tr><th data-t="sys.dev.appinstalled">App im Paket</th><td id="devAppInstalled">…</td></tr>
+      <tr><th data-t="sys.dev.apprunning">App im Speicher</th><td id="devAppRunning">…</td></tr>
     </table>
     <div class="status" id="devStatus"></div>
 
@@ -1059,6 +1061,14 @@
       put('devCodename', d.codename);
       put('devHub', d.hub);
       put('devNode', d.node);
+      /* Welche Fassung laeuft wirklich? Das Paket kann neuer sein als der
+       * Code im Speicher - genau daran ist die Eingangsseite gescheitert. */
+      api('GET', '/api/tv/appcode').then(function (c) {
+        put('devAppInstalled', c.installed || '?');
+        put('devAppRunning', c.reported
+          ? c.reported + (c.same ? '' : '  (' + t('sys.dev.appold') + ')')
+          : t('sys.dev.appnone'));
+      }).catch(function () {});
       var st = document.getElementById('devStatus');
       if (st) st.textContent = d.ok ? '' : t('err.readFailed', { msg: d.error || '?' });
     }).catch(function (e) {

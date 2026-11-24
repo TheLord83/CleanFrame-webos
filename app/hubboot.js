@@ -162,8 +162,28 @@
         var res = null;
         try { res = JSON.parse(xhr.responseText); } catch (e) { return; }
         if (!res || !res.ok || !res.version) return;
+        /* Die eigene Fassung an den Hub melden: er zeigt sie auf der
+         * System-Seite, und daran ist ablesbar, ob im Speicher der neue Code
+         * laeuft. Ohne build.js bleibt das Feld leer statt zu luegen. */
+        var mine = (typeof window !== 'undefined' && window.CF_BUILD) || '';
+        if (mine) {
+          var post = new XMLHttpRequest();
+          try { post.open('POST', HEALTH.replace('/api/health', '/api/tv/appcode'), true); }
+          catch (e) { post = null; }
+          if (post) {
+            post.setRequestHeader('Content-Type', 'application/json');
+            post.onerror = post.ontimeout = function () {};
+            post.send(JSON.stringify({ code: mine }));
+          }
+        }
         if (!seen) { seen = res.version; return; }
-        if (res.version !== seen) { try { location.reload(); } catch (e) {} }
+        if (res.version !== seen) {
+          /* Voller Dokumentwechsel mit anderer Adresse: location.reload() allein
+           * holt auf diesem Geraet nicht zuverlaessig die neuen Dateien. */
+          seen = res.version;
+          try { location.href = location.pathname + '?v=' + encodeURIComponent(res.version); }
+          catch (e) { try { location.reload(); } catch (e2) {} }
+        }
       };
       xhr.onerror = xhr.ontimeout = function () {};
       xhr.send();
