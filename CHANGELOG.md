@@ -1,3 +1,27 @@
+## 0.6.57
+
+The place search had no way out. Once the field had the focus, webOS kept its on-screen keyboard open,
+every redraw pulled the focus back into the field, and the arrow keys moved a text cursor instead of
+the list — so the candidates were unreachable and the whole screen could only be left by closing the
+page. That is exactly what the operator reported on 24.11.
+
+OK in the field now searches **and hands the focus to the results**: the keyboard closes, the first
+candidate is highlighted, up/down walk the list, up from the first candidate returns to the field (the
+keyboard opens again), and OK on a candidate writes it. `FILLS.placesearch` only focuses the field
+while the field *is* the phase, so a redraw can no longer drag the focus back in. The hint line follows
+the phase: it says "OK sucht, Fertig verlässt die Tastatur" in the field and "OK nimmt den Ort, hoch
+zurück ins Feld" in the list.
+
+The place list is gone. It could only offer places the hub already knew and sent everyone else to the
+browser, which is the wrong place for someone sitting in front of the television; the operator chose
+keyboard only. `openPlace()` goes straight to the search, `V.place`, `FRAMES.place`, `FILLS.place`,
+`placeRows()`, `wxPlaceChoices()` and `weatherPlace()` are removed.
+
+`tools/test-place-search.js` now checks the transitions the report was about (23 checks): after the
+search the focus is *not* in the field, up from the first candidate returns to it, down leaves it
+again, OK takes the highlighted candidate, and back leaves the sheet. `tools/test-place-sheet.js`
+follows the new entry (14 checks) and keeps the guard that no "undefined" ever appears in the sheet.
+
 ## 0.6.56
 
 Inputs are not a setting. Switching to HDMI 2 changes nothing permanent, it is an action — and it

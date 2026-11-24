@@ -1,18 +1,20 @@
-/* Ort-Seite: Liste, Auswahl, und kein "undefined" im Blatt.
+/* Ort am Fernseher: die Suche ist der Ort. Kein Listenblatt mehr.
  *
- *   node tools/test-place-sheet.js --port 9333
+ *   node tools/test-place-sheet.js --port 9333 --hub http://127.0.0.1:8484
  *
- * Drei Faelle, alle am selben DOM gemessen:
+ * Warum die Liste weg ist: sie konnte nur Orte anbieten, die der Hub schon
+ * kannte - einen neuen Namen konnte sie nicht erzeugen, und am Fernseher tippt
+ * niemand Buchstaben in einem Raster. Der Betreiber hat am 24.11. entschieden:
+ * nur Tastatur. Damit entfaellt das Blatt mit der Suchzeile, und der Test prueft
+ * jetzt den Weg, der bleibt:
  *
- *   1. Mit bekanntem Ort steht er als Zeile im Blatt, mit Haken, wenn er gilt.
- *   2. OK auf einen anderen Ort uebernimmt ihn (danach steht er in der Konfiguration
- *      und die Wetterseite traegt den neuen Namen).
- *   3. Ohne jeden Ort steht "No place set yet." da - und nirgends das Wort
- *      "undefined". Genau das zeigte der Fernseher: ein leeres Blatt mit
- *      "undefined" oben links, also ein Text aus einer fehlenden Quelle.
- *
- * Der Test setzt dafuer die Konfiguration am lokalen Hub und stellt sie am Ende
- * wieder her. Er laeuft gegen den Pruefstand (kein Geraet).
+ *   1. Der Ort oeffnet die Suche direkt, mit Feld und Fokus (dann blendet webOS
+ *      die Tastatur ein).
+ *   2. Der mitgegebene Hinweis steht auf der Seite - bei fehlendem Ort ist das
+ *      der Satz, der zum Eintippen auffordert.
+ *   3. Eine zu kurze Eingabe wird benannt, nicht verschluckt.
+ *   4. Zurueck schliesst die Suche.
+ *   5. Nirgends im Blatt steht "undefined" (das war der Fehler am Geraet).
  */
 var http = require('http'), net = require('net'), crypto = require('crypto'), path = require('path');
 var PAGE = 'file://' + path.resolve(__dirname, '..', 'app', 'index.html');
@@ -30,8 +32,6 @@ function check(ok, name, note) {
   if (!ok) process.exitCode = 1;
 }
 
-/* Die Konfiguration traegt eine Revision; wer sie mitschickt, behauptet einen
- * alten Stand und bekommt 409. Der Test will schreiben, nicht behaupten. */
 function postConfig(cfg) {
   var copy = JSON.parse(JSON.stringify(cfg));
   delete copy.rev;
@@ -109,97 +109,87 @@ function js(expr, cb) {
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 function jsP(e) { return new Promise(function (res) { js(e, res); }); }
 
-var SHEET_DUMP = 'JSON.stringify((function(){var s=document.querySelector("#sheetView");'
+var DUMP = 'JSON.stringify((function(){var s=document.querySelector("#sheetView");'
   + 'return {text: s ? s.innerText.replace(/\\s+/g," ").trim() : null, hidden: s ? s.hidden : null,'
   + ' title: s ? (s.querySelector("h2")||{}).textContent || null : null,'
-  + ' rows: [].slice.call(s ? s.querySelectorAll(".settings-group-name") : []).map(function(e){return e.textContent;}),'
+  + ' view: CleanFrameDebug.state().view,'
+  + ' feld: !!document.getElementById("placeSearchInput"),'
+  + ' fokus: (document.activeElement||{}).id || "",'
   + ' undefined: s ? s.innerText.indexOf("undefined") >= 0 : false};})())';
+
+async function boot() {
+  send('Page.navigate', { url: PAGE }, function () {});
+  for (var n = 0; n < 150; n++) {
+    if (await jsP('typeof CleanFrameDebug !== "undefined" && CleanFrameDebug.ready()') === true) return;
+    await sleep(100);
+  }
+  fail('Seite wurde nicht fertig geladen');
+}
 
 async function main() {
   await new Promise(function (r) { connect(r); });
-  send('Page.navigate', { url: PAGE }, function () {});
-  for (var n = 0; n < 120; n++) {
-    if (await jsP('typeof CleanFrameDebug !== "undefined" && CleanFrameDebug.ready()') === true) break;
-    await sleep(100);
-  }
+  await jsP('localStorage.setItem("cleanframe.lang","de"); true');
+  await boot();
 
   var backup = await hub('GET', '/api/config');
   var cfg = backup.config || backup;
   var hadPlace = ((cfg.integrations || {}).weather || {}).place || '';
 
-  /* --- Fall 1: ein bekannter Ort --- */
+  /* --- Fall 1: mit gesetztem Ort oeffnet der Ort die Suche, nicht eine Liste --- */
   var withPlace = JSON.parse(JSON.stringify(cfg));
   withPlace.integrations = withPlace.integrations || {};
   withPlace.integrations.weather = withPlace.integrations.weather || {};
-  withPlace.integrations.weather.known = [{ place: 'Kiel, DE', lat: 54.3213, lon: 10.1349 }, { place: 'Berlin, DE', lat: 52.52, lon: 13.405 }];
   withPlace.integrations.weather.place = 'Kiel, DE';
+  withPlace.integrations.weather.lat = 54.3213;
+  withPlace.integrations.weather.lon = 10.1349;
   await postConfig(withPlace);
-  await jsP('CleanFrameDebug.reload ? CleanFrameDebug.reload() : 0');
-  send('Page.navigate', { url: PAGE }, function () {});
-  for (n = 0; n < 120; n++) {
-    if (await jsP('typeof CleanFrameDebug !== "undefined" && CleanFrameDebug.ready()') === true) break;
-    await sleep(100);
-  }
+  await boot();
+
   await jsP('CleanFrameDebug.openPlace("Choose a place for the weather line.")');
   await sleep(500);
-  var d1 = JSON.parse(await jsP(SHEET_DUMP));
-  check(d1 && d1.title === 'Ort', 'Blatt traegt die Ueberschrift "Ort"', JSON.stringify(d1 && d1.title));
-  check(d1 && d1.rows.length === 3, 'Suchzeile plus beide bekannten Orte stehen da', 'rows=' + (d1 && d1.rows.join(', ')));
-  check(d1 && d1.rows[0] === 'Ort suchen', 'oben steht die Suche', d1 && d1.rows[0]);
+  var d1 = JSON.parse(await jsP(DUMP));
+  check(d1 && d1.view === 'placesearch', 'der Ort oeffnet die Suche direkt', d1 && d1.view);
+  check(d1 && d1.title === 'Ort suchen', 'das Blatt traegt die Ueberschrift "Ort suchen"', d1 && d1.title);
+  check(d1 && d1.feld === true, 'es gibt ein echtes Eingabefeld');
+  check(d1 && d1.fokus === 'placeSearchInput', 'das den Fokus hat (dann blendet webOS die Tastatur ein)', d1 && d1.fokus);
+  check(d1 && /Choose a place|Wähle einen Ort/.test(d1.text || ''), 'der mitgegebene Hinweis steht auf der Seite', JSON.stringify((d1 && d1.text || '').slice(0, 70)));
   check(d1 && d1.undefined === false, 'kein "undefined" im Blatt');
 
-  /* --- Fall 2: OK uebernimmt den zweiten Ort --- */
-  await jsP('CleanFrameDebug.press(["down","down"])');
-  await sleep(200);
+  /* --- Fall 2: zu kurze Eingabe wird benannt --- */
+  await jsP('(function(){var el=document.getElementById("placeSearchInput");el.value="K";el.dispatchEvent(new Event("input",{bubbles:true}));return true;})()');
   await jsP('CleanFrameDebug.press(["ok"])');
-  await sleep(1500);
-  var after = await hub('GET', '/api/config');
-  var acfg = after.config || after;
-  var place = ((acfg.integrations || {}).weather || {}).place || '';
-  var lat = ((acfg.integrations || {}).weather || {}).lat || 0;
-  check(place === 'Berlin, DE', 'OK uebernimmt den gewaehlten Ort', 'place=' + place);
-  check(Math.abs(lat - 52.52) < 0.01, 'und die Koordinaten des Ortes, nicht die des alten', 'lat=' + lat);
-  var d2 = JSON.parse(await jsP(SHEET_DUMP));
-  check(d2 && d2.hidden === true, 'Blatt ist danach zu', 'hidden=' + (d2 && d2.hidden));
+  await sleep(400);
+  var d2 = JSON.parse(await jsP(DUMP));
+  check(d2 && /zwei|two/i.test(d2.text || ''), 'eine zu kurze Eingabe wird benannt, nicht verschluckt', JSON.stringify((d2 && d2.text || '').slice(0, 70)));
+  check(d2 && d2.undefined === false, 'auch dabei kein "undefined"');
 
-  /* --- Fall 3: gar kein Ort --- */
+  /* --- Fall 3: Zurueck schliesst die Suche --- */
+  await jsP('CleanFrameDebug.press(["back"])');
+  await sleep(350);
+  var d3 = JSON.parse(await jsP(DUMP));
+  check(d3 && d3.view !== 'placesearch', 'Zurueck verlaesst die Suche', d3 && d3.view);
+  check(d3 && d3.hidden === true, 'und das Blatt ist zu', d3 && d3.hidden);
+
+  /* --- Fall 4: ohne jeden Ort fordert der Hinweis zum Eintippen auf --- */
   var none = JSON.parse(JSON.stringify(cfg));
   none.integrations = none.integrations || {};
   none.integrations.weather = none.integrations.weather || {};
-  none.integrations.weather.known = [];
   none.integrations.weather.place = '';
   none.integrations.weather.lat = 0; none.integrations.weather.lon = 0;
   await postConfig(none);
-  send('Page.navigate', { url: PAGE }, function () {});
-  for (n = 0; n < 120; n++) {
-    if (await jsP('typeof CleanFrameDebug !== "undefined" && CleanFrameDebug.ready()') === true) break;
-    await sleep(100);
-  }
+  await boot();
   await jsP('CleanFrameDebug.openPlace("Set the place first, then the weather can show.")');
   await sleep(500);
-  var d3 = JSON.parse(await jsP(SHEET_DUMP));
-  check(d3 && d3.undefined === false, 'ohne Ort kein "undefined" im Blatt', JSON.stringify(d3 && d3.text));
-  /* Der Text kommt aus der Sprache der App; geprueft wird, dass die Seite den
-   * Zustand benennt statt leer zu bleiben ("undefined" war genau der Fehler). */
-  /* Ohne einen einzigen bekannten Ort muss die Seite trotzdem einen Weg
-   * anbieten: die Suche steht als Zeile 0, auch wenn die Liste leer ist. */
-  check(d3 && d3.undefined === false && d3.rows.length === 1 && d3.rows[0] === 'Ort suchen',
-    'ohne Ort bleibt die Suchzeile stehen', JSON.stringify(d3 && d3.rows));
-  check(d3 && /eintippen|type/i.test(d3.text || ''), 'und der Hinweis nennt das Eintippen',
-    JSON.stringify(d3 && d3.text));
-  /* OK auf der Suchzeile oeffnet die Suche - keine Zeile, die nichts tut. */
-  await jsP('CleanFrameDebug.press(["ok"])');
-  await sleep(500);
-  var d3b = JSON.parse(await jsP('JSON.stringify({view: CleanFrameDebug.state().view, feld: !!document.getElementById("placeSearchInput")})'));
-  check(d3b && d3b.view === 'placesearch', 'OK auf der Suchzeile oeffnet die Suche', d3b && d3b.view);
-  check(d3b && d3b.feld === true, 'mit einem Feld, in das man tippen kann');
+  var d4 = JSON.parse(await jsP(DUMP));
+  check(d4 && d4.view === 'placesearch', 'ohne Ort oeffnet sich trotzdem die Suche', d4 && d4.view);
+  check(d4 && /Set the place first|Setze zuerst den Ort/.test(d4.text || ''), 'der Hinweis nennt den fehlenden Ort', JSON.stringify((d4 && d4.text || '').slice(0, 70)));
+  check(d4 && d4.undefined === false, 'und nirgends "undefined"');
   await jsP('CleanFrameDebug.press(["back"])');
   await sleep(300);
 
   /* Konfiguration zurueckstellen. */
   await postConfig(cfg);
-  send('Page.navigate', { url: PAGE }, function () {});
-  await sleep(800);
+  await boot();
   var restored = await hub('GET', '/api/config');
   var rcfg = restored.config || restored;
   var rplace = ((rcfg.integrations || {}).weather || {}).place || '';
