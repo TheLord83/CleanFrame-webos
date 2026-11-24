@@ -272,10 +272,12 @@ tools/disable-service.sh --tv <tv-ip>
 ```
 
 What the service does is in `service/service.js` and fits in four sentences: after boot it waits for
-the application manager and retries up to 30 times, two seconds apart; for the HOME key it reads
-**all** input devices under `/dev/input` non-blocking on a 16 ms timer, without `grab`, so the remote
-keeps working normally. The code is 773 — measured on this device, not guessed, and it arrives on
-`event3`, not on the device the device list calls "Smart Remote". That is why it reads all of them.
+the application manager and retries up to 30 times, two seconds apart. For the HOME key it asks
+**once a second** what is in the foreground and comes back as soon as LG's home screen appears — under
+a second on this device. It also reads all input devices under `/dev/input` non-blocking on a 16 ms
+timer (no `grab`, so the remote keeps working) as a faster path, but on this television the key press
+never arrived there, which is why the feature does not depend on it. `CF_DEBUG_KEYS=1` logs every key
+press, so the code for a different remote can be found instead of guessed.
 
 Plainly: a third-party app cannot take the HOME key away. LG's home shows for a moment, then
 CleanFrame comes up. Doing it without that flash means replacing the home screen itself — a firmware

@@ -18,6 +18,7 @@ Exit codes: 0 installed and visible in the app list, 1 failed, 2 bad arguments,
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.request
@@ -145,6 +146,34 @@ def install(tv, ipk, app_id=None, quiet=False):
     return app
 
 
+def restart_service(tv, quiet=False):
+    """Start the start service again after an install.
+
+    A package update stops the running service, and the init.d link only fires
+    on the next power-on - without this the launcher would react to neither
+    power-on nor HOME until someone reboots the television for no reason.
+    """
+    say = (lambda *a: None) if quiet else (lambda *a: print(*a, flush=True))
+    svc = "/media/developer/apps/usr/palm/services/com.blackpearl.cleanframe.service"
+    link = "/var/lib/webosbrew/init.d/50-cleanframe-service"
+    # -f, not -x: the packer does not preserve the exec bit, and sh runs it anyway.
+    cmd = ("[ -f %s/autostart.sh ] && [ -L %s ] && sh %s/autostart.sh && echo restarted"
+           % (svc, link, svc))
+    try:
+        out = subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "LogLevel=ERROR",
+             "root@" + tv, cmd],
+            capture_output=True, text=True, timeout=60).stdout
+    except (OSError, subprocess.SubprocessError) as error:
+        say("   start service: not restarted (%s)" % error)
+        return False
+    if "restarted" in out:
+        say("   start service: restarted")
+        return True
+    say("   start service: not enabled on this device")
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install an IPK on a rooted LG TV via Glasshouse")
     parser.add_argument("--tv", required=True, help="IP address of the TV")
@@ -156,6 +185,7 @@ def main():
     args = parser.parse_args()
     tvguard.require_release(args.tv, "tools/install-ipk.py", sys.argv[1:], args.release_ok)
     app = install(args.tv, args.ipk, args.app_id, args.quiet)
+    restart_service(args.tv, args.quiet)
     if not args.quiet:
         print(json.dumps({"installed": app}, ensure_ascii=False))
     return 0

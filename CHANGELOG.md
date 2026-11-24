@@ -1,3 +1,12 @@
+## 0.7.1
+
+**The HOME key now works - and not because of the key.** Reading `/dev/input` never saw the HOME
+press on this television (no code 773 arrived while the launcher was in front), while the
+application manager reports every foreground change. So the service now asks once a second what is in
+front and comes back as soon as LG's home screen appears -- measured at under a second, and
+independent of the remote. The key reading stays as the faster path, now with `CF_DEBUG_KEYS=1`
+logging every key so a different code on another remote can be found instead of guessed.
+
 ## 0.7.0
 
 **The launcher can now start itself — and answer the HOME key.** webOS only lets a *registered*

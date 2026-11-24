@@ -32,5 +32,10 @@ ln -sf /media/developer/apps/usr/palm/services/$SVC/autostart.sh /var/lib/webosb
 chmod +x /media/developer/apps/usr/palm/services/$SVC/autostart.sh
 ls -l /var/lib/webosbrew/init.d/50-cleanframe-service"
 
-echo "Autostart verlinkt. Wirksam ab dem naechsten Einschalten."
-echo "Sofort starten:  ssh root@$TV 'sh /media/developer/apps/usr/palm/services/$SVC/autostart.sh'"
+# Ein App-Update beendet den laufenden Dienst, der init.d-Link greift erst beim
+# naechsten Einschalten. Deshalb hier gleich starten, sonst wartet man auf nichts.
+$SSH "sh /media/developer/apps/usr/palm/services/$SVC/autostart.sh"
+sleep 3
+$SSH "tail -3 /tmp/cfsvc.log 2>/dev/null"
+
+echo "Autostart steht und der Dienst laeuft. Wirksam ab dem naechsten Einschalten."

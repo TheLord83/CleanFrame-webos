@@ -271,11 +271,13 @@ tools/disable-service.sh --tv <tv-ip>
 ```
 
 Was der Dienst tut, steht in `service/service.js` und ist in vier Sätzen erklärt: nach dem Boot
-wartet er auf den App-Manager und versucht es bis zu 30 Mal im Abstand von zwei Sekunden; für die
-HOME-Taste liest er **alle** Eingabegeräte unter `/dev/input` nicht-blockierend im 16-ms-Takt, ohne
-`grab`, damit die Fernbedienung normal weiterläuft. Der Code ist 773 — auf diesem Gerät gemessen,
-nicht geraten, und er kommt über `event3`, nicht über das Gerät, das die Geräteliste als „Smart
-Remote" ausweist. Deshalb liest der Dienst alle.
+wartet er auf den App-Manager und versucht es bis zu 30 Mal im Abstand von zwei Sekunden. Für die
+HOME-Taste fragt er **einmal pro Sekunde**, was gerade im Vordergrund ist, und kommt zurück, sobald
+LGs Startseite erscheint — auf diesem Gerät unter einer Sekunde. Zusätzlich liest er alle
+Eingabegeräte unter `/dev/input` nicht-blockierend im 16-ms-Takt (ohne `grab`, damit die
+Fernbedienung normal weiterläuft) als schnelleren Weg; auf diesem Fernseher kam der Tastendruck dort
+allerdings nie an, deshalb hängt die Funktion nicht daran. Mit `CF_DEBUG_KEYS=1` protokolliert der
+Dienst jeden Tastendruck — so findet man den Code einer anderen Fernbedienung, statt ihn zu raten.
 
 Ehrlich dazu: die HOME-Taste lässt sich für eine dritte App nicht abfangen. LGs Startseite erscheint
 für einen Augenblick, dann kommt CleanFrame. Wer das ohne Zwischenbild will, muss die Startseite

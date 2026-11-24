@@ -20,6 +20,8 @@ var HOME_CODE = parseInt(process.env.CF_HOME_CODE || '773', 10); // measured on 
 var LOG = process.env.CF_LOG || '/tmp/cfsvc.log';
 var EVENT_SIZE = 16; // struct input_event, 32 bit
 var TICK_MS = 16;
+var DEBUG_KEYS = process.env.CF_DEBUG_KEYS === '1';
+var HOME_APP = 'com.webos.app.home';
 var RETRY_MS = 2000;
 var RETRY_MAX = 30;
 
@@ -35,11 +37,11 @@ log('service up pid=' + process.pid + ' args=' + process.argv.slice(2).join(' ')
 
 // ------------------------------------------------------------------ launching
 var launching = false;
-function launch(reason, done) {
+function launch(reason, done, id) {
 	if (launching) { if (done) done({ skipped: true }); return; }
 	launching = true;
 	setTimeout(function () { launching = false; }, 1500);
-	service.call('luna://com.webos.applicationManager/launch', { id: APP_ID }, function (m) {
+	service.call('luna://com.webos.applicationManager/launch', { id: id || APP_ID }, function (m) {
 		var p = (m && m.payload) || {};
 		log('launch (' + reason + ') -> ' + JSON.stringify(p));
 		if (done) done(p);
@@ -81,13 +83,43 @@ function watchRemote() {
 			try { bytes = fs.readSync(d.fd, buf, 0, buf.length, null); } catch (e) { return; }
 			for (var off = 0; off + EVENT_SIZE <= bytes; off += EVENT_SIZE) {
 				// EV_KEY = 1, value 1 = pressed
-				if (buf.readUInt16LE(off + 8) === 1 && buf.readUInt16LE(off + 10) === HOME_CODE && buf.readInt32LE(off + 12) === 1) {
+				if (buf.readUInt16LE(off + 8) !== 1 || buf.readInt32LE(off + 12) !== 1) continue;
+				var code = buf.readUInt16LE(off + 10);
+				// Which device carries which key differs per television, so with
+				// CF_DEBUG_KEYS=1 every key is logged - that is how the code for
+				// HOME was found here in the first place.
+				if (DEBUG_KEYS) log('key ' + d.name + ' code=' + code);
+				if (code === HOME_CODE) {
 					log('HOME pressed on ' + d.name);
 					launch('home-key');
 				}
 			}
 		});
 	}, TICK_MS);
+}
+
+// ------------------------------------------------- watching the home screen
+// The reliable way, and independent of the remote: subscribe to what is in
+// front and come back as soon as LG's home screen appears. Reading the HOME
+// key only works while the key reaches us at all - this does not care.
+// A subscription to getForegroundAppInfo delivers exactly one message on this
+// television and then goes quiet, so this asks once a second instead. One luna
+// call per second is nothing, and it cannot silently stop working.
+var FOREGROUND_MS = 1000;
+var lastForeground = '';
+function watchForeground() {
+	setInterval(function () {
+		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
+			var p = (m && m.payload) || {};
+			if (!p.appId || p.appId === lastForeground) return;
+			lastForeground = p.appId;
+			if (DEBUG_KEYS) log('foreground: ' + p.appId);
+			if (p.appId === HOME_APP) {
+				log('home screen in front -> coming back');
+				launch('home-screen');
+			}
+		});
+	}, FOREGROUND_MS);
 }
 
 // ------------------------------------------------------------------- luna API
@@ -99,5 +131,14 @@ service.register('launch', function (m) {
 });
 
 // ------------------------------------------------------------------------ go
+// Testhaken: einmal LGs Startseite nach vorne holen, damit sich die
+// Vordergrund-Ueberwachung ohne Fernbedienung pruefen laesst.
+if (process.env.CF_TEST_HOME === '1') {
+	setTimeout(function () { log('test: opening the home screen myself'); launch('test-home', null, HOME_APP); }, 5000);
+}
+
 if (process.argv.indexOf('--boot') !== -1) launchAtBoot(1);
-if (process.argv.indexOf('--watch') !== -1) watchRemote();
+if (process.argv.indexOf('--watch') !== -1) {
+	watchRemote();
+	watchForeground();
+}
