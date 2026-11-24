@@ -112,6 +112,9 @@ run "node-8 check" python3 tools/check-node8.py
 step "5/16 icon library"
 run "icon check" python3 tools/check-icons.py
 run "version check" python3 tools/check-version.py
+# Der Startdienst lebt von Namen, die zueinander passen muessen - das ist eine
+# Pruefung, kein Kommentar (tools/check-service.py).
+run "start service" python3 tools/check-service.py
 # The lock that keeps the install tools away from an unreleased television is
 # code, so it is tested like code (tools/lib/tvguard.py, docs/ACCEPTANCE.md).
 run "tv lock" python3 tools/test-tvguard.py

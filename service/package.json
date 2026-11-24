@@ -1,0 +1,5 @@
+{
+  "name": "com.blackpearl.cleanframe.service",
+  "main": "service.js",
+  "version": "0.1.0"
+}

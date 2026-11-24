@@ -245,6 +245,42 @@ dein Netz.
 Sie halten an, statt zu raten: kein Glasshouse heißt kein Installieren, eine Sitzung ohne root heißt
 kein Hub. `--dry-run` zeigt den Plan, `--lang de` antwortet deutsch, `--help` den Rest.
 
+## Start beim Einschalten und die HOME-Taste
+
+Beides macht ein kleiner Dienst, der mit der App ausgeliefert wird
+(`services/com.blackpearl.cleanframe.service`). Er startet CleanFrame nach dem Einschalten und
+öffnet es erneut, wenn die HOME-Taste gedrückt wird.
+
+Warum ein Dienst und nicht ein Skript: webOS lässt nur einen **registrierten** Dienst mit dem
+App-Manager sprechen. Ein Root-Skript aus `init.d`, eine SSH-Sitzung oder ein von Hand gestarteter
+node-Prozess bekommt `Not permitted to send to com.webos.applicationManager` — die Rechte hängen an
+der Identität, die der Paketmanager beim Installieren einträgt. Auf webOS 6.5 gibt es außerdem keinen
+Activity-Manager mehr, der ältere Launcher benutzt haben; die Schalter auf der Seite „Mit dem
+Fernseher starten" melden deshalb „nicht verfügbar", und das ist korrekt.
+
+Einschalten (der Dienst liegt nach der Installation schon da):
+
+```sh
+tools/enable-service.sh --tv <tv-ip>
+```
+
+Ausschalten, ohne die App zu entfernen:
+
+```sh
+tools/disable-service.sh --tv <tv-ip>
+```
+
+Was der Dienst tut, steht in `service/service.js` und ist in vier Sätzen erklärt: nach dem Boot
+wartet er auf den App-Manager und versucht es bis zu 30 Mal im Abstand von zwei Sekunden; für die
+HOME-Taste liest er **alle** Eingabegeräte unter `/dev/input` nicht-blockierend im 16-ms-Takt, ohne
+`grab`, damit die Fernbedienung normal weiterläuft. Der Code ist 773 — auf diesem Gerät gemessen,
+nicht geraten, und er kommt über `event3`, nicht über das Gerät, das die Geräteliste als „Smart
+Remote" ausweist. Deshalb liest der Dienst alle.
+
+Ehrlich dazu: die HOME-Taste lässt sich für eine dritte App nicht abfangen. LGs Startseite erscheint
+für einen Augenblick, dann kommt CleanFrame. Wer das ohne Zwischenbild will, muss die Startseite
+selbst ersetzen — das ist ein Eingriff in die Firmware und hier bewusst nicht drin.
+
 ## Entfernen
 
 CleanFrame im Channel oder in Glasshouse deinstallieren, und die App ist weg. Wenn der gebündelte Hub
@@ -258,6 +294,10 @@ ssh root@<tv-ip> 'rm -rf /var/lib/cleanframe'
 
 Eine dauerhafte Installation räumt `./tools/uninstall-web.sh <tv-ip>` sauber ab: Dienst stoppen,
 Autostart-Haken weg, Verzeichnis löschen.
+
+Der Startdienst wird beim Deinstallieren der App mit entfernt. Nur der Autostart-Link bleibt liegen,
+wenn er nicht vorher abgeschaltet wurde: `tools/disable-service.sh --tv <tv-ip>` oder
+`rm -f /var/lib/webosbrew/init.d/50-cleanframe-service`.
 
 ## Bauen und prüfen
 

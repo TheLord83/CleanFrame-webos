@@ -1,3 +1,15 @@
+## 0.7.0
+
+**The launcher can now start itself — and answer the HOME key.** webOS only lets a *registered*
+service talk to the application manager; a root script, `init.d` or a plain node process is refused
+with `Not permitted to send to com.webos.applicationManager`, and the activity manager does not even
+exist on webOS 6.5 (which is why the two switches on the start page said "not available"). The start
+service therefore ships inside this package (`services/com.blackpearl.cleanframe.svc`), because only
+the package manager can register it with the identity that is allowed to launch an app. It waits for
+the application manager after a cold boot and reads the remote for the HOME key — all input devices,
+non-blocking, code 773 as measured on this remote, no `grab`, so the normal remote keeps working.
+Removing the `init.d` link switches both off again.
+
 ## 0.6.63
 
 **A place with "Off" in the summary could not be switched on again.** The hub keeps the on/off state

@@ -246,6 +246,41 @@ about your network.
 They stop instead of guessing: no Glasshouse means no install, a non-root session means no hub.
 `--dry-run` prints the plan, `--lang de` answers in German, `--help` lists the rest.
 
+## Start on power-on and the HOME key
+
+Both come from a small service shipped with the app
+(`services/com.blackpearl.cleanframe.service`). It opens CleanFrame after power-on and opens it again
+when HOME is pressed.
+
+Why a service and not a script: webOS only lets a **registered** service talk to the application
+manager. A root script from `init.d`, an SSH session or a hand-started node process gets
+`Not permitted to send to com.webos.applicationManager` — the permissions hang on the identity the
+package manager writes at install time. webOS 6.5 also has no activity manager any more, which older
+launchers used; that is why the switches on the "Start with the television" page report "not
+available", and that report is correct.
+
+Turn it on (the service is already there after installing the app):
+
+```sh
+tools/enable-service.sh --tv <tv-ip>
+```
+
+Turn it off without removing the app:
+
+```sh
+tools/disable-service.sh --tv <tv-ip>
+```
+
+What the service does is in `service/service.js` and fits in four sentences: after boot it waits for
+the application manager and retries up to 30 times, two seconds apart; for the HOME key it reads
+**all** input devices under `/dev/input` non-blocking on a 16 ms timer, without `grab`, so the remote
+keeps working normally. The code is 773 — measured on this device, not guessed, and it arrives on
+`event3`, not on the device the device list calls "Smart Remote". That is why it reads all of them.
+
+Plainly: a third-party app cannot take the HOME key away. LG's home shows for a moment, then
+CleanFrame comes up. Doing it without that flash means replacing the home screen itself — a firmware
+change, and deliberately not part of this.
+
 ## Removing it
 
 Uninstall CleanFrame from the channel or from Glasshouse, and the app is gone. If the bundled hub

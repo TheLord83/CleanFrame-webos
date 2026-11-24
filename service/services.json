@@ -1,0 +1,9 @@
+{
+  "id": "com.blackpearl.cleanframe.service",
+  "description": "CleanFrame start service: launches the launcher at boot and on the HOME key",
+  "services": [
+    {
+      "name": "com.blackpearl.cleanframe.service"
+    }
+  ]
+}

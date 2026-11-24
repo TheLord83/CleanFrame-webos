@@ -97,12 +97,18 @@ def excluded(rel):
 def main():
     argv = sys.argv[1:]
     hubdir = None
-    if "--hub" in argv:
-        i = argv.index("--hub")
-        if i + 1 >= len(argv):
-            sys.exit("--hub needs a directory")
-        hubdir = os.path.abspath(argv[i + 1])
-        del argv[i:i + 2]
+    servicedir = None
+    for opt, key in (("--hub", "hub"), ("--service", "service")):
+        if opt in argv:
+            i = argv.index(opt)
+            if i + 1 >= len(argv):
+                sys.exit(opt + " needs a directory")
+            value = os.path.abspath(argv[i + 1])
+            if key == "hub":
+                hubdir = value
+            else:
+                servicedir = value
+            del argv[i:i + 2]
     if not argv:
         sys.exit(__doc__)
     appdir = os.path.abspath(argv[0])
@@ -144,10 +150,31 @@ def main():
                 entries.append(("usr/palm/applications/%s/hub/%s" % (appid, rel.replace(os.sep, "/")),
                                 os.path.join(root, name)))
                 hub_files += 1
+    service_files = 0
+    if servicedir:
+        # A service has to be inside the package: only the package manager can
+        # register it on the luna bus with the identity that allows starting
+        # apps ("Not permitted to send to com.webos.applicationManager"
+        # otherwise, no matter what permissions are written by hand).
+        svcname = appid + ".service"
+        for root, dirs, files in os.walk(servicedir):
+            dirs.sort()
+            rel_root = os.path.relpath(root, servicedir)
+            for name in sorted(files):
+                rel = name if rel_root == "." else os.path.join(rel_root, name)
+                if excluded(rel):
+                    skipped.append(os.path.join("service", rel))
+                    continue
+                entries.append(("usr/palm/services/%s/%s" % (svcname, rel.replace(os.sep, "/")),
+                                os.path.join(root, name)))
+                service_files += 1
 
     pkgjson_path = os.path.join(appdir, ".packageinfo.json")
+    pkgjson = {"id": appid, "version": version, "app": appid}
+    if servicedir:
+        pkgjson["services"] = [appid + ".service"]
     with open(pkgjson_path, "w", encoding="utf-8") as fh:
-        json.dump({"id": appid, "version": version, "app": appid}, fh, indent=2)
+        json.dump(pkgjson, fh, indent=2)
     entries.append(("usr/palm/packages/%s/packageinfo.json" % appid, pkgjson_path))
     data_tgz = tar_gz(entries, mtime)
 
@@ -186,6 +213,8 @@ def main():
     print("SHA256: %s" % hashlib.sha256(blob).hexdigest())
     if hubdir:
         print("Hub:    %d files from %s" % (hub_files, hubdir))
+    if servicedir:
+        print("Service: %d files from %s" % (service_files, servicedir))
     if skipped:
         print("Skipped: %s" % ", ".join(sorted(skipped)))
 
