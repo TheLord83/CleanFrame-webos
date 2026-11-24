@@ -40,7 +40,7 @@ var launching = false;
 function launch(reason, done, id) {
 	if (launching) { if (done) done({ skipped: true }); return; }
 	launching = true;
-	setTimeout(function () { launching = false; }, 1500);
+	setTimeout(function () { launching = false; }, 800);
 	service.call('luna://com.webos.applicationManager/launch', { id: id || APP_ID }, function (m) {
 		var p = (m && m.payload) || {};
 		log('launch (' + reason + ') -> ' + JSON.stringify(p));
@@ -106,18 +106,28 @@ function watchRemote() {
 // television and then goes quiet, so this asks once a second instead. One luna
 // call per second is nothing, and it cannot silently stop working.
 var FOREGROUND_MS = 1000;
+var HOME_TRIES = 6;    // so often per home episode, then it is someone else's turn
 var lastForeground = '';
+var homeTries = 0;
 function watchForeground() {
 	setInterval(function () {
 		service.call('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (m) {
 			var p = (m && m.payload) || {};
-			if (!p.appId || p.appId === lastForeground) return;
-			lastForeground = p.appId;
-			if (DEBUG_KEYS) log('foreground: ' + p.appId);
-			if (p.appId === HOME_APP) {
-				log('home screen in front -> coming back');
-				launch('home-screen');
+			if (!p.appId) return;
+			if (p.appId !== lastForeground) {
+				lastForeground = p.appId;
+				if (DEBUG_KEYS) log('foreground: ' + p.appId);
 			}
+			if (p.appId !== HOME_APP) { homeTries = 0; return; }
+			// The first launch right after the home screen appears is accepted
+			// (returnValue true) and then swallowed while LG's home is still
+			// starting up - and because the foreground does not change, an
+			// "only launch once" rule would never try again. So: try again,
+			// a bounded number of times per appearance.
+			if (homeTries >= HOME_TRIES) return;
+			homeTries++;
+			log('home screen in front -> coming back (try ' + homeTries + '/' + HOME_TRIES + ')');
+			launch('home-screen');
 		});
 	}, FOREGROUND_MS);
 }

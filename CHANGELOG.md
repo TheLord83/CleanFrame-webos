@@ -1,3 +1,12 @@
+## 0.7.2
+
+**The home screen swallowed the first launch.** Looking at the television - not at the return value -
+showed LG's home screen still in front although `launch` answered `true`, and the log showed why: the
+foreground never changed, so a "launch once per appearance" rule never tried again. The service now
+retries up to six times while the home screen is in front and stops as soon as the launcher is there.
+Verified with the hub's own home button: two presses, each back in the launcher after one second, both
+checked against a screenshot of the panel.
+
 ## 0.7.1
 
 **The HOME key now works - and not because of the key.** Reading `/dev/input` never saw the HOME
