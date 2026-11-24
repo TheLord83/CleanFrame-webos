@@ -279,9 +279,35 @@ Fernbedienung normal weiterläuft) als schnelleren Weg; auf diesem Fernseher kam
 allerdings nie an, deshalb hängt die Funktion nicht daran. Mit `CF_DEBUG_KEYS=1` protokolliert der
 Dienst jeden Tastendruck — so findet man den Code einer anderen Fernbedienung, statt ihn zu raten.
 
-Ehrlich dazu: die HOME-Taste lässt sich für eine dritte App nicht abfangen. LGs Startseite erscheint
-für einen Augenblick, dann kommt CleanFrame. Wer das ohne Zwischenbild will, muss die Startseite
-selbst ersetzen — das ist ein Eingriff in die Firmware und hier bewusst nicht drin.
+Ehrlich dazu: von sich aus kann eine dritte App die HOME-Taste nicht abfangen. LGs Startseite erscheint
+für einen Augenblick, dann kommt CleanFrame.
+
+### Die HOME-Taste wirklich übernehmen (optional)
+
+Mit **LG Input Hook** (`org.webosbrew.inputhook`, ein eigenes Homebrew-Channel-Programm) lässt sich die
+Taste umbelegen, sodass LGs Startseite gar nicht mehr geöffnet wird. Der Hook injiziert sich in
+`lginput2` und `micomservice`, überlebt Neustarts und ändert nichts am Fernseher. Auf einem 43NANO779PA
+(webOS 6.5) gemessen: der Kernel meldet die Taste als **773** — nicht als die `125` aus LGs interner
+Tastenliste.
+
+```sh
+# nachdem LG Input Hook installiert und einmal geöffnet wurde
+cat > /home/root/.config/lginputhook/keybinds.json <<'EOF'
+{"773":{"action":"launch","id":"com.blackpearl.cleanframe"}}
+EOF
+```
+
+Der Hook liest die Datei bei Änderung neu (`Keybinds reloaded` in `/tmp/lginput-hook-lginput2.log`),
+ein Neustart ist nicht nötig. Rückweg: Datei leeren (`{}`).
+
+Damit sind auch die beiden Wege erklärt, die **nicht** funktionieren — beide am Gerät gemessen: eine
+fremde QML über `qml/main.qml` in LGs Home-App zu mounten ändert nichts (das Bild wird aus einem beim
+Boot angelegten Snapshot wiederhergestellt, und `qml/` ist schreibgeschützt), und
+`defaultWindowType: "home"` in `appinfo.json` wird zwar akzeptiert, ändert aber nichts.
+
+Weil der Hook die Taste schluckt, ist LGs Startseite danach nur noch absichtlich zu erreichen:
+**Einstellungen → LG Startseite** oder die Kachel *LG Startseite* in der App-Liste. Beide gehen über
+`FrameDevice.home`, das vorher eine Haltezeit im Hub setzt, damit der Dienst sie nicht zurückholt.
 
 ## Entfernen
 

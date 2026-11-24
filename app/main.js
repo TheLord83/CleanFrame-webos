@@ -714,6 +714,9 @@
     if (S.c.home.indexOf(id) >= 0) c.lastApp = id;
     write(c, T('Last app'));
     S.press = id; S.lastLaunch = a.name;
+    /* Die Kachel fuer LGs Startseite ist keine installierte App: sie geht
+     * ueber FrameDevice.home, das die Haltezeit setzt. */
+    if (a.id === 'lg.home') { perform(a.name, function (done) { FrameDevice.home(done); }); return; }
     perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
   }
   /* Tell the hub what webOS has installed. The launcher asks Luna directly, so
@@ -750,6 +753,15 @@
         a.name = PRIMARY.indexOf(id) >= 0 ? PRIMARY_APPS[PRIMARY.indexOf(id)].name : String(entry.name).slice(0, 160);
         ALPHA.push(id);
       });
+      /* LGs Startseite ist absichtlich unsichtbar (visible:false in ihrem
+       * Manifest), taucht also in keiner App-Liste auf. Wer sie braucht, soll
+       * sie hier finden - der Eintrag startet sie ueber denselben Weg wie die
+       * Einstellungen (mit Haltezeit, sonst holt der Dienst sie sofort zurueck). */
+      if (ALPHA.indexOf('lg.home') < 0) {
+        if (!app('lg.home')) APPS.push({ id: 'lg.home', appId: 'lg.home', name: T('LG Home'), mark: false });
+        else app('lg.home').name = T('LG Home');
+        ALPHA.push('lg.home');
+      }
       ALPHA.sort(function (a, b) { return app(a).name.toLowerCase().localeCompare(app(b).name.toLowerCase()); });
       catalog.loaded = true; catalog.error = null; catalog.revision++;
       reportApps(entries);

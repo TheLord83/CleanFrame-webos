@@ -56,7 +56,7 @@ var schema = require('./lib/schema');
 var weather = require('./lib/weather');
 var stick = require('./lib/stick');
 
-var VERSION = '0.8.11';
+var VERSION = '0.8.12';
 /* Wie oft die App nach der installierten Fassung gefragt hat. Steht in
  * /api/health: daran ist ablesbar, ob im Fernseher wirklich der neue Code
  * laeuft oder noch der alte im Speicher haengt. */
@@ -1035,7 +1035,10 @@ function handle(req, res) {
       return String(j.version || '');
     } catch (e) { return ''; }
   }
-  var LAUNCHABLE = ['com.webos.app.home', 'com.blackpearl.cleanframe'];
+  /* Nur Apps, die der Hub wirklich starten darf: die eigene, LGs Startseite,
+   * die vier Buchsen - und Input Hook, weil seine Belegung ohne einen ersten
+   * Start nicht angelegt wird. */
+  var LAUNCHABLE = ['com.webos.app.home', 'com.blackpearl.cleanframe', 'org.webosbrew.inputhook'];
   for (var hdmi = 1; hdmi <= 4; hdmi++) LAUNCHABLE.push('com.webos.app.hdmi' + hdmi);
 
   /* Startet eine App ueber den gekoppelten SSAP-Kanal. Home hat als Rueckfall die

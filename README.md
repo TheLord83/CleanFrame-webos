@@ -279,9 +279,34 @@ timer (no `grab`, so the remote keeps working) as a faster path, but on this tel
 never arrived there, which is why the feature does not depend on it. `CF_DEBUG_KEYS=1` logs every key
 press, so the code for a different remote can be found instead of guessed.
 
-Plainly: a third-party app cannot take the HOME key away. LG's home shows for a moment, then
-CleanFrame comes up. Doing it without that flash means replacing the home screen itself — a firmware
-change, and deliberately not part of this.
+Plainly: on its own a third-party app cannot take the HOME key away. LG's home shows for a moment,
+then CleanFrame comes up.
+
+### Taking the HOME key for real (optional)
+
+With **LG Input Hook** (`org.webosbrew.inputhook`, a separate Homebrew Channel app) the key can be
+remapped so LG's home screen is never opened at all. The hook injects into `lginput2` and
+`micomservice`, survives reboots and needs no change to the television. Measured on a 43NANO779PA
+(webOS 6.5): the kernel reports the key as **773** — not the `125` from LG's internal keymap.
+
+```sh
+# after installing and opening LG Input Hook once
+cat > /home/root/.config/lginputhook/keybinds.json <<'EOF'
+{"773":{"action":"launch","id":"com.blackpearl.cleanframe"}}
+EOF
+```
+
+The hook re-reads the file on change (`Keybinds reloaded` in `/tmp/lginput-hook-lginput2.log`), so no
+restart is needed. To undo, empty the file (`{}`).
+
+This also explains why the two approaches *not* taken do not work here, both measured on the device:
+mounting a foreign QML over `qml/main.qml` in LG's home app changes nothing (the screen is restored
+from a boot-time snapshot, and `qml/` is read-only), and `defaultWindowType: "home"` in `appinfo.json`
+is accepted but changes nothing.
+
+Because the hook swallows the key, LG's home screen is then only reachable on purpose: **Settings →
+LG Home**, or the *LG Startseite* entry in the app list. Both go through `FrameDevice.home`, which sets
+a hold at the hub first so the service does not pull the screen back.
 
 ## Removing it
 

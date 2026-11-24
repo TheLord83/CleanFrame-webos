@@ -1,3 +1,17 @@
+## 0.8.12
+
+**The home key belongs to the launcher now, and LG's home screen has an entry again.** The television's
+own home app is shipped with `visible: false` and therefore appears in no app list at all - that is LG's
+decision, not a side effect of anything here. Since 0.8.12 the app list carries an "LG Startseite" entry
+that opens it through the same path as the settings row, including the hold that keeps the service from
+pulling it back.
+
+Underneath, on this television the takeover is done by **LG Input Hook** (`org.webosbrew.inputhook`,
+installed separately, not part of this package): it reads the remote in `lginput2` and `micomservice` and
+maps the home key (kernel code 773) to `launch com.blackpearl.cleanframe`. LG's home screen is no longer
+opened by that key. The service's own key watcher stays as a fallback - it costs one file reader and
+works even when the hook is gone.
+
 ## 0.8.11
 
 **The return from the home key is faster because the key press is the trigger.** Until now the service
