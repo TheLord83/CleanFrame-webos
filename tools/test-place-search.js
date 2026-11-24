@@ -209,7 +209,10 @@ async function main() {
   await typeIn('Xyzzy');
   await ev("CleanFrameDebug.press(['ok'])");
   await sleep(650);
-  var i2 = await ev("document.getElementById('placeSearchResults').innerText.replace(/\\s+/g,' ')");
+  /* Die Meldung steht seit 0.6.59 in der Statuszeile unter dem Feld, nicht mehr
+   * in der Trefferliste - sonst schob sie die Treffer nach unten und stand
+   * mitten zwischen ihnen. */
+  var i2 = await ev("(document.getElementById('placeSearchStatus')||{}).innerText || ''");
   check(/Kein Ort|No place found/.test(String(i2)), 'ohne Treffer sagt die Seite das', String(i2).slice(0, 60));
   var j = JSON.parse(await state());
   check(j.fokus === 'placeSearchInput', 'und der Fokus bleibt im Feld, damit man weitertippen kann', 'fokus=' + j.fokus);

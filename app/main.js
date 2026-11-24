@@ -81,7 +81,7 @@
   /* Eingaenge stehen hier und nicht in den Einstellungen: Umschalten ist eine
    * Aktion, keine Einstellung - man aendert nichts dauerhaft. In der Werkzeugzeile
    * der Startseite ist sie einen Tastendruck entfernt (Stefan, 05.11.2026). */
-  var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], arrange: [T('Arrange'), 'arrange'], inputs: [T('Inputs'), 'inputs'], settings: [T('Settings'), 'settings'] };
+  var UTIL = { art: [T('Screensaver'), 'art'], apps: [T('All apps'), 'apps'], inputs: [T('Inputs'), 'inputs'], arrange: [T('Arrange'), 'arrange'], settings: [T('Settings'), 'settings'] };
   var MSG = {
     leave: { title: T('Leave Home?'), line: T('Open LG Home?'), note: '', actions: [['stay', T('Stay')], ['samsung', T('LG Home')]] },
     /* Die Einrichtung laeuft im Browser des Hubs, nicht auf dem Fernseher. */
@@ -93,6 +93,10 @@
     art: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.8" r="1.5"/><path d="m4.5 17.5 4.5-4.5 3 3 2.5-2.5 5 5"/>',
     apps: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
     arrange: '<path d="M4 8.5h14M15 5.5l3 3-3 3M20 15.5H6M9 12.5l-3 3 3 3"/>',
+    /* HDMI: das genormte Buchsenprofil. Aussen ein Rechteck, innen die Kerbe
+     * oben mittig und die zwei Kontaktleisten - so ist es auch auf jedem Gerät
+     * aufgedruckt und nicht mit einem Lautsprecher zu verwechseln. */
+    inputs: '<rect x="3" y="7" width="18" height="10" rx="1.6"/><path d="M7.5 7v2.6h9V7"/><path d="M6 11.4h12M6 13.6h12"/>',
     settings: '<path d="m9 3-.6 2.4-2 1.2L4 6l-2 3.5L3.8 11v2L2 14.5 4 18l2.4-.6 2 1.2L9 21h6l.6-2.4 2-1.2 2.4.6 2-3.5-1.8-1.5v-2L22 9.5 20 6l-2.4.6-2-1.2L15 3Z"/><circle cx="12" cy="12" r="3.2"/>',
     home: '<path d="M4 11 12 4.5l8 6.5v8a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1Z"/>',
     undo: '<path d="M9 6 5 10l4 4"/><path d="M5 10h9.5a4.5 4.5 0 0 1 0 9H11"/>',
@@ -754,6 +758,7 @@
   }
 
   /* ---------- Navigation targets ---------- */
+  /* Die Werkzeugleiste der Startseite. */
   function utils() { return ['art', 'apps', 'inputs', 'settings']; }
   /* prev/next run along the apps; out goes to the controls, inn comes back (or to a per-app action). */
   function axes() {
@@ -1688,8 +1693,17 @@
     var box = document.getElementById('placeSearchResults');
     if (!box) return;
     var html = '';
-    if (PS.error) html += '<p class="setting-error">' + esc(PS.error) + '</p>';
-    if (PS.note) html += '<p class="s-sub">' + esc(PS.note) + '</p>';
+    /* Status und Fehler gehoeren in die Statuszeile unter dem Feld, NICHT in
+     * die Trefferliste: als eigener Block schoben sie die Treffer nach unten und
+     * standen mitten zwischen den Orten ("Wird gespeichert ..." zwischen Zeile 1
+     * und 2). Jetzt: eine Zeile unter dem Feld, die Treffer darunter. */
+    var status = document.getElementById('placeSearchStatus');
+    if (status) {
+      var line = PS.error ? '<span class="place-err">' + esc(PS.error) + '</span>'
+        : (PS.note ? '<span class="place-note">' + esc(PS.note) + '</span>' : '');
+      status.innerHTML = line;
+      status.hidden = !line;
+    }
     if (PS.results.length) {
       /* Die Grenze ist die Hinweiszeile unten (y = 968 auf der Bühne), das Feld
        * sitzt bei 216 und die Liste ab 322 - sechs Zeilen zu 88 + 4 passen.
@@ -3599,6 +3613,7 @@
         + '<p class="s-sub">' + esc(t.note || T('Type the name and press OK.')) + '</p>'
         + '<div class="place-search-box"><input id="placeSearchInput" type="text" autocomplete="off" spellcheck="false"'
         + ' inputmode="text" aria-label="' + esc(T('Search for a place')) + '" value="' + esc(PS.query) + '"></div>'
+        + '<p class="place-search-status" id="placeSearchStatus" hidden></p>'
         + '<div id="placeSearchResults" class="place-search-results" data-slot="placesearch"></div>'
         + '<p class="settings-overview-hint" id="placeSearchHint"></p>';
     },

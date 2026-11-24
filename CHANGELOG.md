@@ -1,3 +1,22 @@
+## 0.6.59
+
+Three things the operator saw on the television.
+
+**"Wird gespeichert ..." stood between the first and second result.** The status and the error were
+rendered into the result list, so they became a block that pushed the rows down and sat in the middle
+of the list. There is a status line between the field and the list now (own element, 34 px high, its
+space is always reserved so nothing jumps when a message appears or goes away).
+
+**The list overlapped the field.** `.place-search-results` was at 322 while the box ends at 253 and the
+status needs its own row: the highlighted first row touched the field. List at 342, status at 278, box
+at 216 — measured and looked at, no overlap left between field, error line and first row.
+
+**The Inputs icon was missing from the utility bar.** `UTIL` had an entry for `inputs`, but `utils()`
+returned `['art', 'apps', 'arrange', 'settings']` — four buttons, and "arrange" was rendered with no
+icon. `utils()` is now `['art', 'apps', 'inputs', 'settings']` and the bar is drawn from `UTIL`, so every
+button carries the shape of its job. Measured: Bildschirmschoner, Alle Apps, Eingänge, Einstellungen,
+each with its own icon.
+
 ## 0.6.58
 
 Two faults the operator hit on the television right after 0.6.57, both visible only on the device.
