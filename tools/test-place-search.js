@@ -186,21 +186,28 @@ async function main() {
   var after = JSON.parse(await state());
   check(after.view !== 'placesearch', 'nach dem Uebernehmen ist die Suche zu', after.view);
 
-  /* ---- 7. Zurueck: erst ins Feld, dann aus dem Blatt ---- */
+  /* ---- 7. Zurueck geht aus dem Blatt, nicht in die Tastatur ---- */
   await ev('CleanFrameDebug.openPlace()');
   await sleep(450);
   await typeIn('Ham');
   await ev("CleanFrameDebug.press(['ok'])");
   await sleep(650);
+  var g0 = JSON.parse(await state());
+  check(g0.fokus !== 'placeSearchInput', 'in den Treffern ist das Feld nicht fokussiert', 'fokus=' + g0.fokus);
   await ev("CleanFrameDebug.press(['back'])");
   await sleep(300);
   var g = JSON.parse(await state());
-  check(g.view === 'placesearch', 'erster Zurueck bleibt in der Suche', g.view);
-  check(g.fokus === 'placeSearchInput', 'und setzt den Fokus zurueck ins Feld', 'fokus=' + g.fokus);
-  await ev("CleanFrameDebug.press(['back'])");
-  await sleep(300);
+  check(g.view !== 'placesearch', 'Zurueck in den Treffern verlaesst die Suche', g.view);
+
+  /* Dasselbe direkt aus dem Feld: dort wird der Tastendruck vom Eingabefeld
+   * gefangen, deshalb wird er hier am Feld selbst ausgeloest. */
+  await ev('CleanFrameDebug.openPlace()');
+  await sleep(450);
+  var backFired = await ev("(function(){var el=document.getElementById('placeSearchInput');if(!el)return 'kein-feld';el.focus();var ev2=new KeyboardEvent('keydown',{keyCode:27,which:27,bubbles:true,cancelable:true});el.dispatchEvent(ev2);return true;})()");
+  await sleep(350);
   var h = JSON.parse(await state());
-  check(h.view !== 'placesearch', 'zweiter Zurueck verlaesst die Suche', h.view);
+  check(backFired === true && h.view !== 'placesearch', 'Zurueck im Feld schliesst das Blatt', 'view=' + h.view);
+  check(h.fokus !== 'placeSearchInput', 'und laesst die Tastatur nicht offen', 'fokus=' + h.fokus);
 
   /* ---- 8. Kein Treffer ist eine Antwort, kein Absturz ---- */
   await ev("window.fetch = function(){ return Promise.resolve({ ok: true, json: function(){ return Promise.resolve({ ok: true, results: [] }); } }); }; true");

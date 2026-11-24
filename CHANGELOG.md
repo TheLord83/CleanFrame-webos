@@ -1,3 +1,24 @@
+## 0.6.60
+
+The three things the operator hit while actually setting a place on the television.
+
+**Back in the result list opened the keyboard instead of leaving.** Back was "one level per press":
+results → field → out. Reaching the field starts the on-screen keyboard again, so back looked like
+"jumps back into the field". Back now leaves the sheet, from the field as well as from the list — and
+the field swallows the remote's back itself (27, 8, 10009, 461), so the keypress is not just lost
+inside the input element.
+
+**The instruction stood twice on the page.** The field carried a placeholder with the same sentence as
+the line above it. One line now, the field has no placeholder text of its own.
+
+**"place not found" came from a hub that never got the fix.** The launcher updates through the IPK, the
+hub under `/var/lib/cleanframe` does not — it still held the 5 November build with `count=1` and no
+country check. Measured on the device: `/api/weather/place` with `Kiel, DE` answered `place not found`
+while the same question against the repo state answered `54.3213 / 10.1349`. The hub was reinstalled
+(`tools/install-hub.sh`), now reports 0.6.59, and the television itself answers `{"ok":true,"place":"Kiel, DE"}`.
+The app also sends `application/json` now instead of `text/plain`, the type the hub accepts from any
+client, and shows a plain sentence instead of the server's raw error text.
+
 ## 0.6.59
 
 Three things the operator saw on the television.

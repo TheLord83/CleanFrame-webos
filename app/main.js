@@ -1671,12 +1671,17 @@
   function applyPlaceCandidate(hit) {
     if (!hit) return;
     PS.busy = true; PS.note = T('Saving ...'); paintPlaceSearch();
-    fetch(HUB + '/api/weather/place', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ name: hit.name }) })
+    /* JSON, nicht text/plain: den Typ nimmt der Hub ohne Herkunfts-Ausnahme an,
+     * also auch, wenn die Seite in einem Browser laeuft. */
+    fetch(HUB + '/api/weather/place', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: hit.name }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         PS.busy = false;
         if (!d || d.ok !== true) {
-          PS.error = (d && d.error) ? String(d.error) : T('The hub did not answer.');
+          /* Der Rohtext der Serverantwort gehoert in die Konsole, nicht auf den
+           * Fernseher: "place not found" sagt niemandem etwas. */
+          PS.error = T('This place could not be taken. Please try another one.');
+          if (window.console && console.log) console.log('CleanFrame: place rejected: ' + ((d && d.error) || 'no answer'));
           paintPlaceSearch(); return;
         }
         S.note = T('Place saved: ') + (d.place || hit.name);
@@ -2577,10 +2582,10 @@
     key: function (t, k) {
       var n = PS.results.length, i = (PS.i >= 0 ? PS.i : -1);
       if (k === 'back') {
-        /* Eine Ebene pro Druck: aus den Treffern zurueck ins Feld, aus dem Feld
-         * aus dem Blatt. Wer tippt und die Zuruecktaste drueckt, will meist
-         * wirklich raus - deshalb schliesst das Feld das Blatt. */
-        if (PS.phase === 'results') { enterField(); return; }
+        /* Zurueck geht eine Seite zurueck, nicht in die Tastatur: aus den
+         * Treffern direkt aus dem Blatt (vorher landete man wieder im Feld und
+         * webOS blendete die Tastatur ein - genau das war die Sackgasse). Wer
+         * erneut suchen will, drueckt hoch oder oeffnet "Ort" noch einmal. */
         pop(); render(); return;
       }
       if (k === 'down') {
@@ -3610,7 +3615,9 @@
        * die Tastatur offen und die Fernbedienung kommt nicht an die Liste),
        * hoch fuehrt zurueck ins Feld. */
       return '<h2 class="s-title">' + T('Search for a place') + '</h2>'
-        + '<p class="s-sub">' + esc(t.note || T('Type the name and press OK.')) + '</p>'
+        /* Eine Zeile, kein zweiter Hinweis: der Text im Feld sagt schon, was zu
+         * tun ist, und der alte Satz stand doppelt auf der Seite. */
+        + '<p class="s-sub">' + esc(T('Type the name, then press OK. The results appear below the field.')) + '</p>'
         + '<div class="place-search-box"><input id="placeSearchInput" type="text" autocomplete="off" spellcheck="false"'
         + ' inputmode="text" aria-label="' + esc(T('Search for a place')) + '" value="' + esc(PS.query) + '"></div>'
         + '<p class="place-search-status" id="placeSearchStatus" hidden></p>'
@@ -3702,6 +3709,15 @@
           if (c === 13) { ev.preventDefault(); searchPlaces(); return; }
           if (c === 40 && PS.results.length) { ev.preventDefault(); intoResults(); return; }
           if (c === 38) { ev.preventDefault(); return; }
+          /* Zurueck auf der Fernbedienung kommt als 27, 8, 10009 und 461, je
+           * nach Tastatur. Im Feld wird es hier verbrannt, wenn es nicht
+           * weitergereicht wird - also ausdruecklich behandeln: das Blatt
+           * schliesst sich, statt in der Tastatur zu bleiben. */
+          if (c === 27 || c === 8 || c === 10009 || c === 461) {
+            ev.preventDefault();
+            pop(); render();
+            return;
+          }
         });
       }
       paintPlaceSearch();

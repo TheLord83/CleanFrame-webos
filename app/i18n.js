@@ -39,6 +39,8 @@
       'Looking up the place ...': 'Ort wird gesucht ...',
       'Search for a place': 'Ort suchen',
       'Type the name and press OK.': 'Namen eintippen und OK drücken.',
+      'Type the name, then press OK. The results appear below the field.': 'Namen eintippen, dann OK drücken. Die Treffer erscheinen darunter.',
+      'This place could not be taken. Please try another one.': 'Dieser Ort ließ sich nicht übernehmen. Bitte einen anderen wählen.',
       'Type at least two letters.': 'Mindestens zwei Buchstaben eintippen.',
       'No place found for that name.': 'Kein Ort mit diesem Namen gefunden.',
       'Saving ...': 'Wird gespeichert ...',
