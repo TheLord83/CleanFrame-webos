@@ -115,32 +115,17 @@ function forecast(weather, lang, cb) {
   });
 }
 
-function geocode(name, lang, cb) {
+/* Kandidaten zu einem Namen mit Koordinaten (intern, nicht exportiert). Die
+ * Geocoder-Antwort hat mehrere Treffer ("Kiel" gibt es in Deutschland und in
+ * Wisconsin) - den ersten zu nehmen und den Rest zu verschweigen ist genau die
+ * Art Bequemlichkeit, die am Fernseher auffaellt. */
+function lookup(name, lang, count, cb) {
   var q = (name || '').trim();
   if (q.length < 2) return cb(new Error('name too short'));
-  getJson(GEO, '/v1/search?name=' + encodeURIComponent(q) + '&count=1&language=' + (lang === 'de' ? 'de' : 'en') + '&format=json', function (err, data) {
-    if (err) return cb(err);
-    var hit = data && Array.isArray(data.results) && data.results[0];
-    if (!hit) return cb(new Error('place not found'));
-    cb(null, {
-      name: [hit.name, hit.country_code].filter(Boolean).join(', '),
-      lat: Math.round(hit.latitude * 10000) / 10000,
-      lon: Math.round(hit.longitude * 10000) / 10000
-    });
-  });
-}
-
-/* Kandidaten zu einem Namen. Die Geocoder-Antwort hat mehrere Treffer
- * ("Kiel" gibt es in Deutschland und in Wisconsin) - den ersten zu nehmen und
- * den Rest zu verschweigen ist genau die Art Bequemlichkeit, die am Fernseher
- * auffaellt. Die Seite zeigt die Liste, der Mensch waehlt. */
-function search(name, lang, cb) {
-  var q = (name || '').trim();
-  if (q.length < 2) return cb(new Error('name too short'));
-  getJson(GEO, '/v1/search?name=' + encodeURIComponent(q) + '&count=6&language=' + (lang === 'de' ? 'de' : 'en') + '&format=json', function (err, data) {
+  getJson(GEO, '/v1/search?name=' + encodeURIComponent(q) + '&count=' + count + '&language=' + (lang === 'de' ? 'de' : 'en') + '&format=json', function (err, data) {
     if (err) return cb(err);
     var hits = (data && Array.isArray(data.results)) ? data.results : [];
-    var out = hits.map(function (hit) {
+    cb(null, hits.map(function (hit) {
       var region = [hit.admin1, hit.country_code].filter(Boolean).join(', ');
       return {
         name: [hit.name, hit.country_code].filter(Boolean).join(', '),
@@ -148,10 +133,49 @@ function search(name, lang, cb) {
         lat: Math.round(hit.latitude * 10000) / 10000,
         lon: Math.round(hit.longitude * 10000) / 10000
       };
-    });
-    cb(null, out);
+    }));
   });
 }
+
+function geocode(name, lang, cb) {
+  /* Der Fernseher schickt den Namen, den er aus der Trefferliste hat - also
+   * "Kiel, DE". Open-Meteo kennt nur den reinen Namen: mit dem Komma und dem
+   * Laendercode kommt eine leere Antwort zurueck, und die Seite zeigte dann
+   * "place not found", obwohl der Ort in der Liste stand. Deshalb erst der ganze
+   * Text, dann ohne Zusatz, und der Treffer wird ueber Name und Land
+   * nachgeprueft, statt blind den ersten zu nehmen. */
+  var full = (name || '').trim();
+  if (!full) return cb(new Error('place not found'));
+  var m = /^(.+?),\s*([A-Za-z]{2})$/.exec(full);
+  var bare = m ? m[1].trim() : full;
+  var want = m ? m[2].toUpperCase() : '';
+
+  function pick(list) {
+    if (!list || !list.length) return null;
+    if (!want) return list[0];
+    for (var i = 0; i < list.length; i++) {
+      if (new RegExp(',\\s*' + want + '$').test(list[i].name)) return list[i];
+    }
+    /* Kein Land im Namen, das passt: dann lieber gar nichts, als still einen
+     * anderen Ort zu setzen. */
+    return null;
+  }
+
+  lookup(full, lang, 6, function (err, list) {
+    if (err) return cb(err);
+    var hit = pick(list);
+    if (hit) return cb(null, hit);
+    if (bare === full) return cb(new Error('place not found'));
+    lookup(bare, lang, 6, function (err2, list2) {
+      if (err2) return cb(err2);
+      var hit2 = pick(list2);
+      if (!hit2) return cb(new Error('place not found'));
+      cb(null, hit2);
+    });
+  });
+}
+
+function search(name, lang, cb) { return lookup(name, lang, 6, cb); }
 
 /* Forgets the cached answer, for when the place or the unit changed. */
 function reset() { cache = { key: '', at: 0, value: null }; }

@@ -1,3 +1,23 @@
+## 0.6.58
+
+Two faults the operator hit on the television right after 0.6.57, both visible only on the device.
+
+**The hint line was overprinted by the field.** `.s-sub` sits at y=148, `.place-search-box` was in
+normal flow and landed on the same place, so "Namen des Ortes eintippen…" and the input box wrote on
+top of each other. The box is positioned now (216), the result list starts below it (322), and the
+list only draws as many rows as fit above the hint line at 968 — a long list used to push the hint
+out of the picture. The inner list and the error line are static inside their container; otherwise
+`.settings-overview`'s absolute position would have thrown them back up over the field.
+
+**Picking a place answered `place not found`.** The candidate carries `name: "Kiel, DE"`, the page
+sent exactly that back, and `geocode()` passed it straight to Open-Meteo — which only knows the bare
+name, so the answer was empty and the hub reported the failure over the text. `geocode()` now splits
+name and country code, asks with the full text first, then with the bare name, and picks the hit whose
+name ends in the wanted country code instead of trusting the first result. A country that does not
+appear is still a failure — silently setting another place would be worse than the message.
+Measured: `Kiel, DE` → lat 54.3213 lon 10.1349, `Kiel, US` → 43.9125 / -88.0356, `Kiel` → Kiel DE,
+`Kiel, XX` → `place not found`.
+
 ## 0.6.57
 
 The place search had no way out. Once the field had the focus, webOS kept its on-screen keyboard open,

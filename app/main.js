@@ -1691,7 +1691,12 @@
     if (PS.error) html += '<p class="setting-error">' + esc(PS.error) + '</p>';
     if (PS.note) html += '<p class="s-sub">' + esc(PS.note) + '</p>';
     if (PS.results.length) {
-      html += '<div class="settings-overview">' + PS.results.map(function (hit, i) {
+      /* Die Grenze ist die Hinweiszeile unten (y = 968 auf der Bühne), das Feld
+       * sitzt bei 216 und die Liste ab 322 - sechs Zeilen zu 88 + 4 passen.
+       * Eine lange Trefferliste schob den Hinweis vorher aus dem Bild. */
+      var room = Math.max(1, Math.floor((968 - 322 - 20) / (88 + 4)));
+      var shown = PS.results.slice(0, room);
+      html += '<div class="settings-overview">' + shown.map(function (hit, i) {
         var focus = i === (PS.i >= 0 ? PS.i : -2) ? ' is-focus' : '';
         return '<button type="button" tabindex="-1" class="settings-group' + focus + '" data-z="placehit" data-i="' + i + '">'
           + '<span class="settings-group-copy"><span class="settings-group-name">' + esc(hit.label || hit.name) + '</span></span></button>';
@@ -3594,7 +3599,7 @@
         + '<p class="s-sub">' + esc(t.note || T('Type the name and press OK.')) + '</p>'
         + '<div class="place-search-box"><input id="placeSearchInput" type="text" autocomplete="off" spellcheck="false"'
         + ' inputmode="text" aria-label="' + esc(T('Search for a place')) + '" value="' + esc(PS.query) + '"></div>'
-        + '<div id="placeSearchResults" data-slot="placesearch"></div>'
+        + '<div id="placeSearchResults" class="place-search-results" data-slot="placesearch"></div>'
         + '<p class="settings-overview-hint" id="placeSearchHint"></p>';
     },
     rename: function (t) {
